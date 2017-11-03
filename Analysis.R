@@ -1,7 +1,5 @@
 library("ggplot2")
 
-setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/Analysis")
-
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
 start_data_7x <- read.csv("74_75_76_Start_Data.csv", header = T, stringsAsFactors = F)
 fails_7x <- read.csv("74_75_76_fails.csv", header = T, stringsAsFactors = F)
