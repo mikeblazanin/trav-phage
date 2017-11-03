@@ -277,40 +277,46 @@ ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
 
 #isolate 50% KB migration analysis
 
-isol_end <- read.csv("74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
-isol_start <- read.csv("74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
+isol_end_7x <- read.csv("74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
+isol_start_7x <- read.csv("74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
 
-#parse out Strain data into component parts
-isol_end <- cbind(isol_end, NA, NA, NA, NA, NA)
-colnames(isol_end)[(ncol(isol_end)-4):ncol(isol_end)] <- c("Proj", "Rep", "Treat", "Isol", "Media")
-for (i in 1:nrow(isol_end)) {
-  my_split <- strsplit(isol_end$Strain[i], split = "_")[[1]]
-  isol_end$Proj[i] <- my_split[[1]]
-  if (isol_end$Proj[i] == "P1.1") {
-    isol_end$Rep[i] <- "A"
-    isol_end$Treat[i] <- "A" #for Ancestor
-    isol_end$Isol[i] <- my_split[[2]]
-    isol_end$Media[i] <- "+Mg"
-  } else if (isol_end$Proj[i] == "74") {
-    isol_end$Rep[i] <- "A"
-    isol_end$Treat[i] <- my_split[[2]]
-    isol_end$Isol[i] <- my_split[[3]]
-    if (length(my_split) > 3) {
-      isol_end$Media[i] <- my_split[[4]]
-    } else {
+#define function to split Strain data
+isol_end_strain_split <- function(isol_end) {
+  isol_end <- cbind(isol_end, NA, NA, NA, NA, NA)
+  colnames(isol_end)[(ncol(isol_end)-4):ncol(isol_end)] <- c("Proj", "Rep", "Treat", "Isol", "Media")
+  for (i in 1:nrow(isol_end)) {
+    my_split <- strsplit(isol_end$Strain[i], split = "_")[[1]]
+    isol_end$Proj[i] <- my_split[[1]]
+    if (isol_end$Proj[i] == "P1.1") {
+      isol_end$Rep[i] <- "A"
+      isol_end$Treat[i] <- "A" #for Ancestor
+      isol_end$Isol[i] <- my_split[[2]]
       isol_end$Media[i] <- "+Mg"
-    }
-  } else {
-    isol_end$Rep[i] <- my_split[[2]]
-    isol_end$Treat[i] <- my_split[[3]]
-    isol_end$Isol[i] <- my_split[[4]]
-    if (length(my_split) > 4) {
-      isol_end$Media[i] <- my_split[[5]]
+    } else if (isol_end$Proj[i] == "74") {
+      isol_end$Rep[i] <- "A"
+      isol_end$Treat[i] <- my_split[[2]]
+      isol_end$Isol[i] <- my_split[[3]]
+      if (length(my_split) > 3) {
+        isol_end$Media[i] <- my_split[[4]]
+      } else {
+        isol_end$Media[i] <- "+Mg"
+      }
     } else {
-      isol_end$Media[i] <- "+Mg"
+      isol_end$Rep[i] <- my_split[[2]]
+      isol_end$Treat[i] <- my_split[[3]]
+      isol_end$Isol[i] <- my_split[[4]]
+      if (length(my_split) > 4) {
+        isol_end$Media[i] <- my_split[[5]]
+      } else {
+        isol_end$Media[i] <- "+Mg"
+      }
     }
   }
+  return(isol_end)
 }
+
+#parse out Strain data into component parts
+isol_end_7x <- isol_end_strain_split(isol_end_7x)
 
 #change the replicates so they're unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
 for (i in 1:nrow(isol_end)) {
