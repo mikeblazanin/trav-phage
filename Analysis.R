@@ -199,7 +199,9 @@ calc_timediff <- function(my_start, my_end) {
   my_end <- cbind(my_end, NA)
   colnames(my_end)[ncol(my_end)] <- "timediff"
   for (i in 1:nrow(my_end)) {
-    sub_start <- subset(my_start, my_start$Time == my_end$Time[i] & my_start$Rep == my_end$Rep[i])
+    sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] & 
+                          my_start$Time == my_end$Time[i] & 
+                          my_start$Rep == my_end$Rep[i])
     my_end$timediff[i] <- difftime(my_end$timestamp[i], sub_start$timestamp[1], units = "hours")
   }
   my_end <- cbind(my_end, NA)
@@ -209,11 +211,7 @@ calc_timediff <- function(my_start, my_end) {
 }
 
 #actually convert timestamp to time since inoculation, then calc rate
-end_data_7x <- calc_timediff(start_data_7x, end_data_7x)
-end_data_125 <- calc_timediff(start_data_125, end_data_125)
-
-#combine data frames
-end_data <- rbind(end_data_7x, end_data_125)
+end_data <- calc_timediff(start_data, end_data)
 
 #def func for mean & sd of rates for ea treat & timepoint
 sum_rates <- function(my_end_data) {
