@@ -194,7 +194,8 @@ make_timestamp <- function(my_data, type) {
                                 paste(my_data$Hour, my_data$Minute, sep = ":"), sep = " ")
   my_data$timestamp <- strptime(my_data$timestamp, format = "%Y-%m-%d %H:%M")
   if (type=="start") {my_data <- my_data[, -c(1:6)]
-  } else if (type=="end") {my_data <- my_data[, -c(2:8)]}
+  } else if (type=="end") {my_data <- my_data[, -c(2:8)]
+  } else if (type=="isol start") {my_data <- my_data[, -c(1:5)]}
   return(my_data)
 }
 
@@ -315,43 +316,18 @@ isol_end_strain_split <- function(isol_end) {
   return(isol_end)
 }
 
-#parse out Strain data into component parts
+#actually split Strain data
 isol_end_7x <- isol_end_strain_split(isol_end_7x)
 
-#define function to make reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
-change the replicates so they're unique 
-for (i in 1:nrow(isol_end)) {
-  if (isol_end$Proj[i] == "74") {
-    isol_end$Rep[i] <- "A"
-  } else if (isol_end$Proj[i] == "75") {
-    if (isol_end$Rep[i] == "A") {
-      isol_end$Rep[i] <- "B"
-    } else if (isol_end$Rep[i] == "B") {
-      isol_end$Rep[i] <- "C"
-    }
-  } else if (isol_end$Proj[i] == "76") {
-    if (isol_end$Rep[i] == "A") {
-      isol_end$Rep[i] <- "D"
-    } else if (isol_end$Rep[i] == "B") {
-      isol_end$Rep[i] <- "E"
-    }
-  }
-}
+#make Reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
+#& change project to be 1 (74, 75, 76) or 2 (125)
+isol_end_7x <- uniq_reps(isol_end_7x)
 
 #compile time information into timestamp
-isol_end <- cbind(isol_end, NA)
-colnames(isol_end)[ncol(isol_end)] <- "timestamp"
-isol_end$timestamp <- paste(paste(isol_end$Year, isol_end$Month, isol_end$Day, sep = "-"),
-                              paste(isol_end$Hour, isol_end$Minute, sep = ":"), sep = " ")
-isol_end$timestamp <- strptime(isol_end$timestamp, format = "%Y-%m-%d %H:%M")
-isol_end <- isol_end[, -c(2:7)]
+isol_end_7x <- make_timestamp(isol_end_7x, type = "end")
+isol_start_7x <- make_timestamp(isol_start_7x, type = "isol start")
 
-isol_start <- cbind(isol_start, NA)
-colnames(isol_start)[ncol(isol_start)] <- "timestamp"
-isol_start$timestamp <- paste(paste(isol_start$Year, isol_start$Month, isol_start$Day, sep = "-"),
-                            paste(isol_start$Hour, isol_start$Minute, sep = ":"), sep = " ")
-isol_start$timestamp <- strptime(isol_start$timestamp, format = "%Y-%m-%d %H:%M")
-isol_start <- isol_start[, -c(1:5)]
+
 
 #convert timestamp to time since inoculation
 isol_end <- cbind(isol_end, NA)
