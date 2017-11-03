@@ -318,7 +318,8 @@ isol_end_strain_split <- function(isol_end) {
 #parse out Strain data into component parts
 isol_end_7x <- isol_end_strain_split(isol_end_7x)
 
-#change the replicates so they're unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
+#define function to make reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
+change the replicates so they're unique 
 for (i in 1:nrow(isol_end)) {
   if (isol_end$Proj[i] == "74") {
     isol_end$Rep[i] <- "A"
