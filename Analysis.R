@@ -17,43 +17,32 @@ for (i in 1:nrow(end_data_7x)) {
 }
 
 #define functions to parse out Strain data into component parts
-start_strain_split <- function(start_data) {
-  start_data <- cbind(start_data, NA, NA, NA)
-  colnames(start_data)[(ncol(start_data)-2):ncol(start_data)] <- c("Proj", "Time", "Rep")
-  for (i in 1:nrow(start_data)) {
-    my_split <- strsplit(start_data$Strain[i], split = "_")[[1]]
-    start_data$Proj[i] <- my_split[[1]]
-    start_data$Time[i] <- my_split[[2]]
-    if (length(my_split) < 3) {
-      start_data$Rep[i] <- "A"
+strain_split <- function(my_data, num_cols) {
+  my_data$Proj <- NA
+  my_data$Time <- NA
+  my_data$Rep <- NA
+  if (num_cols == 4) {my_data$Treat <- NA}
+  for (i in 1:nrow(my_data)) {
+    my_split <- strsplit(my_data$Strain[i], split = "_")[[1]]
+    my_data$Proj[i] <- my_split[[1]]
+    my_data$Time[i] <- my_split[[2]]
+    if (length(my_split) < num_cols) {
+      my_data$Rep[i] <- "A"
     } else {
-      start_data$Rep[i] <- my_split[[3]]
+      my_data$Rep[i] <- my_split[[num_cols]]
+    }
+    if (num_cols == 4) {
+      my_data$Treat[i] <- my_split[[3]]
     }
   }
-  return(start_data)
-}
-end_strain_split <- function(end_data) {
-  end_data <- cbind(end_data, NA, NA, NA, NA)
-  colnames(end_data)[(ncol(end_data)-3):ncol(end_data)] <- c("Proj", "Time", "Treat", "Rep")
-  for (i in 1:nrow(end_data)) {
-    my_split <- strsplit(end_data$Strain[i], split="_")[[1]]
-    end_data$Proj[i] <- my_split[[1]]
-    end_data$Time[i] <- my_split[[2]]
-    end_data$Treat[i] <- my_split[[3]]
-    if (length(my_split) < 4) {
-      end_data$Rep[i] <- "A"
-    } else {
-      end_data$Rep[i] <- my_split[[4]]
-    }
-  }
-  return(end_data)
+  return(my_data)
 }
 
 #parse out strain data
-start_data_7x <- start_strain_split(start_data_7x)
-end_data_7x <- end_strain_split(end_data_7x)
-start_data_125 <- start_strain_split(start_data_125)
-end_data_125 <- end_strain_split(end_data_125)
+start_data_7x <- strain_split(start_data_7x, 3)
+end_data_7x <- strain_split(end_data_7x, 4)
+start_data_125 <- strain_split(start_data_125, 3)
+end_data_125 <- strain_split(end_data_125, 4)
 
 #turn treatment values into only first letter for end_data_7x
 end_data_7x$Treat <- substr(end_data_7x$Treat, 1, 1)
