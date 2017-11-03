@@ -16,7 +16,7 @@ for (i in 1:nrow(end_data_7x)) {
   }
 }
 
-#define functions to parse out Strain data into component parts
+#define function to parse out Strain data into component parts
 strain_split <- function(my_data, num_cols) {
   my_data$Proj <- NA
   my_data$Time <- NA
@@ -47,6 +47,11 @@ end_data_125 <- strain_split(end_data_125, 4)
 #turn treatment values into only first letter for end_data_7x
 end_data_7x$Treat <- substr(end_data_7x$Treat, 1, 1)
 contam_7x$Treat <- substr(contam_7x$Treat, 1, 1)
+
+#combine 2 projects: end data & start data
+end_data <- rbind(end_data_7x, end_data_125)
+start_data <- rbind(start_data_7x, start_data_125)
+fails_data <- rbind(fails_7x, fails_125)
 
 #define functions to remove failed runs
 start_remove_fails <- function(start_data, fails) {
@@ -81,10 +86,8 @@ end_remove_fails <- function(end_data, fails) {
 }
 
 #actually remove failed runs
-start_data_7x <- start_remove_fails(start_data_7x, fails_7x)
-end_data_7x <- end_remove_fails(end_data_7x, fails_7x)
-start_data_125 <- start_remove_fails(start_data_125, fails_125)
-end_data_125 <- end_remove_fails(end_data_125, fails_125)
+start_data <- start_remove_fails(start_data, fails_data)
+end_data <- end_remove_fails(end_data, fails_data)
 
 #define functions to remove contaminated lines
 end_remove_contam <- function(end_data, contam) {
@@ -104,7 +107,7 @@ end_remove_contam <- function(end_data, contam) {
 }
 
 #actually remove contaminated lines: 75 B G, 76 A L
-end_data_7x <- end_remove_contam(end_data_7x, contam_7x)
+end_data <- end_remove_contam(end_data, contam_7x)
 
 #define function to change the reps so they're unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
 #& change projects to 1 (for 74, 75, 76) & 2 (for 125) 
@@ -133,10 +136,8 @@ uniq_reps <- function(my_data) {
 }
   
 #make start & end data have unique reps
-start_data_7x <- uniq_reps(start_data_7x)
-end_data_7x <- uniq_reps(end_data_7x)
-start_data_125 <- uniq_reps(start_data_125)
-end_data_125 <- uniq_reps(end_data_125)
+start_data <- uniq_reps(start_data)
+end_data <- uniq_reps(end_data)
 
 #define function to pull out forisol into separate data frames
 #returns the main data frame, then the forisol frame, in a list
@@ -156,8 +157,8 @@ forisol_rem <- function(my_data) {
 }
 
 #actually remove forisol
-end_data_7x <- forisol_rem(end_data_7x)[[1]]
-start_data_7x <- forisol_rem(start_data_7x)[[1]]
+end_data <- forisol_rem(end_data)[[1]]
+start_data <- forisol_rem(start_data)[[1]]
 
 #define function to remove hyphenated 2nd part from tranfer #'s
 rem_hyphens <- function(my_data) {
@@ -169,10 +170,8 @@ rem_hyphens <- function(my_data) {
 }
 
 #actually change transfer values so re-dos don't have hyphenated 2nd part
-start_data_7x <- rem_hyphens(start_data_7x)
-end_data_7x <- rem_hyphens(end_data_7x)
-start_data_125 <- rem_hyphens(start_data_125)
-end_data_125 <- rem_hyphens(end_data_125)
+start_data <- rem_hyphens(start_data)
+end_data <- rem_hyphens(end_data)
 
 #define function to compile time info into timestamp
 #then get rid of all time columns as well as Strain column
@@ -189,10 +188,10 @@ make_timestamp <- function(my_data, type) {
 }
 
 #compile time information into timestamp
-start_data_7x <- make_timestamp(start_data_7x, "start")
-end_data_7x <- make_timestamp(end_data_7x, "end")
-start_data_125 <- make_timestamp(start_data_125, "start")
-end_data_125 <- make_timestamp(end_data_125, "end")
+start_data <- make_timestamp(start_data, "start")
+end_data <- make_timestamp(end_data, "end")
+
+#fix this below to include proj info
 
 #define function to convert timestamp to time since inoculation
 #then calculate rate (average radius spread per hour)
