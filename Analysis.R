@@ -268,7 +268,7 @@ ggplot(data = mean_rates,
   geom_line() + geom_point() + theme(axis.text.y = element_blank()) +
   facet_grid(~Proj) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
-                width=0.1, position=position_dodge(0.2))
+                width=0.7, position=position_dodge(0.2))
 
 #make plot of ea treat to check if pops are stable position
 ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
