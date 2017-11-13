@@ -309,13 +309,18 @@ isol_end_7x <- isol_end_strain_split(isol_end_7x)
 #& change project to be 1 (74, 75, 76) or 2 (125)
 isol_end_7x <- uniq_reps(isol_end_7x)
 
+#problem: makes ancestor into proj 2
+#soln: should label ancestor as Time 0, Proj 1, Rep F, Treat A, isol matching
+#soln: in start data, need to split out proj's to reps (so then P1.1 can be F)
+
 #compile time information into timestamp
 isol_end_7x <- make_timestamp(isol_end_7x, type = "end")
 isol_start_7x <- make_timestamp(isol_start_7x, type = "isol start")
 
-
-
 #convert timestamp to time since inoculation
+isol_end_7x <- calc_timediff(isol_start_7x, isol_end_7x)
+
+
 isol_end <- cbind(isol_end, NA)
 colnames(isol_end)[ncol(isol_end)] <- "timediff"
 for (i in 1:nrow(isol_end)) {
