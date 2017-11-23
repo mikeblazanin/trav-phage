@@ -345,6 +345,10 @@ isol_end_7x$Proj <- 1
 isol_end <- rbind(isol_end_7x)
 isol_start <- rbind(isol_start_7x)
 
+#remove -Mg data
+isol_end <- subset(isol_end, isol_end$Media == "+Mg")
+isol_end$Media <- NULL
+
 #compile time information into timestamp
 isol_end <- make_timestamp(isol_end, type = "end")
 isol_start <- make_timestamp(isol_start, type = "isol start")
@@ -352,29 +356,11 @@ isol_start <- make_timestamp(isol_start, type = "isol start")
 #convert timestamp to time since inoculation
 isol_end <- calc_timediff(isol_start, isol_end, "isol")
 
-#remove -Mg data
-isol_end <- subset(isol_end, isol_end$Media == "+Mg")
-isol_end$Media <- NULL
-
 #plot isolate variation for each pop
+isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
+ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
+  geom_jitter(position = position_jitter(0))
 
-
-tiff(filename = "isol_rates.tiff", width = 15, height = 7, units = "in",
-     compression = "none", res = 300)
-par(mar = my.mar + c(1, 3, 0, 0), xpd = T)
-isol_end <- cbind(isol_end, "Treat.Rep" = paste(isol_end$Treat, isol_end$Rep, sep = "."))
-stripchart(isol_end$`Rate (cm/hr)`~isol_end$Treat.Rep, vert = T, pch = 19,
-           cex = 2, cex.axis = 2, ylab = "",
-           group.names = c("WT", "A", "B", "C", "D", "E", "A", "B", "C", "D",
-                           "A", "B", "C", "D"))
-mtext("Isolate Migration Rate (cm/hr)", side = 2, cex = 2.5, line = 4)
-#xlab = "Population.Treatment",
-text(c("Control", "Global", "Local"), x = c(4, 8.5, 12.5), y = 0.022, cex = 2.5)
-my.lwd <- 3
-lines(x = c(1.8, 6.2), y = c(0.024, 0.024), lwd = my.lwd)
-lines(x = c(6.8, 10.2), y = c(0.024, 0.024), lwd = my.lwd)
-lines(x = c(10.8, 14.2), y = c(0.024, 0.024), lwd = my.lwd)
-dev.off()
 
 #plot correlation of T14 pop rate & isol rates
 pop_isol_frame <- data.frame(Time=integer(), Rep=character(), Treat=character(), 
