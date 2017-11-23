@@ -361,52 +361,103 @@ isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
 ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
   geom_jitter(position = position_jitter(0))
 
+#have to clean up correlation code
 
-#plot correlation of T14 pop rate & isol rates
-pop_isol_frame <- data.frame(Time=integer(), Rep=character(), Treat=character(), 
-                             Isol=character(), Pop_Rate=double(), Isol_Rate=double(),
-                             stringsAsFactors = F)
-for (i in 1:nrow(isol_end)) {
-  if (isol_end$Proj[i] != "P1.1") {
-    my.sub <- subset(end_data, end_data$Time == isol_end$Time[i] & 
-                       end_data$Rep == isol_end$Rep[i] & 
-                       substr(end_data$Treat, 1, 1) == isol_end$Treat[i])
-    pop_isol_frame <- rbind(pop_isol_frame, 
-                            data.frame(Time=isol_end$Time[i],
-                                       Rep=isol_end$Rep[i],
-                                       Treat=isol_end$Treat[i],
-                                       Isol=isol_end$Isol[i],
-                                       Pop_Rate=my.sub$`Rate (cm/hr)`[1],
-                                       Isol_Rate=isol_end$`Rate (cm/hr)`[i]))
-  }
-}
-# plot(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate, xlim = c(0.025, 0.065),
-#      ylim = c(0.025, 0.065))
-# lines(x=c(0.02, 0.07), y=c(0.02, 0.07))
-# summary(lm(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate))
-my_colors <- c("red", "green", "blue")
-my.pch = c(20, 20, 20)
-tiff(filename = "isol_vs_pop.tiff", width = 10, height = 10, units = "in",
-     compression = "none", res = 300)
-par(mar = my.mar + c(0, 1, 0, 0))
-for (i in 1:length(unique(pop_isol_frame$Treat))) {
-  treat = unique(pop_isol_frame$Treat)[i]
-  my.sub <- subset(pop_isol_frame, pop_isol_frame$Treat == treat)
-  if (i == 1) {
-    plot(my.sub$Isol_Rate~my.sub$Pop_Rate, xlim = c(0.027, 0.061), ylim = c(0.027, 0.061),
-         pch = my.pch[i], xlab = "Population Migration Rate (cm/hr)", ylab = "Isolate Migration Rate (cm/hr)",
-         col = my_colors[i], cex = 2, cex.lab = 2, cex.axis = 2)
-  } else {
-    points(my.sub$Isol_Rate~my.sub$Pop_Rate, pch = my.pch[i], col = my_colors[i],
-           cex = 2)
-  }
-}
-lines(x=c(0, 1), y=c(0, 1), lwd = 2)
-legend(x = 0.053, y = 0.035, legend = unique(mean_rates$Treatment), pch = my.pch, 
-       col = my_colors, cex = 2)
-dev.off()
+# #plot correlation of T14 pop rate & isol rates
+# pop_isol_frame <- data.frame(Time=integer(), Rep=character(), Treat=character(), 
+#                              Isol=character(), Pop_Rate=double(), Isol_Rate=double(),
+#                              stringsAsFactors = F)
+# for (i in 1:nrow(isol_end)) {
+#   if (isol_end$Proj[i] != "P1.1") {
+#     my.sub <- subset(end_data, end_data$Time == isol_end$Time[i] & 
+#                        end_data$Rep == isol_end$Rep[i] & 
+#                        substr(end_data$Treat, 1, 1) == isol_end$Treat[i])
+#     pop_isol_frame <- rbind(pop_isol_frame, 
+#                             data.frame(Time=isol_end$Time[i],
+#                                        Rep=isol_end$Rep[i],
+#                                        Treat=isol_end$Treat[i],
+#                                        Isol=isol_end$Isol[i],
+#                                        Pop_Rate=my.sub$`Rate (cm/hr)`[1],
+#                                        Isol_Rate=isol_end$`Rate (cm/hr)`[i]))
+#   }
+# }
+# # plot(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate, xlim = c(0.025, 0.065),
+# #      ylim = c(0.025, 0.065))
+# # lines(x=c(0.02, 0.07), y=c(0.02, 0.07))
+# # summary(lm(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate))
+# my_colors <- c("red", "green", "blue")
+# my.pch = c(20, 20, 20)
+# tiff(filename = "isol_vs_pop.tiff", width = 10, height = 10, units = "in",
+#      compression = "none", res = 300)
+# par(mar = my.mar + c(0, 1, 0, 0))
+# for (i in 1:length(unique(pop_isol_frame$Treat))) {
+#   treat = unique(pop_isol_frame$Treat)[i]
+#   my.sub <- subset(pop_isol_frame, pop_isol_frame$Treat == treat)
+#   if (i == 1) {
+#     plot(my.sub$Isol_Rate~my.sub$Pop_Rate, xlim = c(0.027, 0.061), ylim = c(0.027, 0.061),
+#          pch = my.pch[i], xlab = "Population Migration Rate (cm/hr)", ylab = "Isolate Migration Rate (cm/hr)",
+#          col = my_colors[i], cex = 2, cex.lab = 2, cex.axis = 2)
+#   } else {
+#     points(my.sub$Isol_Rate~my.sub$Pop_Rate, pch = my.pch[i], col = my_colors[i],
+#            cex = 2)
+#   }
+# }
+# lines(x=c(0, 1), y=c(0, 1), lwd = 2)
+# legend(x = 0.053, y = 0.035, legend = unique(mean_rates$Treatment), pch = my.pch, 
+#        col = my_colors, cex = 2)
+# dev.off()
 
 ##isolate growth curve analysis
+
+#standard curve to convert OD to CFU (based on 107 data)
+setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/97-101_Growth_Curves")
+plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
+spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
+plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
+
+#make list of well ID & contents from plate layout
+layout_list <- data.frame("Location" = character(), "Dilution" = double())
+for (i in 2:nrow(plate_layout)) {
+  for (j in 2:ncol(plate_layout)) {
+    layout_list <- rbind(layout_list, data.frame("Location" = paste(plate_layout[i, 1], plate_layout[1, j], sep = ""),
+                                                 "Isol" = plate_layout[i, j]))
+  }
+}
+layout_list <- layout_list[order(layout_list$Location), ]
+
+#tidy up plate list
+plate <- plate[, -1]
+plate_list <- data.frame("Location" = character(), "OD600" = double())
+for (i in 1:nrow(plate)) {
+  for (j in 1:ncol(plate)) {
+    plate_list <- rbind(plate_list, data.frame("Location" = paste(LETTERS[i], j, sep = ""),
+                                               "OD600" = plate[i, j]))
+  }
+}
+plate_list <- plate_list[order(plate_list$Location), ]
+
+#add dilution column to plate list
+plate_list$Dilution <- layout_list$Isol
+
+#remove from plate data that correspond to empty wells
+plate_list <- subset(plate_list, is.na(plate_list$Dilution) == F)
+
+#convert OD on spec to CFU
+spec$CFU <- (spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
+
+#transfer over CFU data to plate list
+plate_list <- cbind(plate_list, "CFU"=spec$CFU[match(plate_list$Dilution, 
+                                                     spec$Dilution)])
+
+
+plot(plate_list$CFU, plate_list$OD600)
+my.fit <- lm(plate_list$OD600 ~ plate_list$CFU)
+abline(my.fit)
+summary(my.fit)
+
+
+#analysis
+
 library("minpack.lm")
 options(stringsAsFactors = F)
 setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/97-101_Growth_Curves")
