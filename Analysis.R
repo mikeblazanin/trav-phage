@@ -414,25 +414,26 @@ stan_plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
 stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
 stan_plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
 
-get_layout <- function(plate_layout) {
+get_layout <- function(plate_layout, row_start = 1, col_start = 1) {
   #tidies the data: makes list of Well ID & contents from the plate layout
-  layout_list <- data.frame("Well" = character((nrow(plate_layout)-1)*(ncol(plate_layout)-1)), 
-                            "Contents" = character((nrow(plate_layout)-1)*(ncol(plate_layout)-1)),
+  layout_list <- data.frame("Well" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))), 
+                            "Contents" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))),
                             stringsAsFactors = F)
-  for (i in 2:nrow(plate_layout)) {
-    for (j in 2:ncol(plate_layout)) {
-      layout_list[(i-2)*(ncol(plate_layout)-1)+j-1, ] <- c(paste(plate_layout[i, 1], 
-                                                                plate_layout[1, j], sep = ""),
+  for (i in row_start:nrow(plate_layout)) {
+    for (j in col_start:ncol(plate_layout)) {
+      layout_list[(i-row_start)*(ncol(plate_layout))+(j-col_start)+1, ] <- c(paste(LETTERS[i], j-col_start+1, sep = ""),
                                                           plate_layout[i, j])
     }
   }
   return(layout_list)
 }
 
-stan_layout_list <- get_layout(stan_plate_layout)
+stan_layout_list <- get_layout(stan_plate_layout, 2, 2)
+
 
 #tidy up plate list
 plate <- plate[, -1]
+
 plate_list <- data.frame("Location" = character(), "OD600" = double())
 for (i in 1:nrow(plate)) {
   for (j in 1:ncol(plate)) {
