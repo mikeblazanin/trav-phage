@@ -1,5 +1,6 @@
 library("ggplot2")
 
+##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
 start_data_7x <- read.csv("74_75_76_Start_Data.csv", header = T, stringsAsFactors = F)
 fails_7x <- read.csv("74_75_76_fails.csv", header = T, stringsAsFactors = F)
@@ -130,7 +131,7 @@ uniq_reps <- function(my_data) {
     }
     if (my_data$Proj[i]=="74" | my_data$Proj[i]=="75" | my_data$Proj[i]=="76") {
       my_data$Proj[i] <- 1
-    } else {my_data$Proj[i] <- 2}
+    } else if (my_data$Proj[i] == "125") {my_data$Proj[i] <- 2}
   }
   return(my_data)
 }
@@ -195,13 +196,19 @@ end_data <- make_timestamp(end_data, "end")
 
 #define function to convert timestamp to time since inoculation
 #then calculate rate (average radius spread per hour)
-calc_timediff <- function(my_start, my_end) {
+calc_timediff <- function(my_start, my_end, type="pop") {
   my_end <- cbind(my_end, NA)
   colnames(my_end)[ncol(my_end)] <- "timediff"
   for (i in 1:nrow(my_end)) {
-    sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] & 
-                          my_start$Time == my_end$Time[i] & 
-                          my_start$Rep == my_end$Rep[i])
+    if (type == "isol") {
+      sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] &
+                            my_start$Time == my_end$Time[i] &
+                            my_start$Isol == my_end$Isol[i])
+    } else {
+      sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] & 
+                            my_start$Time == my_end$Time[i] & 
+                            my_start$Rep == my_end$Rep[i])
+    }
     my_end$timediff[i] <- difftime(my_end$timestamp[i], sub_start$timestamp[1], units = "hours")
   }
   my_end <- cbind(my_end, NA)
@@ -262,10 +269,12 @@ ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
   geom_line() + geom_point() + facet_grid(Treat~Proj) +
   theme(axis.text.y = element_blank())
 
-#isolate 50% KB migration analysis
+##isolate migration analysis
 
 isol_end_7x <- read.csv("74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
 isol_start_7x <- read.csv("74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
+# isol_end_125 <- read.csv("125_isol_motility.csv", header = T, stringsAsFactors = F)
+# isol_start_125 <- read.csv("125_isol_motility_start.csv", header = T, stringsAsFactors = F)
 
 #define function to split Strain data
 isol_end_strain_split <- function(isol_end) {
@@ -304,48 +313,52 @@ isol_end_strain_split <- function(isol_end) {
 
 #actually split Strain data
 isol_end_7x <- isol_end_strain_split(isol_end_7x)
+# isol_end_125 <- isol_end_strain_split(isol_end_125)
+
+#Assign ancestor: time 0, proj 1 or 2, rep F, Treat A, isol same
+ancestor_fix_end <- function(isol_end) {
+  my_rows <- isol_end$Proj == "P1.1"
+  isol_end$Time[my_rows] <- 0
+  isol_end$Rep[my_rows] <- "F"
+  isol_end$Treat[my_rows] <- "A"
+  return(isol_end)
+}
+
+#fix ancestor
+isol_end_7x <- ancestor_fix_end(isol_end_7x)
+# isol_end_125 <- ancestor_fix_end(isol_end_125)
+isol_start_7x$Time[isol_start_7x$Proj == "P1.1"] <- 0
+# isol_start_125[isol_start_125$Proj == "P1.1"]$Time <- 0
 
 #make Reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
 #& change project to be 1 (74, 75, 76) or 2 (125)
 isol_end_7x <- uniq_reps(isol_end_7x)
+# isol_end_125 <- uniq_reps(isol_end_125)
 
-#problem: makes ancestor into proj 2
-#soln: should label ancestor as Time 0, Proj 1, Rep F, Treat A, isol matching
-#soln: in start data, need to split out proj's to reps (so then P1.1 can be F)
+#Standardize project numbers
+isol_start_7x$Proj <- 1
+isol_end_7x$Proj <- 1
+# isol_start_125$Project <- 2
+# isol_end_125$Proj <- 2
+
+#combine datasets
+isol_end <- rbind(isol_end_7x)
+isol_start <- rbind(isol_start_7x)
 
 #compile time information into timestamp
-isol_end_7x <- make_timestamp(isol_end_7x, type = "end")
-isol_start_7x <- make_timestamp(isol_start_7x, type = "isol start")
+isol_end <- make_timestamp(isol_end, type = "end")
+isol_start <- make_timestamp(isol_start, type = "isol start")
 
 #convert timestamp to time since inoculation
-isol_end_7x <- calc_timediff(isol_start_7x, isol_end_7x)
-
-
-isol_end <- cbind(isol_end, NA)
-colnames(isol_end)[ncol(isol_end)] <- "timediff"
-for (i in 1:nrow(isol_end)) {
-  if (isol_end$Proj[i] == "P1.1") {
-    my_start <- subset(isol_start, isol_start$Project == isol_end$Proj[i] & isol_start$Isol == isol_end$Isol[i])
-  } else {
-    my_start <- subset(isol_start, isol_start$Project == isol_end$Proj[i] & isol_start$Isol == isol_end$Isol[i] & isol_start$Time == isol_end$Time[i])
-  }
-  isol_end$timediff[i] <- difftime(isol_end$timestamp[i], my_start$timestamp[1], units = "hours")
-}
-
-#calculate rate (average radius spread per hour)
-isol_end <- cbind(isol_end, NA)
-colnames(isol_end)[ncol(isol_end)] <- "Rate (cm/hr)"
-isol_end$`Rate (cm/hr)` <- (isol_end$Width..cm.+isol_end$Height..cm.)/(4*isol_end$timediff)
+isol_end <- calc_timediff(isol_start, isol_end, "isol")
 
 #remove -Mg data
-no_mg_isol_end <- subset(isol_end, isol_end$Media == "-Mg")
 isol_end <- subset(isol_end, isol_end$Media == "+Mg")
-
-#remove >24 hr data
-non_24_hr_isol_end <- subset(isol_end, isol_end$timediff > 36)
-isol_end <- subset(isol_end, isol_end$timediff < 36)
+isol_end$Media <- NULL
 
 #plot isolate variation for each pop
+
+
 tiff(filename = "isol_rates.tiff", width = 15, height = 7, units = "in",
      compression = "none", res = 300)
 par(mar = my.mar + c(1, 3, 0, 0), xpd = T)
