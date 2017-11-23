@@ -410,20 +410,26 @@ ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) +
 ##isolate growth curve analysis
 
 #standard curve to convert OD to CFU (based on 107 data)
-setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/97-101_Growth_Curves")
-plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
-spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
-plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
+stan_plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
+stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
+stan_plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
 
-#make list of well ID & contents from plate layout
-layout_list <- data.frame("Location" = character(), "Dilution" = double())
-for (i in 2:nrow(plate_layout)) {
-  for (j in 2:ncol(plate_layout)) {
-    layout_list <- rbind(layout_list, data.frame("Location" = paste(plate_layout[i, 1], plate_layout[1, j], sep = ""),
-                                                 "Isol" = plate_layout[i, j]))
+get_layout <- function(plate_layout) {
+  #tidies the data: makes list of Well ID & contents from the plate layout
+  layout_list <- data.frame("Well" = character((nrow(plate_layout)-1)*(ncol(plate_layout)-1)), 
+                            "Contents" = character((nrow(plate_layout)-1)*(ncol(plate_layout)-1)),
+                            stringsAsFactors = F)
+  for (i in 2:nrow(plate_layout)) {
+    for (j in 2:ncol(plate_layout)) {
+      layout_list[(i-2)*(ncol(plate_layout)-1)+j-1, ] <- c(paste(plate_layout[i, 1], 
+                                                                plate_layout[1, j], sep = ""),
+                                                          plate_layout[i, j])
+    }
   }
+  return(layout_list)
 }
-layout_list <- layout_list[order(layout_list$Location), ]
+
+stan_layout_list <- get_layout(stan_plate_layout)
 
 #tidy up plate list
 plate <- plate[, -1]
