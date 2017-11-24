@@ -409,61 +409,47 @@ ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) +
 
 ##isolate growth curve analysis
 
-#standard curve to convert OD to CFU (based on 107 data)
+##standard curve to convert OD to CFU (based on 107 data)
 stan_plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
-stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
 stan_plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
+stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
 
+#define function to melt plate arrays
 get_layout <- function(plate_layout, row_start = 1, col_start = 1) {
   #tidies the data: makes list of Well ID & contents from the plate layout
   layout_list <- data.frame("Well" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))), 
                             "Contents" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))),
                             stringsAsFactors = F)
+  cntr = 1
   for (i in row_start:nrow(plate_layout)) {
     for (j in col_start:ncol(plate_layout)) {
-      layout_list[(i-row_start)*(ncol(plate_layout))+(j-col_start)+1, ] <- c(paste(LETTERS[i], j-col_start+1, sep = ""),
-                                                          plate_layout[i, j])
+      layout_list[cntr, ] <- c(paste(LETTERS[i-row_start+1], j-col_start+1, sep = ""), plate_layout[i, j])
+      cntr = cntr + 1
     }
   }
   return(layout_list)
 }
 
+#melt plate arrays, combine & exclude empty wells
 stan_layout_list <- get_layout(stan_plate_layout, 2, 2)
+stan_plate_list <- get_layout(stan_plate, 1, 2)
+colnames(stan_plate_list)[2] <- "OD600"
+stan_plate_list$Dilution <- stan_layout_list$Contents
+stan_plate_list <- subset(stan_plate_list, is.na(stan_plate_list$Dilution) == F)
 
+#in data from Trav-lab spec, convert OD to CFU
+stan_spec$CFU <- (stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
 
-#tidy up plate list
-plate <- plate[, -1]
+#transfer CFU data to plate list
+stan_plate_list <- cbind(stan_plate_list, "CFU"=stan_spec$CFU[match(stan_plate_list$Dilution, 
+                                                     stan_spec$Dilution)])
 
-plate_list <- data.frame("Location" = character(), "OD600" = double())
-for (i in 1:nrow(plate)) {
-  for (j in 1:ncol(plate)) {
-    plate_list <- rbind(plate_list, data.frame("Location" = paste(LETTERS[i], j, sep = ""),
-                                               "OD600" = plate[i, j]))
-  }
-}
-plate_list <- plate_list[order(plate_list$Location), ]
-
-#add dilution column to plate list
-plate_list$Dilution <- layout_list$Isol
-
-#remove from plate data that correspond to empty wells
-plate_list <- subset(plate_list, is.na(plate_list$Dilution) == F)
-
-#convert OD on spec to CFU
-spec$CFU <- (spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
-
-#transfer over CFU data to plate list
-plate_list <- cbind(plate_list, "CFU"=spec$CFU[match(plate_list$Dilution, 
-                                                     spec$Dilution)])
-
-
-plot(plate_list$CFU, plate_list$OD600)
-my.fit <- lm(plate_list$OD600 ~ plate_list$CFU)
-abline(my.fit)
+#get regression of data
+ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
+my.fit <- lm(stan_plate_list$OD600 ~ stan_plate_list$CFU)
 summary(my.fit)
 
-
-#analysis
+##growth curve analysis
 
 library("minpack.lm")
 options(stringsAsFactors = F)
