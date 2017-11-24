@@ -1,5 +1,7 @@
 library("ggplot2")
 
+#need to make Rep vs Pop consistent
+
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
 start_data_7x <- read.csv("74_75_76_Start_Data.csv", header = T, stringsAsFactors = F)
@@ -445,9 +447,9 @@ stan_plate_list <- cbind(stan_plate_list, "CFU"=stan_spec$CFU[match(stan_plate_l
                                                      stan_spec$Dilution)])
 
 #get regression of data
-ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
-my.fit <- lm(stan_plate_list$CFU ~ as.numeric(stan_plate_list$OD600))
-summary(my.fit)
+# ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
+stan_plate_list$OD600 <- as.numeric(stan_plate_list$OD600)
+my.fit <- lm(CFU ~ OD600, data = stan_plate_list)
 
 ##growth curve analysis
 library("minpack.lm")
@@ -491,71 +493,50 @@ tidy_98 <- gather(growth_98, "Well", "OD600", 3:ncol(growth_98), na.rm = T)
 tidy_99 <- gather(growth_99, "Well", "OD600", 3:ncol(growth_99), na.rm = T)
 tidy_101 <- gather(growth_101, "Well", "OD600", 3:ncol(growth_101), na.rm = T)
 
-#Add isolate info
+#Add isolate & project info
 tidy_97$Isol <- "A"
 tidy_98$Isol <- "B"
 tidy_99$Isol <- "C"
 tidy_101$Isol <- "E"
+tidy_97$Proj <- 1
+tidy_98$Proj <- 1
+tidy_99$Proj <- 1
+tidy_101$Proj <- 1
 
 #Combine data frames
-all_growth_data <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
+gc_data <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
 
 #convert OD to CFU
-all_growth_data$CFU <- all_growth_data$OD600
+gc_data$CFU <- predict(my.fit, newdata = gc_data)
 
-tidy_97 <- cbind(tidy_97, "CFU"=(tidy_97$OD600-0.08560402)/(2.917486*10^(-10)))
-tidy_98 <- cbind(tidy_98, "CFU"=(tidy_98$OD600-0.08560402)/(2.917486*10^(-10)))
-tidy_99 <- cbind(tidy_99, "CFU"=(tidy_99$OD600-0.08560402)/(2.917486*10^(-10)))
-
-#separate out ID info (add isol info)
-sep.ID <- function(my.array, my.isol) {
-  #my.isol is the isolate letter included in the run (assumes all the same) (eg. "A")
-  my.array <- cbind("Media"=NA, "Proj"=NA, "Pop"=NA, "Treat"=NA,
-                   "Rep"=NA, my.array)
+#separate out ID info
+sep.growth.ID <- function(my.array) {
+  my.array <- cbind(my.array, "Media"=NA, "Pop"=NA, "Treat"=NA, "Rep_Well"=NA)
   for (i in 1:nrow(my.array)) {
-    my.split <- strsplit(as.character(my.array$Isol[i]), split = "-")
+    my.split <- strsplit(as.character(my.array$Well[i]), split = "-")
     my.array$Media[i] <- my.split[[1]][1]
-    my.array$Proj[i] <- my.split[[1]][2]
-    my.array$Rep[i] <- my.split[[1]][3]
-    my.array$Isol[i] <- my.isol
-  }
-  my.array$Treat <- substr(my.array$Proj, nchar(my.array$Proj),
-                          nchar(my.array$Proj))
-  my.array$Proj <- substr(my.array$Proj, 1, nchar(my.array$Proj)-1)
-  for (i in 1:nrow(my.array)) {
-    if (my.array$Proj[i] == "") {
-      my.array$Proj[i] <- "A"
-      my.array$Pop[i] <- "Z"
-    } else { #must be non-ancestor
-      if (substr(my.array$Proj[i], 1, 2) == "74") {
+    my.array$Treat[i] <- my.split[[1]][length(my.split[[1]])-1]
+    my.array$Rep_Well[i] <- my.split[[1]][length(my.split[[1]])]
+    if (length(my.split[[1]])>3) { #it's not an ancestor well
+      if (substr(my.split[[1]][2], 1, 2) == "74") {
         my.array$Pop[i] <- "A"
-      } else if (substr(my.array$Proj[i], 1, 2) == "75") {
-        if (substr(my.array$Proj[i], 3, 3) == "A") {
+      } else if (substr(my.split[[1]][2], 1, 2) == "75") {
+        if (substr(my.split[[1]][2], 3, 3) == "A") {
           my.array$Pop[i] <- "B"
-        } else {
-          my.array$Pop[i] <- "C"
-        }
-      } else { #must be project 76
-        if (substr(my.array$Proj[i], 3, 3) == "A") {
+        } else {my.array$Pop[i] <- "C"}
+      } else if (substr(my.split[[1]][2], 1, 2) == "76") {
+        if (substr(my.split[[1]][2], 3, 3) == "A") {
           my.array$Pop[i] <- "D"
-        } else {
-          my.array$Pop[i] <- "E"
-        } 
+        } else {my.array$Pop[i] <- "E"} 
       }
-      my.array$Proj[i] <- substr(my.array$Proj[i], 1, 2)
+    } else { #assign ancestor to be Pop F, Treat A
+      my.array$Pop[i] <- "F"
     }
   }
   return(my.array)
 }
 
-tidy_97 <- sep.ID(tidy_97, "A")
-tidy_98 <- sep.ID(tidy_98, "B")
-tidy_99 <- sep.ID(tidy_99, "C")
-
-#combine all runs
-gc_data <- rbind(tidy_97, tidy_98, tidy_99)
-#reorganize columns
-gc_data <- gc_data[c(1:4, 6, 5, 7, 8, 10)]
+gc_data <- sep.growth.ID(gc_data)
 
 #prep for calculation
 gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
