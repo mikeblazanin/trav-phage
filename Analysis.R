@@ -540,6 +540,8 @@ gc_data <- sep.growth.ID(gc_data)
 
 #prep for calculation
 gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
+
+
 gc_data <- cbind(gc_data, "M.P.P.T.I.R"=paste(gc_data$Media, 
                                               gc_data$Proj,
                                               gc_data$Pop,
