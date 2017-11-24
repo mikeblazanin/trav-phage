@@ -568,15 +568,13 @@ gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4,
                                         gc_data$Treat, gc_data$Isol, gc_data$Rep_Well,
                                         sep = "."))
 
+#calc rates
+gc_data$dCFUperhr <- (gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
+  gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
+  difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
+           units = "hours")
 
-gc_data <- cbind(gc_data, "M.P.P.T.I.R"=paste(gc_data$Media, 
-                                              gc_data$Proj,
-                                              gc_data$Pop,
-                                              gc_data$Treat,
-                                              gc_data$Isol,
-                                              gc_data$Rep,
-                                              sep = "."),
-                 "Smooth_CFU"=NA, "dCFU/hour"=NA)
+
 
 #non-linear least-squares fit
 lambda = 0.01 #error threshold for starting values
