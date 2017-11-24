@@ -569,10 +569,10 @@ mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat,
 gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4, mpptir)
 
 #calc rates
-gc_data$dCFUprhr <- (gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
+gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
   gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
-  difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
-           units = "hours")
+  as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
+           units = "hours")), NA)
 
 #extract max rates for each unique run
 max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(mpptir)))
