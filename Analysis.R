@@ -538,8 +538,35 @@ sep.growth.ID <- function(my.array) {
 
 gc_data <- sep.growth.ID(gc_data)
 
-#prep for calculation
+#reformat time column
 gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
+
+#smooth CFU data
+smooth_data <- function(my_data, smooth_over, subset_by) {
+  #data must be sorted sequentially before fed into function
+  #my_data is a vector of the data to be smoothed
+  #smooth over is how many sequential entries to average
+  #the unique values of subset_by will be what is iterated over
+  out_list <- rep(NA, length(my_data))
+  cntr = 1
+  for (my_uniq in unique(subset_by)) {
+    my_sub <- subset(my_data, subset_by == my_uniq)
+    out_list[cntr:(cntr+length(my_sub)-smooth_over)] <- 0
+    for (i in 1:smooth_over) {
+      out_list[(cntr):(cntr+length(my_sub)-smooth_over)] <-
+        out_list[(cntr):(cntr+length(my_sub)-smooth_over)] + 
+        my_sub[i:(length(my_sub)-smooth_over+i)]
+    }  
+    cntr <- cntr+length(my_sub)
+  }
+  out_list <- out_list/smooth_over
+  return(out_list)
+}
+
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4,
+                                  paste(gc_data$Media, gc_data$Proj, gc_data$Pop,
+                                        gc_data$Treat, gc_data$Isol, gc_data$Rep_Well,
+                                        sep = "."))
 
 
 gc_data <- cbind(gc_data, "M.P.P.T.I.R"=paste(gc_data$Media, 
