@@ -563,18 +563,28 @@ smooth_data <- function(my_data, smooth_over, subset_by) {
   return(out_list)
 }
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4,
-                                  paste(gc_data$Media, gc_data$Proj, gc_data$Pop,
-                                        gc_data$Treat, gc_data$Isol, gc_data$Rep_Well,
-                                        sep = "."))
+mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+                gc_data$Isol, gc_data$Rep_Well, sep = ".")
+
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4, mpptir)
 
 #calc rates
-gc_data$dCFUperhr <- (gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
+gc_data$dCFUprhr <- (gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
   gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
   difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
            units = "hours")
 
+#extract max rates for each unique run
+max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(mpptir)))
+colnames(max_gc_rate) <- c("Media", "Proj", "Pop", "Treat", "Isol", 
+                           "Rep_Well", "max_rate")
 
+for (i in 1:length(unique(mpptir)) {
+  uniq <- unique(mpptir[i])
+  my_sub <- subset(gc_data, uniq == mpptir)
+  max_gc_rate$max_rate <- max(my_sub$dCFUprhr)
+  
+}
 
 #non-linear least-squares fit
 lambda = 0.01 #error threshold for starting values
