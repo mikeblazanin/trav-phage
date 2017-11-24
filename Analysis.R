@@ -446,68 +446,63 @@ stan_plate_list <- cbind(stan_plate_list, "CFU"=stan_spec$CFU[match(stan_plate_l
 
 #get regression of data
 ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
-my.fit <- lm(stan_plate_list$OD600 ~ stan_plate_list$CFU)
+my.fit <- lm(stan_plate_list$CFU ~ as.numeric(stan_plate_list$OD600))
 summary(my.fit)
 
 ##growth curve analysis
-
 library("minpack.lm")
+library("tidyr")
 options(stringsAsFactors = F)
-setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/97-101_Growth_Curves")
 growth_97 <- read.csv("97B.csv", header = T, stringsAsFactors = F)
 growth_98 <- read.csv("98B.csv", header = T, stringsAsFactors = F)
 growth_99 <- read.csv("99.csv", header = T, stringsAsFactors = F)
-plate_layout <- read.csv("Plate_layout.csv", header = F, stringsAsFactors = F)
+growth_101 <- read.csv("101.csv", header = T, stringsAsFactors = F)
+plate_layout_97_101 <- read.csv("97_98_99_100_101_plate_layout.csv", header = F, stringsAsFactors = F)
 
 #make list of well ID & contents from plate layout
-layout_list <- data.frame("Location" = character(), "Isol" = character())
-for (i in 2:nrow(plate_layout)) {
-  for (j in 2:ncol(plate_layout)) {
-    layout_list <- rbind(layout_list, data.frame("Location" = paste(plate_layout[i, 1], plate_layout[1, j], sep = ""),
-                                                 "Isol" = plate_layout[i, j]))
-  }
-}
+plate_layout_list_97_101 <- get_layout(plate_layout_97_101, 2, 2)
 
 #remove columns from growth data that correspond to water
-to_rem <- subset(layout_list, layout_list$Isol == "H2O")
-growth_97 <- growth_97[, !(colnames(growth_97) %in% to_rem$Location)]
-growth_98 <- growth_98[, !(colnames(growth_98) %in% to_rem$Location)]
-growth_99 <- growth_99[, !(colnames(growth_99) %in% to_rem$Location)]
+to_rem <- subset(plate_layout_list_97_101, 
+                 plate_layout_list_97_101$Contents == "H2O")
+growth_97 <- growth_97[, !(colnames(growth_97) %in% to_rem$Well)]
+growth_98 <- growth_98[, !(colnames(growth_98) %in% to_rem$Well)]
+growth_99 <- growth_99[, !(colnames(growth_99) %in% to_rem$Well)]
+growth_101 <- growth_101[, !(colnames(growth_101) %in% to_rem$Well)]
 
 #replace column names with Isols
-isol.name.func <- function(my.array) {
-  for (i in 1:ncol(my.array)) {
-    j <- match(colnames(my.array)[i], layout_list$Location)
+isol.name.func <- function(growth_array, layout_list) {
+  for (i in 1:ncol(growth_array)) {
+    j <- match(colnames(growth_array)[i], layout_list$Well)
     if (!is.na(j)) {
-      colnames(my.array)[i] <- as.character(layout_list$Isol[[j]])
+      colnames(growth_array)[i] <- as.character(layout_list$Contents[j])
     }
   }
-  return(my.array)
+  return(growth_array)
 }
-growth_97 <- isol.name.func(growth_97)
-growth_98 <- isol.name.func(growth_98)
-growth_99 <- isol.name.func(growth_99)
+growth_97 <- isol.name.func(growth_97, plate_layout_list_97_101)
+growth_98 <- isol.name.func(growth_98, plate_layout_list_97_101)
+growth_99 <- isol.name.func(growth_99, plate_layout_list_97_101)
+growth_101 <- isol.name.func(growth_101, plate_layout_list_97_101)
 
-#turn into tidy data
-tidy.up <- function(my.array) {
-  tidy.array <- data.frame("Isol"=character(), "Time"=character(),
-                           "Temp"=character(), "OD600"=double())
-  for (i in 3:ncol(my.array)) {
-    for (j in 1:nrow(my.array)) {
-      tidy.array <- rbind(tidy.array, data.frame("Isol" = colnames(my.array)[i],
-                                           "Time" = my.array[j, 1],
-                                           "Temp" = my.array[j, 2],
-                                           "OD600" = my.array[j, i]))
-    }
-  }
-  return(tidy.array)
-}
+#Tidy growth data
+tidy_97 <- gather(growth_97, "Well", "OD600", 3:ncol(growth_97), na.rm = T)
+tidy_98 <- gather(growth_98, "Well", "OD600", 3:ncol(growth_98), na.rm = T)
+tidy_99 <- gather(growth_99, "Well", "OD600", 3:ncol(growth_99), na.rm = T)
+tidy_101 <- gather(growth_101, "Well", "OD600", 3:ncol(growth_101), na.rm = T)
 
-tidy_97 <- tidy.up(growth_97)
-tidy_98 <- tidy.up(growth_98)
-tidy_99 <- tidy.up(growth_99)
+#Add isolate info
+tidy_97$Isol <- "A"
+tidy_98$Isol <- "B"
+tidy_99$Isol <- "C"
+tidy_101$Isol <- "E"
+
+#Combine data frames
+all_growth_data <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
 
 #convert OD to CFU
+all_growth_data$CFU <- all_growth_data$OD600
+
 tidy_97 <- cbind(tidy_97, "CFU"=(tidy_97$OD600-0.08560402)/(2.917486*10^(-10)))
 tidy_98 <- cbind(tidy_98, "CFU"=(tidy_98$OD600-0.08560402)/(2.917486*10^(-10)))
 tidy_99 <- cbind(tidy_99, "CFU"=(tidy_99$OD600-0.08560402)/(2.917486*10^(-10)))
