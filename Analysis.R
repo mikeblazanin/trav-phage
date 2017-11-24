@@ -575,16 +575,22 @@ gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] -
            units = "hours")), NA)
 
 #extract max rates for each unique run
-max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(mpptir)))
+max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(unique(mpptir))))
 colnames(max_gc_rate) <- c("Media", "Proj", "Pop", "Treat", "Isol", 
-                           "Rep_Well", "max_rate")
-
-for (i in 1:length(unique(mpptir)) {
-  uniq <- unique(mpptir[i])
+                           "Rep_Well", "max_dCFUprhr")
+for (i in 1:length(unique(mpptir))) {
+  uniq <- unique(mpptir)[i]
   my_sub <- subset(gc_data, uniq == mpptir)
-  max_gc_rate$max_rate <- max(my_sub$dCFUprhr)
-  
+  max_gc_rate[i, 1:7] <- data.frame("Media" = unique(my_sub$Media), 
+                                    "Proj" = unique(my_sub$Proj),
+                                    "Pop" = unique(my_sub$Pop),
+                                    "Treat" = unique(my_sub$Treat),
+                                    "Isol" = unique(my_sub$Isol),
+                                    "Rep_Well" = unique(my_sub$Rep_Well),
+                                    "max_dCFUprhr" = max(my_sub$dCFUprhr, na.rm = T))
 }
+
+ggplot()
 
 #non-linear least-squares fit
 lambda = 0.01 #error threshold for starting values
