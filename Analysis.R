@@ -565,6 +565,8 @@ smooth_data <- function(my_data, smooth_over, subset_by) {
 
 mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
                 gc_data$Isol, gc_data$Rep_Well, sep = ".")
+mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+                gc_data$Isol, sep = ".")
 
 gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4, mpptir)
 
@@ -574,134 +576,142 @@ gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] -
   as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
            units = "hours")), NA)
 
-#extract max rates for each unique run
-max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(unique(mpptir))))
+#extract max rates for each unique well
+max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(unique(mppti))))
 colnames(max_gc_rate) <- c("Media", "Proj", "Pop", "Treat", "Isol", 
-                           "Rep_Well", "max_dCFUprhr")
-for (i in 1:length(unique(mpptir))) {
-  uniq <- unique(mpptir)[i]
-  my_sub <- subset(gc_data, uniq == mpptir)
+                           "avg_max_dCFUprhr", "sd_max_dCFUprhr")
+for (i in 1:length(unique(mppti))) {
+  uniq <- unique(mppti)[i]
+  my_sub <- subset(gc_data, uniq == mppti)
+  max_rates <- c()
+  for (my_well in unique(my_sub$Rep_Well)) {
+    well_sub <- subset(my_sub, my_sub$Rep_Well == my_well)
+    max_rates <- c(max_rates, max(well_sub$dCFUprhr, na.rm = T))
+  }
   max_gc_rate[i, 1:7] <- data.frame("Media" = unique(my_sub$Media), 
                                     "Proj" = unique(my_sub$Proj),
                                     "Pop" = unique(my_sub$Pop),
                                     "Treat" = unique(my_sub$Treat),
                                     "Isol" = unique(my_sub$Isol),
-                                    "Rep_Well" = unique(my_sub$Rep_Well),
-                                    "max_dCFUprhr" = max(my_sub$dCFUprhr, na.rm = T))
+                                    "avg_max_dCFUprhr" = mean(max_rates),
+                                    "sd_max_dCFUprhr" = sd(max_rates))
 }
 
-ggplot()
+ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
+  geom_jitter(width = 0.1, height = 0) + facet_grid(Media ~ Pop)
 
-#non-linear least-squares fit
-lambda = 0.01 #error threshold for starting values
-frac.change = 1
-#starting values for fit: 50 start vals listed first
-start.vals <- list(list(a=1059393503, b=1.778213, c=5.056632, 
-                   d=2759201448, e=0.3280987, f=10.26474), 
-                   list(a=1059393503, b=1.778213, c=5.056632, 
-                       d=2759201448, e=0.3280987, f=10.26474))
-while (frac.change > lambda) {
-  #make frame for fit coeffs
-  my.coef <- data.frame(Media = character(), Proj = character(), Pop = character(), 
-                        Treat = character(), Isol = character(), Rep = character(),
-                        a = double(), b = double(), c = double(), d = double(), e = double(),
-                        f = double(), cor = double())
-  #make list to save nls models
-  nls.list <- list()
-  #calculate coeffs for ea growth curve (using current starting values)
-  for (my.run in unique(gc_data$M.P.P.T.I.R)) {
-    my.sub <- subset(gc_data, gc_data$M.P.P.T.I.R == my.run)
-    my.sub <- my.sub[order(my.sub$Time), ]
-    my.data <- data.frame(x = as.numeric(format(my.sub$Time, "%H"))+
-                            as.numeric(format(my.sub$Time, "%M"))/60, y = my.sub$CFU)
-    my.data <- my.data[-(1:3), ]
-    if (my.sub$Media[1] == 50) {
-      my.nls <- nlsLM(y ~ (a/(1+exp(-b*(x-c))))+(d/(1+exp(-e*(x-f)))),
-                      data = my.data, start = start.vals[[1]])
-      
-    } else if (my.sub$Media[1] == 100) {
-      my.nls <- nlsLM(y ~ (a/(1+exp(-b*(x-c))))+(d/(1+exp(-e*(x-f)))),
-                      data = my.data, start = start.vals[[2]])
-    }
-    # plot(my.data$x, my.data$y)
-    # lines(my.data$x, predict(my.nls))
-    #store coeffs
-    my.coef <- rbind(my.coef, data.frame(Media = my.sub$Media[1], Proj = my.sub$Proj[1], 
-                                         Pop = my.sub$Pop[1], Treat = my.sub$Treat[1], 
-                                         Isol = my.sub$Isol[1], Rep = my.sub$Rep[1],
-                                         a = my.nls$m$getPars()[1], b = my.nls$m$getPars()[2], 
-                                         c = my.nls$m$getPars()[3], d = my.nls$m$getPars()[4], 
-                                         e = my.nls$m$getPars()[5], f = my.nls$m$getPars()[6], 
-                                         cor = cor(my.data$y, predict(my.nls))))
-    nls.list <- c(nls.list, list(my.nls))
-  }
-  #change the starting value for ea coeff to be the cnt mean of each coeff
-  past.vals <- start.vals
-  change <- c()
-  for (i in 1:2) {
-    my.media <- c(50, 100)[i]
-    my.sub = subset(my.coef, my.coef$Media == my.media)
-    start.vals[[i]] <- list(a = median(my.sub$a), b = median(my.sub$b),
-                            c = median(my.sub$c), d = median(my.sub$d),
-                            e = median(my.sub$e), f = median(my.sub$f))
-    change <-  c(change, 
-      abs((as.numeric(start.vals[[i]])-as.numeric(past.vals[[i]]))/
-            as.numeric(past.vals[[i]])))
-  }
-  #check if the change is small enough (reached local maxima)
-  frac.change <- mean(change)
-}
+#don't know if I'll use the following:
 
-
-# stripchart(my.coef$f ~ paste(my.coef$Media, my.coef$Pop, my.coef$Treat,
-#                            my.coef$Isol), vert = T)
-
-#average values across replicate growth curves
-my.coef.mean <- my.coef[0, -c(2, 6, 13)]
-my.coef$M.P.T.I <- paste(my.coef$Media, my.coef$Pop, my.coef$Treat, my.coef$Isol, sep=".")
-for (my.run in unique(my.coef$M.P.T.I)) {
-  my.sub <- subset(my.coef, my.coef$M.P.T.I == my.run)
-  my.coef.mean <- rbind(my.coef.mean, data.frame("Media" = my.sub$Media[1],
-                                     "Pop" = my.sub$Pop[1],
-                                     "Treat" = my.sub$Treat[1],
-                                     "Isol" = my.sub$Isol[1],
-                                     "a" = mean(my.sub$a),
-                                     "b" = mean(my.sub$b),
-                                     "c" = mean(my.sub$c),
-                                     "d" = mean(my.sub$d),
-                                     "e" = mean(my.sub$e),
-                                     "f" = mean(my.sub$f),
-                                     "M.P.T.I" = my.sub$M.P.T.I[1]))
-}
-
-#plot averaged values for each pop & treat for each coeff
-for (i in 1:length(unique(my.coef.mean$Media))) {
-  my.media <- unique(my.coef.mean$Media)[i]
-  my.sub <- subset(my.coef.mean, my.coef.mean$Media == my.media)
-  my.sub <- my.sub[order(my.sub$Treat, my.sub$Pop), ]
-  for (j in 1:6) {
-    tiff(filename = paste(my.media, letters[j], "v2_isol_rates.tiff", sep = "_"),
-         width = 15, height = 7, units = "in",
-         compression = "none", res = 300)
-    stripchart(my.sub[, j+4] ~ paste(my.sub$Treat, my.sub$Pop), vert = T, pch = 19,
-               cex = 2, cex.axis = 2, ylab = "",
-               group.names = c("WT", "CA", "B", "C", "D", "E", "GA", "B", "C", "D",
-                               "LA", "B", "C", "D"))
-    dev.off()
-  }
-  # par(mar = my.mar + c(1, 3, 0, 0), xpd = T)
-  # 
-  # 
-  # mtext(expression(paste(mu[max], " (hr"^"-1", ")")), side = 2, cex = 2.5, line = 4)
-  # my.y <- c(0.05, 0.32)
-  # text(c("Control", "Global", "Local"), x = c(4, 8.5, 12.5), y = my.y[i], cex = 2.5)
-  # my.lwd <- 3
-  # my.y <- c(0.175, 0.42)
-  # lines(x = c(1.8, 6.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
-  # lines(x = c(6.8, 10.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
-  # lines(x = c(10.8, 14.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
-  # dev.off()
-}
+# #non-linear least-squares fit
+# lambda = 0.01 #error threshold for starting values
+# frac.change = 1
+# #starting values for fit: 50 start vals listed first
+# start.vals <- list(list(a=1059393503, b=1.778213, c=5.056632, 
+#                    d=2759201448, e=0.3280987, f=10.26474), 
+#                    list(a=1059393503, b=1.778213, c=5.056632, 
+#                        d=2759201448, e=0.3280987, f=10.26474))
+# while (frac.change > lambda) {
+#   #make frame for fit coeffs
+#   my.coef <- data.frame(Media = character(), Proj = character(), Pop = character(), 
+#                         Treat = character(), Isol = character(), Rep = character(),
+#                         a = double(), b = double(), c = double(), d = double(), e = double(),
+#                         f = double(), cor = double())
+#   #make list to save nls models
+#   nls.list <- list()
+#   #calculate coeffs for ea growth curve (using current starting values)
+#   for (my.run in unique(gc_data$M.P.P.T.I.R)) {
+#     my.sub <- subset(gc_data, gc_data$M.P.P.T.I.R == my.run)
+#     my.sub <- my.sub[order(my.sub$Time), ]
+#     my.data <- data.frame(x = as.numeric(format(my.sub$Time, "%H"))+
+#                             as.numeric(format(my.sub$Time, "%M"))/60, y = my.sub$CFU)
+#     my.data <- my.data[-(1:3), ]
+#     if (my.sub$Media[1] == 50) {
+#       my.nls <- nlsLM(y ~ (a/(1+exp(-b*(x-c))))+(d/(1+exp(-e*(x-f)))),
+#                       data = my.data, start = start.vals[[1]])
+#       
+#     } else if (my.sub$Media[1] == 100) {
+#       my.nls <- nlsLM(y ~ (a/(1+exp(-b*(x-c))))+(d/(1+exp(-e*(x-f)))),
+#                       data = my.data, start = start.vals[[2]])
+#     }
+#     # plot(my.data$x, my.data$y)
+#     # lines(my.data$x, predict(my.nls))
+#     #store coeffs
+#     my.coef <- rbind(my.coef, data.frame(Media = my.sub$Media[1], Proj = my.sub$Proj[1], 
+#                                          Pop = my.sub$Pop[1], Treat = my.sub$Treat[1], 
+#                                          Isol = my.sub$Isol[1], Rep = my.sub$Rep[1],
+#                                          a = my.nls$m$getPars()[1], b = my.nls$m$getPars()[2], 
+#                                          c = my.nls$m$getPars()[3], d = my.nls$m$getPars()[4], 
+#                                          e = my.nls$m$getPars()[5], f = my.nls$m$getPars()[6], 
+#                                          cor = cor(my.data$y, predict(my.nls))))
+#     nls.list <- c(nls.list, list(my.nls))
+#   }
+#   #change the starting value for ea coeff to be the cnt mean of each coeff
+#   past.vals <- start.vals
+#   change <- c()
+#   for (i in 1:2) {
+#     my.media <- c(50, 100)[i]
+#     my.sub = subset(my.coef, my.coef$Media == my.media)
+#     start.vals[[i]] <- list(a = median(my.sub$a), b = median(my.sub$b),
+#                             c = median(my.sub$c), d = median(my.sub$d),
+#                             e = median(my.sub$e), f = median(my.sub$f))
+#     change <-  c(change, 
+#       abs((as.numeric(start.vals[[i]])-as.numeric(past.vals[[i]]))/
+#             as.numeric(past.vals[[i]])))
+#   }
+#   #check if the change is small enough (reached local maxima)
+#   frac.change <- mean(change)
+# }
+# 
+# 
+# # stripchart(my.coef$f ~ paste(my.coef$Media, my.coef$Pop, my.coef$Treat,
+# #                            my.coef$Isol), vert = T)
+# 
+# #average values across replicate growth curves
+# my.coef.mean <- my.coef[0, -c(2, 6, 13)]
+# my.coef$M.P.T.I <- paste(my.coef$Media, my.coef$Pop, my.coef$Treat, my.coef$Isol, sep=".")
+# for (my.run in unique(my.coef$M.P.T.I)) {
+#   my.sub <- subset(my.coef, my.coef$M.P.T.I == my.run)
+#   my.coef.mean <- rbind(my.coef.mean, data.frame("Media" = my.sub$Media[1],
+#                                      "Pop" = my.sub$Pop[1],
+#                                      "Treat" = my.sub$Treat[1],
+#                                      "Isol" = my.sub$Isol[1],
+#                                      "a" = mean(my.sub$a),
+#                                      "b" = mean(my.sub$b),
+#                                      "c" = mean(my.sub$c),
+#                                      "d" = mean(my.sub$d),
+#                                      "e" = mean(my.sub$e),
+#                                      "f" = mean(my.sub$f),
+#                                      "M.P.T.I" = my.sub$M.P.T.I[1]))
+# }
+# 
+# #plot averaged values for each pop & treat for each coeff
+# for (i in 1:length(unique(my.coef.mean$Media))) {
+#   my.media <- unique(my.coef.mean$Media)[i]
+#   my.sub <- subset(my.coef.mean, my.coef.mean$Media == my.media)
+#   my.sub <- my.sub[order(my.sub$Treat, my.sub$Pop), ]
+#   for (j in 1:6) {
+#     tiff(filename = paste(my.media, letters[j], "v2_isol_rates.tiff", sep = "_"),
+#          width = 15, height = 7, units = "in",
+#          compression = "none", res = 300)
+#     stripchart(my.sub[, j+4] ~ paste(my.sub$Treat, my.sub$Pop), vert = T, pch = 19,
+#                cex = 2, cex.axis = 2, ylab = "",
+#                group.names = c("WT", "CA", "B", "C", "D", "E", "GA", "B", "C", "D",
+#                                "LA", "B", "C", "D"))
+#     dev.off()
+#   }
+#   # par(mar = my.mar + c(1, 3, 0, 0), xpd = T)
+#   # 
+#   # 
+#   # mtext(expression(paste(mu[max], " (hr"^"-1", ")")), side = 2, cex = 2.5, line = 4)
+#   # my.y <- c(0.05, 0.32)
+#   # text(c("Control", "Global", "Local"), x = c(4, 8.5, 12.5), y = my.y[i], cex = 2.5)
+#   # my.lwd <- 3
+#   # my.y <- c(0.175, 0.42)
+#   # lines(x = c(1.8, 6.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
+#   # lines(x = c(6.8, 10.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
+#   # lines(x = c(10.8, 14.2), y = c(my.y[i], my.y[i]), lwd = my.lwd)
+#   # dev.off()
+# }
 
 ##Isolate resistance analysis
 setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/74_75_76_Analysis")
