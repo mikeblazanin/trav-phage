@@ -267,15 +267,21 @@ ggplot(data = mean_rates,
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
                 width=0.7, position=position_dodge(0.2)) +
-  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)",
-       Treat = "Treatment") + 
+  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local"))
 
 #make plot of ea treat to check if pops are stable position
+my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
+                     "G" = "Global", "L" = "Local")
 ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
-  geom_line() + geom_point() + facet_grid(Treat~Proj) +
-  theme(axis.text.y = element_blank())
+  geom_line() + geom_point() + 
+  facet_grid(Treat~Proj, labeller = labeller(Proj = my_facet_labels, 
+                                             Treat = my_facet_labels)) + 
+  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
+  labs(x = "Transfer", y = "Migration Rate (cm/hr)") + 
+  scale_color_hue(name = "Replicate\nPopulation")
+
 
 ##isolate migration analysis
 
