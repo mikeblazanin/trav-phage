@@ -568,7 +568,7 @@ mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat,
 mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
                 gc_data$Isol, sep = ".")
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 4, mpptir)
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 3, mpptir)
 
 #calc rates
 gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
