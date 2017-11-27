@@ -258,13 +258,19 @@ mean_rates$SD_Rate <- as.numeric(mean_rates$SD_Rate)
 end_data <- subset(end_data, end_data$Time <= 14)
 mean_rates <- subset(mean_rates, mean_rates$Time<=14)
 
+my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage")
 #make plot by treatment
 ggplot(data = mean_rates, 
        aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
-  geom_line() + geom_point() + theme(axis.text.y = element_blank()) +
-  facet_grid(~Proj) + 
+  geom_line() + geom_point() + 
+  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
+  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
-                width=0.7, position=position_dodge(0.2))
+                width=0.7, position=position_dodge(0.2)) +
+  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)",
+       Treat = "Treatment") + 
+  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
+                  labels = c("Control", "Global", "Local"))
 
 #make plot of ea treat to check if pops are stable position
 ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
