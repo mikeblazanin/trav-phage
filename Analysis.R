@@ -609,8 +609,24 @@ for (i in 1:length(unique(mppti))) {
                                     "sd_max_dCFUprhr" = sd(max_rates))
 }
 
+
 ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
-  geom_jitter(width = 0.1, height = 0) + facet_grid(Media ~ Pop)
+  geom_jitter(width = 0.1, height = 0) + facet_grid(Media ~ Pop) +
+  labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+
+#plots from above for reference
+#   my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
+#                        "G" = "Global", "L" = "Local")
+# ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
+#   geom_line() + geom_point() + 
+#   facet_grid(Treat~Proj, labeller = labeller(Proj = my_facet_labels, 
+#                                              Treat = my_facet_labels)) + 
+#   theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
+#   labs(x = "Transfer", y = "Migration Rate (cm/hr)") + 
+#   scale_color_hue(name = "Replicate\nPopulation")
+
 
 #don't know if I'll use the following:
 
