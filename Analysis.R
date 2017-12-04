@@ -752,7 +752,6 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
 # }
 
 ##Isolate resistance analysis
-setwd("C:/Users/mikeb/Google Drive/Phage-Bacteria Project/Data/74_75_76_Analysis")
 resis_data <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
 
 #split out project info & mke unique reps
@@ -777,20 +776,17 @@ for (i in 1:nrow(resis_data)) {
   }
 }
 
-#plot PFU for each pop
-tiff(filename = "resist.tiff", width = 15, height = 7, units = "in",
-     compression = "none", res = 300)
-par(mar = my.mar + c(1, 3, 0, 0), xpd = T)
-stripchart(resis_data$PFU ~ paste(resis_data$Treat, resis_data$Pop), vert = T, pch = 19,
-           cex = 2, cex.axis = 2, ylab = "",
-           group.names = c("WT", "A", "B", "C", "D", "E", "A", "B", "C", "D",
-                           "A", "B", "C", "D"))
-mtext("Ancestral PFU Observed", side = 2, cex = 2.5, line = 4)
-my.y <- -34
-text(c("Control", "Global", "Local"), x = c(4, 8.5, 12.5), y = my.y, cex = 2.5)
-my.lwd <- 3
-my.y <- -25
-lines(x = c(1.8, 6.2), y = c(my.y, my.y), lwd = my.lwd)
-lines(x = c(6.8, 10.2), y = c(my.y, my.y), lwd = my.lwd)
-lines(x = c(10.8, 14.2), y = c(my.y, my.y), lwd = my.lwd)
-dev.off()
+#calculate EOP for ea isol
+resis_data$EOP <- NA
+for (i in 1:nrow(resis_data)) {
+  my_sub <- subset(resis_data, resis_data$Isol == resis_data$Isol[i])
+  resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
+}
+
+#plot EOP for each treat
+ggplot(resis_data, aes(x = Treat, y = EOP)) + 
+  geom_boxplot() + 
+  labs(x = "Treatment", y = "Efficiency of Plating") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
