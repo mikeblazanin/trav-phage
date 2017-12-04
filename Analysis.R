@@ -614,7 +614,17 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   geom_jitter(width = 0.1, height = 0) + facet_grid(Media ~ Pop) +
   labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
   theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11)) +
+        axis.text.y = element_text(size = 11))
+
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment")
+
+ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
+  geom_boxplot() + 
+  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
+  scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
+  
 
 #plots from above for reference
 #   my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
