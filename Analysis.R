@@ -623,7 +623,12 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   geom_boxplot() + 
   facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
   labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
-  scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
+  scale_x_discrete(labels = c("WT", "Control", "Global", "Local")) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        strip.text.x = element_text(size = 14))
   
 
 #plots from above for reference
@@ -787,6 +792,8 @@ for (i in 1:nrow(resis_data)) {
 ggplot(resis_data, aes(x = Treat, y = EOP)) + 
   geom_boxplot() + 
   labs(x = "Treatment", y = "Efficiency of Plating") +
-  theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11)) +
+  theme(axis.text.x = element_text(size = 15), 
+        axis.text.y = element_text(size = 13.5),
+        axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15)) +
   scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
