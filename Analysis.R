@@ -1,4 +1,5 @@
 library("ggplot2")
+library("reshape")
 
 #need to make Rep vs Pop consistent
 
@@ -262,25 +263,28 @@ my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage")
 #make plot by treatment
 ggplot(data = mean_rates, 
        aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
-  geom_line() + geom_point() + 
-  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
+  geom_line(size = 1.2) + geom_point() + 
+  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
+        legend.text = element_text(size = 16)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
                 width=0.7, position=position_dodge(0.2)) +
   labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local"))
+                  labels = c("Control", "Global", "Local")) +
+  theme_bw()
 
 #make plot of ea treat to check if pops are stable position
 my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
                      "G" = "Global", "L" = "Local")
 ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
-  geom_line() + geom_point() + 
+  geom_line(size = 1.1) + geom_point() + 
   facet_grid(Treat~Proj, labeller = labeller(Proj = my_facet_labels, 
                                              Treat = my_facet_labels)) + 
   theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
   labs(x = "Transfer", y = "Migration Rate (cm/hr)") + 
-  scale_color_hue(name = "Replicate\nPopulation")
+  scale_color_hue(name = "Replicate\nPopulation") +
+  theme_bw()
 
 
 ##isolate migration analysis
@@ -609,15 +613,32 @@ for (i in 1:length(unique(mppti))) {
                                     "sd_max_dCFUprhr" = sd(max_rates))
 }
 
-
-ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
-  geom_jitter(width = 0.1, height = 0) + facet_grid(Media ~ Pop) +
-  labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
-  theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11))
+#make example growth curve plot
+my_size = 1.4
+for (i in 1:20) {
+  uniq <- unique(mpptir)[i]
+  my_sub <- subset(gc_data, uniq == mpptir)
+  melt_sub <- melt(my_sub[, c(1, 7, 12, 13)], id = c("Time"))
+  print(ggplot(melt_sub, aes(x = Time, y = value, colour = variable)) +
+          geom_line(size = my_size) + 
+          theme_bw() + ylab("CFU") +
+          scale_colour_manual(values = c("black", "red", "blue"),
+                              name = "Data Type",
+                              labels = c("Original CFU", "Smoothed CFU", "dCFU/hour"))
+        )
+}
 
 my_facet_labels <- c("100" = "Rich Environment", 
                      "50" = "Adapted Environment")
+
+ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
 
 ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   geom_boxplot() + 
