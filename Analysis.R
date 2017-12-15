@@ -681,19 +681,6 @@ ggplot(avg_max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
                      breaks = 100000000*c(3, 4, 5, 6),
                      labels = c("3", "4", "5", "6")) +
   theme_bw()
-  
-
-##this is a misleading figure
-# ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
-#   geom_boxplot() + 
-#   facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
-#   labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
-#   scale_x_discrete(labels = c("WT", "Control", "Global", "Local")) +
-#   theme(axis.text.x = element_text(size = 15),
-#         axis.text.y = element_text(size = 12),
-#         axis.title.x = element_text(size = 15),
-#         axis.title.y = element_text(size = 15),
-#         strip.text.x = element_text(size = 14))
 
 ##Isolate resistance analysis
 resis_data <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
