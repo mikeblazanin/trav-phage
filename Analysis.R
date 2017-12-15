@@ -683,29 +683,33 @@ ggplot(avg_max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   theme_bw()
 
 ##Isolate resistance analysis
-resis_data <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
+resis_data_7x <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
 
 #split out project info & mke unique reps
-resis_data <- cbind(resis_data[, 1:2], "Pop" = NA, resis_data[, 3:5])
-for (i in 1:nrow(resis_data)) {
-  my.proj <- resis_data$Proj[i]
+resis_data_7x <- cbind(resis_data_7x[, 1:2], "Pop" = NA, resis_data_7x[, 3:5])
+for (i in 1:nrow(resis_data_7x)) {
+  my.proj <- resis_data_7x$Proj[i]
   if (my.proj == "P1.1") {
-    resis_data$Pop[i] <- "A"
-    resis_data$Treat[i] <- "A" #for Ancestor
+    resis_data_7x$Pop[i] <- "A"
+    resis_data_7x$Treat[i] <- "A" #for Ancestor
   } else if (my.proj == "74") {
-    resis_data$Pop[i] <- "A"
+    resis_data_7x$Pop[i] <- "A"
   } else {
-    resis_data$Proj[i] <- substr(my.proj, 1, 2)
-    resis_data$Pop[i] <- substr(my.proj, 3, 3)
+    resis_data_7x$Proj[i] <- substr(my.proj, 1, 2)
+    resis_data_7x$Pop[i] <- substr(my.proj, 3, 3)
   }
-  if (resis_data$Proj[i] == "75") {
-    if (resis_data$Pop[i] == "A") {resis_data$Pop[i] <- "B"
-    } else {resis_data$Pop[i] <- "C"}
-  } else if (resis_data$Proj[i] == "76") {
-    if (resis_data$Pop[i] == "A") {resis_data$Pop[i] <- "D"
-    } else {resis_data$Pop[i] <- "E"}
+  if (resis_data_7x$Proj[i] == "75") {
+    if (resis_data_7x$Pop[i] == "A") {resis_data_7x$Pop[i] <- "B"
+    } else {resis_data_7x$Pop[i] <- "C"}
+  } else if (resis_data_7x$Proj[i] == "76") {
+    if (resis_data_7x$Pop[i] == "A") {resis_data_7x$Pop[i] <- "D"
+    } else {resis_data_7x$Pop[i] <- "E"}
   }
 }
+resis_data_7x$Proj <- 1
+
+#this is where merge of resis data will be
+resis_data <- resis_data_7x
 
 #calculate EOP for ea isol
 resis_data$EOP <- NA
@@ -714,6 +718,7 @@ for (i in 1:nrow(resis_data)) {
   resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
 }
 
+#this is misleading figure
 #plot EOP for each treat
 ggplot(resis_data, aes(x = Treat, y = EOP)) + 
   geom_boxplot() + 
@@ -733,3 +738,5 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
   theme_bw() + ggtitle("Replicate") +
   theme(plot.title = element_text(size = 12, hjust = 0.5), 
         axis.title = element_text(size = 12))
+
+#resistance vs growth
