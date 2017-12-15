@@ -674,17 +674,18 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
 ggplot(avg_max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   geom_point(aes(colour = Pop)) + 
   facet_grid(.~Media, labeller = labeller(Media = my_facet_labels))
-  
-ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
-  geom_boxplot() + 
-  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
-  labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
-  scale_x_discrete(labels = c("WT", "Control", "Global", "Local")) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 12),
-        axis.title.x = element_text(size = 15),
-        axis.title.y = element_text(size = 15),
-        strip.text.x = element_text(size = 14))
+
+##this is a misleading figure
+# ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
+#   geom_boxplot() + 
+#   facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
+#   labs(x = "Treatment", y = "Maximum Growth Rate (CFU/hr)") +
+#   scale_x_discrete(labels = c("WT", "Control", "Global", "Local")) +
+#   theme(axis.text.x = element_text(size = 15),
+#         axis.text.y = element_text(size = 12),
+#         axis.title.x = element_text(size = 15),
+#         axis.title.y = element_text(size = 15),
+#         strip.text.x = element_text(size = 14))
 
 ##Isolate resistance analysis
 resis_data <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
@@ -728,7 +729,12 @@ ggplot(resis_data, aes(x = Treat, y = EOP)) +
         axis.title.y = element_text(size = 15)) +
   scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
 
+my_facet_labels <- c("C" = "Control", "G" = "Global", "L" = "Local")
 ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
-  geom_jitter(width = 0.2, height = 0) +
-  facet_grid(.~Pop)
-
+  scale_x_discrete(name = "Treatment", labels = my_facet_labels) +
+  ylab("Efficiency of Plating") +
+  geom_jitter(width = 0.2, height = 0, size = 2) +
+  facet_grid(.~Pop) +
+  theme_bw() + ggtitle("Replicate") +
+  theme(plot.title = element_text(size = 12, hjust = 0.5), 
+        axis.title = element_text(size = 12))
