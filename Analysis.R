@@ -718,17 +718,6 @@ for (i in 1:nrow(resis_data)) {
   resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
 }
 
-#this is misleading figure
-#plot EOP for each treat
-ggplot(resis_data, aes(x = Treat, y = EOP)) + 
-  geom_boxplot() + 
-  labs(x = "Treatment", y = "Efficiency of Plating") +
-  theme(axis.text.x = element_text(size = 15), 
-        axis.text.y = element_text(size = 13.5),
-        axis.title.x = element_text(size = 15),
-        axis.title.y = element_text(size = 15)) +
-  scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
-
 my_facet_labels <- c("C" = "Control", "G" = "Global", "L" = "Local")
 ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
   scale_x_discrete(name = "Treatment", labels = my_facet_labels) +
