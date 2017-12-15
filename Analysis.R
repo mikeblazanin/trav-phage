@@ -2,6 +2,8 @@ library("ggplot2")
 library("reshape")
 
 #need to make Rep vs Pop consistent
+#redo all analysis using dplyr
+#redo analysis using vectorization
 
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
