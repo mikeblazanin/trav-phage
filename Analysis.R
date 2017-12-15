@@ -727,3 +727,8 @@ ggplot(resis_data, aes(x = Treat, y = EOP)) +
         axis.title.x = element_text(size = 15),
         axis.title.y = element_text(size = 15)) +
   scale_x_discrete(labels = c("WT", "Control", "Global", "Local"))
+
+ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
+  geom_jitter(width = 0.2, height = 0) +
+  facet_grid(.~Pop)
+
