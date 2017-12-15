@@ -584,7 +584,7 @@ mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat,
 mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
                 gc_data$Isol, sep = ".")
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 3, mpptir)
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 8, mpptir)
 
 #calc rates
 gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
@@ -592,7 +592,11 @@ gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] -
   as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
            units = "hours")), NA)
 
-#extract max rates for each unique well
+# #to be done later:
+# #define function to get means of rates
+# mean_rates <- function(sub_by_list, my_data)
+
+#extract max rates for each unique well, then avg them
 max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(unique(mppti))))
 colnames(max_gc_rate) <- c("Media", "Proj", "Pop", "Treat", "Isol", 
                            "avg_max_dCFUprhr", "sd_max_dCFUprhr")
@@ -613,24 +617,51 @@ for (i in 1:length(unique(mppti))) {
                                     "sd_max_dCFUprhr" = sd(max_rates))
 }
 
-#make example growth curve plot
-my_size = 1.4
-for (i in 1:20) {
-  uniq <- unique(mpptir)[i]
-  my_sub <- subset(gc_data, uniq == mpptir)
-  melt_sub <- melt(my_sub[, c(1, 7, 12, 13)], id = c("Time"))
-  print(ggplot(melt_sub, aes(x = Time, y = value, colour = variable)) +
-          geom_line(size = my_size) + 
-          theme_bw() + ylab("CFU") +
-          scale_colour_manual(values = c("black", "red", "blue"),
-                              name = "Data Type",
-                              labels = c("Original CFU", "Smoothed CFU", "dCFU/hour"))
-        )
+#extract avg rates across isols
+mppt <- paste(max_gc_rate$Media, max_gc_rate$Proj, max_gc_rate$Pop, 
+              max_gc_rate$Treat, sep = ".")
+
+avg_max_gc_rate <- data.frame(matrix(ncol = 6, nrow = length(unique(mppt))))
+colnames(avg_max_gc_rate) <- c("Media", "Proj", "Pop", "Treat",
+                               "avg_max_dCFUprhr", "sd_max_dCFUprhr")
+for (i in 1:length(unique(mppt))) {
+  uniq <- unique(mppt)[i]
+  my_sub <- subset(max_gc_rate, uniq == mppt)
+  max_rates <- c()
+  for (my_isol in unique(my_sub$Isol)) {
+    isol_sub <- subset(my_sub, my_sub$Isol == my_isol)
+    max_rates <- c(max_rates, max(isol_sub$avg_max_dCFUprhr, na.rm = T))
+  }
+  avg_max_gc_rate[i, 1:6] <- data.frame("Media" = unique(my_sub$Media), 
+                                    "Proj" = unique(my_sub$Proj),
+                                    "Pop" = unique(my_sub$Pop),
+                                    "Treat" = unique(my_sub$Treat),
+                                    "avg_max_dCFUprhr" = mean(max_rates),
+                                    "sd_max_dCFUprhr" = sd(max_rates))
 }
+
+
+# #make example growth curve plot
+# my_size = 1.4
+# num_curves = 5
+# for (i in as.integer(seq(to = length(unique(mpptir)), 
+#                   by = length(unique(mpptir))/num_curves))) {
+#   uniq <- unique(mpptir)[i]
+#   my_sub <- subset(gc_data, uniq == mpptir)
+#   melt_sub <- melt(my_sub[, c(1, 7, 12, 13)], id = c("Time"))
+#   print(ggplot(melt_sub, aes(x = Time, y = value, colour = variable)) +
+#           geom_line(size = my_size) +
+#           theme_bw() + ylab("CFU") +
+#           scale_colour_manual(values = c("black", "red", "blue"),
+#                               name = "Data Type",
+#                               labels = c("Original CFU", "Smoothed CFU", "dCFU/hour"))
+#         )
+# }
 
 my_facet_labels <- c("100" = "Rich Environment", 
                      "50" = "Adapted Environment")
 
+#plot of all isols
 ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
   geom_jitter(width = 0.1, height = 0, size = 2) + 
   facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
@@ -638,6 +669,12 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
   theme(axis.text.x = element_text(size = 11), 
         axis.text.y = element_text(size = 11)) +
   theme_bw()
+
+#plot of reps
+ggplot(avg_max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
+  geom_point(aes(colour = Pop)) + 
+  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels))
+  
 
 
 ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
