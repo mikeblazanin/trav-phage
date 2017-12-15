@@ -659,7 +659,9 @@ for (i in 1:length(unique(mppt))) {
 # }
 
 my_facet_labels <- c("100" = "Rich Environment", 
-                     "50" = "Adapted Environment")
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
 
 #plot of all isols
 ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) + 
@@ -672,8 +674,14 @@ ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
 
 #plot of reps
 ggplot(avg_max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
-  geom_point(aes(colour = Pop)) + 
-  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels))
+  geom_point(size = 2) + 
+  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) +
+  scale_x_discrete(name = "Treatment", labels = my_facet_labels) +
+  scale_y_continuous(name = bquote("Maximum Growth Rate ("~10^8~"CFU/hour)"),
+                     breaks = 100000000*c(3, 4, 5, 6),
+                     labels = c("3", "4", "5", "6")) +
+  theme_bw()
+  
 
 ##this is a misleading figure
 # ggplot(max_gc_rate, aes(x = Treat, y = avg_max_dCFUprhr)) +
