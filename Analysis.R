@@ -690,7 +690,7 @@ resis_data_7x <- cbind(resis_data_7x[, 1:2], "Pop" = NA, resis_data_7x[, 3:5])
 for (i in 1:nrow(resis_data_7x)) {
   my.proj <- resis_data_7x$Proj[i]
   if (my.proj == "P1.1") {
-    resis_data_7x$Pop[i] <- "A"
+    resis_data_7x$Pop[i] <- "F"
     resis_data_7x$Treat[i] <- "A" #for Ancestor
   } else if (my.proj == "74") {
     resis_data_7x$Pop[i] <- "A"
@@ -729,3 +729,23 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
         axis.title = element_text(size = 12))
 
 #resistance vs growth
+gc_resis_data <- max_gc_rate
+gc_ppti <- paste(gc_resis_data$Proj, gc_resis_data$Pop, 
+                      gc_resis_data$Treat, gc_resis_data$Isol, sep = ".")
+res_ppti <- paste(resis_data$Proj, resis_data$Pop, 
+               resis_data$Treat, resis_data$Isol, sep = ".")
+mppt <- paste(gc_resis_data$Media, gc_resis_data$Proj, gc_resis_data$Pop,
+              gc_resis_data$Treat, sep = ".")
+gc_resis_data$EOP <- resis_data$EOP[match(gc_ppti, res_ppti)]
+ggplot(gc_resis_data, aes(x = EOP, y = avg_max_dCFUprhr)) +
+  geom_point() + facet_grid(Media~.) + 
+  stat_summary(aes(group = mppt))
+# stat_smooth(method = "lm") +
+summary(lm(avg_max_dCFUprhr~Media+EOP, data = gc_resis_data))
+
+library("dplyr")
+means_data <- summarise(group_by(gc_resis_data, Media, Proj, Pop, Treat),
+                        mean_EOP = mean(EOP), mean_gc = mean(avg_max_dCFUprhr))
+ggplot(means_data, aes(x = mean_EOP, y = mean_gc)) + geom_point() +
+  facet_grid(Media~.) + stat_smooth(method = "lm")
+summary(lm(mean_gc~Media+mean_EOP, data = means_data))
