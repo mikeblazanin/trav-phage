@@ -720,15 +720,20 @@ for (i in 1:nrow(resis_data)) {
   resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
 }
 
-my_facet_labels <- c("C" = "Control", "G" = "Global", "L" = "Local")
-ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = EOP)) +
+ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
   scale_x_discrete(name = "Treatment", labels = my_facet_labels) +
-  ylab("Efficiency of Plating") +
-  geom_jitter(width = 0.2, height = 0, size = 2) +
+  ylab("Resistance to Phage") +
   facet_grid(.~Pop) +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
+               dotsize = 3, shape = 18) +
+  # geom_jitter(width = 0.2, height = 0, size = 2) +
   theme_bw() + ggtitle("Replicate") +
   theme(plot.title = element_text(size = 12, hjust = 0.5), 
-        axis.title = element_text(size = 12))
+        axis.title = element_text(size = 12)) +
+  geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+
+# geom_point(position = position_dodge(width = 0), size = 2) +
+  
 
 #resistance vs growth
 gc_resis_data <- max_gc_rate
@@ -748,6 +753,11 @@ summary(lm(avg_max_dCFUprhr~Media+EOP, data = gc_resis_data))
 library("dplyr")
 means_data <- summarise(group_by(gc_resis_data, Media, Proj, Pop, Treat),
                         mean_EOP = mean(EOP), mean_gc = mean(avg_max_dCFUprhr))
-ggplot(means_data, aes(x = mean_EOP, y = mean_gc)) + geom_point() +
-  facet_grid(Media~.) + stat_smooth(method = "lm")
+ggplot(means_data, aes(x = 1-mean_EOP, y = mean_gc)) + geom_point() +
+  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) + 
+  geom_smooth(method = "lm") +
+  scale_y_continuous(name = bquote("Maximum Growth Rate ("~10^8~"CFU/hour)"),
+                     breaks = 100000000*c(3, 4, 5, 6),
+                     labels = c("3", "4", "5", "6")) +
+  xlab("Resistance to Phage") + theme_bw()
 summary(lm(mean_gc~Media+mean_EOP, data = means_data))
