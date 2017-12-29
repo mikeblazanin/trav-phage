@@ -270,7 +270,7 @@ ggplot(data = mean_rates,
         legend.text = element_text(size = 16)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
-                width=0.7, position=position_dodge(0.2)) +
+                width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local")) +
