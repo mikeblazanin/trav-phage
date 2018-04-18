@@ -4,6 +4,7 @@ library("reshape")
 #need to make Rep vs Pop consistent
 #redo all analysis using dplyr
 #redo analysis using vectorization
+#include std curve for spec in this code
 
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
@@ -586,13 +587,26 @@ mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat,
 mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
                 gc_data$Isol, sep = ".")
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 8, mpptir)
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 1, mpptir)
 
 #calc rates
 gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
   gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
   as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
            units = "hours")), NA)
+
+#Calculate doubling time
+gc_data$doubtime <- c(as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], 
+                                        gc_data$Time[1:(nrow(gc_data)-1)],
+                                        units = "mins"))/
+  log2(gc_data$Smooth_CFU[2:(nrow(gc_data))]/
+         gc_data$Smooth_CFU[1:(nrow(gc_data)-1)]), NA)
+  
+#plot doubling rate over time for each well
+for (i in 1:length(unique(mpptir))) {
+  my_sub <- gc_data[mpptir == unique(mpptir)[i], ]
+  ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line()
+}
 
 # #to be done later:
 # #define function to get means of rates
