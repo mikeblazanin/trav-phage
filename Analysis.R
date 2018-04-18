@@ -4,7 +4,11 @@ library("reshape")
 #need to make Rep vs Pop consistent
 #redo all analysis using dplyr
 #redo analysis using vectorization
-#include std curve for spec in this code
+#include std curve for spec in this code (it may alread be there???)
+#Do a scripted analysis of how much to smoothe gc data (not manually checking)
+# #to be done later:
+# #define function to get means of rates
+# mean_rates <- function(sub_by_list, my_data)
 
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
@@ -473,6 +477,8 @@ my.fit <- lm(CFU ~ OD600, data = stan_plate_list)
 ##growth curve analysis
 library("minpack.lm")
 library("tidyr")
+library("lubridate")
+
 options(stringsAsFactors = F)
 growth_97 <- read.csv("97B.csv", header = T, stringsAsFactors = F)
 growth_98 <- read.csv("98B.csv", header = T, stringsAsFactors = F)
@@ -560,6 +566,59 @@ gc_data <- sep.growth.ID(gc_data)
 #reformat time column
 gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
 
+#Remove first hour of datapoints
+gc_data <- gc_data[hour(gc_data$Time) > 0, ]
+
+mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+                gc_data$Isol, gc_data$Rep_Well, sep = ".")
+mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+               gc_data$Isol, sep = ".")
+
+#smooth by averaging non-overlapping ranges
+smooth_data_noverlap <- function(my_data, smooth_over, subset_by) {
+  #data must be sorted sequentially before fed into function
+  #my_data is a vector of the data to be smoothed
+  #smooth over is how many sequential entries to average
+  #the unique values of subset_by will be what is iterated over
+  out_list <- rep(NA, length(my_data))
+  cntr = 0
+  for (my_uniq in unique(subset_by)) {
+    my_sub <- subset(my_data, subset_by == my_uniq)
+    for (i in seq(from = 1, to = length(my_sub), by = smooth_over)) {
+      if (i+smooth_over < length(my_sub)) {
+        out_list[cntr+i] <- mean(my_sub[i:(i+smooth_over-1)])
+      }
+    }
+    cntr <- cntr+length(my_sub)
+  }
+  return(out_list)
+}
+
+gc_data$Smooth_CFU <- smooth_data_noverlap(gc_data$CFU, 5, subset_by = mpptir)
+
+gc_sm <- gc_data[is.na(gc_data$Smooth_CFU) == F, ]
+
+doubling_time <- function(CFU, time, subset_by) {
+  ans <- c(as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)],
+             units = "mins"))/
+    log2(CFU[2:length(CFU)]/CFU[1:(length(CFU)-1)]), NA)
+  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
+  return(ans)
+}
+  
+mpptir <- paste(gc_sm$Media, gc_sm$Proj, gc_sm$Pop, gc_sm$Treat, 
+                gc_sm$Isol, gc_sm$Rep_Well, sep = ".")
+gc_sm$mpptir <- mpptir
+
+gc_sm$doubtime <- doubling_time(gc_sm$Smooth_CFU, gc_sm$Time, gc_sm$mpptir)
+
+for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
+  my_sub <- gc_sm[(mpptir %in% unique(mpptir)[i:(i+24)]), ]
+  print(ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line() +
+          facet_wrap(~mpptir))
+}
+
+
 #smooth CFU data
 smooth_data <- function(my_data, smooth_over, subset_by) {
   #data must be sorted sequentially before fed into function
@@ -582,35 +641,43 @@ smooth_data <- function(my_data, smooth_over, subset_by) {
   return(out_list)
 }
 
-mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-                gc_data$Isol, gc_data$Rep_Well, sep = ".")
-mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-                gc_data$Isol, sep = ".")
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 16, mpptir)
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 1, mpptir)
 
-#calc rates
-gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
-  gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
-  as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
-           units = "hours")), NA)
-
-#Calculate doubling time
-gc_data$doubtime <- c(as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], 
-                                        gc_data$Time[1:(nrow(gc_data)-1)],
-                                        units = "mins"))/
-  log2(gc_data$Smooth_CFU[2:(nrow(gc_data))]/
-         gc_data$Smooth_CFU[1:(nrow(gc_data)-1)]), NA)
-  
-#plot doubling rate over time for each well
-for (i in 1:length(unique(mpptir))) {
-  my_sub <- gc_data[mpptir == unique(mpptir)[i], ]
-  ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line()
+#plot doubling rate over time for each well (checking for smoothness)
+gc_data$mpptir <- mpptir
+for (i in seq(from = 1, to = length(unique(mpptir)), by = 25)) {
+  my_sub <- gc_data[(mpptir %in% unique(mpptir)[i:(i+24)]), ]
+  print(ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line() +
+    facet_wrap(~mpptir))
 }
 
-# #to be done later:
-# #define function to get means of rates
-# mean_rates <- function(sub_by_list, my_data)
+my_sub <- gc_data[mpptir == "50.1.F.A.A.2", ]
+ggplot(data = my_sub, aes(x = Time, y = CFU)) +
+  geom_line()
+ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
+  geom_line()
+ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
+  geom_line()
+
+
+
+par(mfrow = c(5, 5))
+for (i in 1:10) { #1:length(unique(mpptir))) {
+  my_sub <- gc_data[mpptir == unique(mpptir)[i], ]
+  print(ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line())
+}
+par(mfrow = c(1, 1))
+
+#extract minimum doubling times for each uniq well
+
+
+##Old version: using max growth rate (not doubling time)
+#calc rates
+gc_data$dCFUprhr <- c((gc_data$Smooth_CFU[2:(nrow(gc_data))] - 
+                         gc_data$Smooth_CFU[1:(nrow(gc_data)-1)])/
+                        as.numeric(difftime(gc_data$Time[2:(nrow(gc_data))], gc_data$Time[1:(nrow(gc_data)-1)],
+                                            units = "hours")), NA)
 
 #extract max rates for each unique well, then avg them
 max_gc_rate <- data.frame(matrix(ncol = 7, nrow = length(unique(mppti))))
