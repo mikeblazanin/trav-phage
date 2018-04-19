@@ -673,19 +673,38 @@ gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
 
 #extract minimum doubling times for each uniq well
 gc_data$Time <- as.character(gc_data$Time)
-gc_mpptir <- group_by(gc_data, mpptir)
-gc_mpptir <- slice(gc_mpptir, which.min(doubtime))
-gc_mppti <- group_by(gc_mpptir, mppti)
-gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(doubtime),
-                      dt_min_sd = sd(doubtime), Media = first(Media), 
-                      Proj = first(Proj), Pop = first(Pop),
-                      Treat = first(Treat), Isol = first(Isol))
+gc_mpptir <- group_by(gc_data, Media, Proj, Pop, Treat, Isol, Rep_Well)
+gc_mpptir <- summarize(gc_mpptir, min_dt = min(doubtime, na.rm = T))
+gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
+gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(min_dt),
+                      dt_min_sd = sd(min_dt))
+gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
+gc_mppt <- summarize(gc_mppt, avg_isols = mean(dt_min_avg),
+                     sd_isols = sd(dt_min_avg))
+
+#Making doubtime plots
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
+
+#plot of all isols
+ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Doubling Time (min)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
+#plot of all pops
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
+  facet_grid(Media ~ ., labeller = labeller(Media = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
 
 
-min_doubtime <- data.frame(matrix(ncol = 6, nrow = length(unique(gc_data$mpptir))))
-colnames(min_doubtime) <- c("Media", "Proj", "Pop", "Treat", "Isol",
-                            "min_doubtime")
 
 ##Old version: using max growth rate (not doubling time)
 #calc rates
