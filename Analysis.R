@@ -672,8 +672,42 @@ gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
 
 
 #extract minimum doubling times for each uniq well
+#using overlapping averaged smoothing
 gc_data$Time <- as.character(gc_data$Time)
 gc_mpptir <- group_by(gc_data, Media, Proj, Pop, Treat, Isol, Rep_Well)
+gc_mpptir <- summarize(gc_mpptir, min_dt = min(doubtime, na.rm = T))
+gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
+gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(min_dt),
+                      dt_min_sd = sd(min_dt))
+gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
+gc_mppt <- summarize(gc_mppt, avg_isols = mean(dt_min_avg),
+                     sd_isols = sd(dt_min_avg))
+
+#Making doubtime plots
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
+
+#plot of all isols
+ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Doubling Time (min)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
+#plot of all pops
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
+  facet_grid(Media ~ ., labeller = labeller(Media = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
+
+#extract minimum doubling times for each uniq well
+#using non-overlapping averaged smoothing
+gc_sm$Time <- as.character(gc_sm$Time)
+gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
 gc_mpptir <- summarize(gc_mpptir, min_dt = min(doubtime, na.rm = T))
 gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
 gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(min_dt),
@@ -707,7 +741,7 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_fa
 ##Isolate resistance analysis
 resis_data_7x <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
 
-#split out project info & mke unique reps
+#split out project info & make unique reps
 resis_data_7x <- cbind(resis_data_7x[, 1:2], "Pop" = NA, resis_data_7x[, 3:5])
 for (i in 1:nrow(resis_data_7x)) {
   my.proj <- resis_data_7x$Proj[i]
