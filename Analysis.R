@@ -9,6 +9,7 @@ library("reshape")
 # #to be done later:
 # #define function to get means of rates
 # mean_rates <- function(sub_by_list, my_data)
+# analyze additional plate scans
 
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
@@ -381,10 +382,20 @@ isol_start <- make_timestamp(isol_start, type = "isol start")
 #convert timestamp to time since inoculation
 isol_end <- calc_timediff(isol_start, isol_end, "isol")
 
+my_facet_labels <- c("1" = "Weak Phage", 
+                     "2" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
+
 #plot isolate variation for each pop
 isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
 ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
-  geom_jitter(position = position_jitter(0))
+  geom_jitter(position = position_jitter(0), size = 2) + 
+  facet_grid(.~Proj, labeller = labeller(Proj = my_facet_labels)) +
+  theme_bw() + labs(y = "Migration Rate (cm/hr)") +
+  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
+                              "D", "E", LETTERS[1:3], "E")) +
+  theme(axis.text.x = element_text(size = 12, color = "black"))
 
 #have to clean up correlation code
 
@@ -657,18 +668,18 @@ gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
 #           facet_wrap(~mpptir))
 # }
 
-# #Code for looking at an example well
-# my_sub <- gc_data[mpptir == "50.1.D.G.C.1", ]
-# ggplot(data = my_sub, aes(x = Time, y = CFU)) +
-#   geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
-#   geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
-#   geom_line()
-# my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
-# my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
-# ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
-#   geom_line()
+#Code for looking at an example well
+my_sub <- gc_data[gc_data$mpptir == "50.1.A.L.A.1", ]
+ggplot(data = my_sub, aes(x = Time, y = CFU)) +
+  geom_line() + labs(y = "Colony Forming Units (CFU)")
+ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
+  geom_line() + labs(y = "Colony Forming Units (CFU)")
+ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
+  geom_line() + labs(y = "Doubling Time (mins)")
+my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
+my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
+ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
+  geom_line()
 
 
 #extract minimum doubling times for each uniq well
@@ -775,15 +786,16 @@ for (i in 1:nrow(resis_data)) {
 }
 
 ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-  scale_x_discrete(name = "Treatment", labels = my_facet_labels) +
+  scale_x_discrete(name = "Treatment") +
   ylab("Resistance to Phage") +
-  facet_grid(.~Pop) +
+  facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
-               dotsize = 3, shape = 18) +
+               dotsize = 3) +
   # geom_jitter(width = 0.2, height = 0, size = 2) +
-  theme_bw() + ggtitle("Replicate") +
+  theme_bw() + ggtitle("Population") +
   theme(plot.title = element_text(size = 12, hjust = 0.5), 
-        axis.title = element_text(size = 12)) +
+        axis.title = element_text(size = 12),
+        axis.text.x = element_text(color = "black", size = 12)) +
   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
 
 # geom_point(position = position_dodge(width = 0), size = 2) +
