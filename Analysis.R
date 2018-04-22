@@ -879,20 +879,22 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
 gc_resis_data <- merge(resis_data, gc_mppti)
 gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
 gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
-                           avg_dt = mean(dt_min_avg))
+                           avg_gr = mean(gr_max_avg))
 
 #Make plot of all isolates
-ggplot(gc_resis_data, aes(x = 1-EOP, y = dt_min_avg)) +
+ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
   geom_point() + 
   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
   geom_smooth(method = "lm") +
-  labs(x = "Resistance", y = "Doubling Time (min)")
+  labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
 
-summary(lm(dt_min_avg~Media*EOP, data = gc_resis_data))
+summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
 
 #Make plot of all pops
-ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_dt)) +
-  geom_point() + facet_grid(Media~.) +
-  geom_smooth(method = "lm")
+ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+  geom_point(size = 2) + 
+  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
+  geom_smooth(method = "lm") +
+  labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)")
 
-summary(lm(avg_dt~avg_eop*Media, data = gc_resis_mppt))
+summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
