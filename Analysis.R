@@ -734,6 +734,7 @@ my_facet_labels <- c("100" = "Rich Environment",
                      "A" = "WT")
 
 #plot of all isols
+gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
 ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) + 
   geom_jitter(width = 0.1, height = 0, size = 2) + 
   facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
@@ -743,8 +744,9 @@ ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) +
   theme_bw()
 
 #plot of all pops
+gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
 ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
-  facet_grid(Media ~ ., labeller = labeller(Media = my_facet_labels)) + 
+  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) + 
   labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
@@ -802,6 +804,7 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
   
 
 #resistance vs growth
+
 gc_resis_data <- max_gc_rate
 gc_ppti <- paste(gc_resis_data$Proj, gc_resis_data$Pop, 
                       gc_resis_data$Treat, gc_resis_data$Isol, sep = ".")
