@@ -694,29 +694,29 @@ gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 # }
 
 
-#Code for looking at an example well
-my_well <- "100.1.D.C.A.1"
-my_sub <- gc_data[gc_data$mpptir == my_well, ]
-ggplot(data = my_sub, aes(x = Time, y = CFU)) +
-  geom_line() + labs(y = "Colony Forming Units (CFU)")
-ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
-  geom_line() + labs(y = "Colony Forming Units (CFU)")
-ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
-  geom_line() + labs(y = "Doubling Time (mins)")
-ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
-  geom_line()
-
-my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
-ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
-ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
-  geom_line()
-ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
-
-
-my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
-my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
-ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
-  geom_line()
+# #Code for looking at an example well
+# my_well <- "100.1.D.C.A.1"
+# my_sub <- gc_data[gc_data$mpptir == my_well, ]
+# ggplot(data = my_sub, aes(x = Time, y = CFU)) +
+#   geom_line() + labs(y = "Colony Forming Units (CFU)")
+# ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
+#   geom_line() + labs(y = "Colony Forming Units (CFU)")
+# ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
+#   geom_line() + labs(y = "Doubling Time (mins)")
+# ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
+#   geom_line()
+# 
+# my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
+# ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
+# ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
+#   geom_line()
+# ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
+# 
+# 
+# my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
+# my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
+# ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
+#   geom_line()
 
 
 #extract minimum doubling times for each uniq well
@@ -785,6 +785,41 @@ gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
 ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
   facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) + 
   labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
+
+#extract maximum percap growth rates for each uniq well
+#using non-overlapping averaged smoothing
+gc_sm$Time <- as.character(gc_sm$Time)
+gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
+gc_mpptir <- summarize(gc_mpptir, max_pcgr = max(pcgr, na.rm = T))
+gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
+gc_mppti <- summarize(gc_mppti, gr_max_avg = mean(max_pcgr),
+                      dt_min_sd = sd(max_pcgr))
+gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
+gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
+                     sd_isols = sd(gr_max_avg))
+
+#Making doubtime plots
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
+
+#plot of all isols
+gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
+ggplot(gc_mppti, aes(x = Treat, y = gr_max_avg)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
+#plot of all pops
+gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
+  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") + theme_bw() + 
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
 
