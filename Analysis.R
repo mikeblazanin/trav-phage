@@ -644,15 +644,26 @@ doubling_time <- function(CFU, time, subset_by) {
   return(ans)
 }
 
+per_cap_grate <- function(CFU, time, subset_by) {
+  ans <- c((CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])/
+    (as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)], 
+                         units = "hours")) * 
+       0.5 * (CFU[2:length(CFU)]+CFU[1:(length(CFU)-1)])), NA)
+  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
+  return(ans)
+}
+
 gc_data$doubtime <- doubling_time(gc_data$Smooth_CFU, gc_data$Time,
                                   gc_data$mpptir)
 gc_sm$doubtime <- doubling_time(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
+gc_data$pcgr <- per_cap_grate(gc_data$Smooth_CFU, gc_data$Time, gc_data$mpptir)
+gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 
-#Remove unrealistic values
-gc_data$doubtime[gc_data$doubtime < 0] <- NA
-gc_sm$doubtime[gc_sm$doubtime < 0] <- NA
-gc_data$doubtime[gc_data$doubtime > 1000] <- NA
-gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
+# #Remove unrealistic values
+# gc_data$doubtime[gc_data$doubtime < 0] <- NA
+# gc_sm$doubtime[gc_sm$doubtime < 0] <- NA
+# gc_data$doubtime[gc_data$doubtime > 1000] <- NA
+# gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
 
 # #Make plot of all smoothed overlapping doubtimes
 # for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
@@ -668,14 +679,40 @@ gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
 #           facet_wrap(~mpptir))
 # }
 
+# #Make plot of all smoothed growth rates
+# for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
+#   my_sub <- gc_data[(gc_data$mpptir %in% unique(gc_data$mpptir)[i:(i+24)]), ]
+#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
+#           facet_wrap(~mpptir))
+# }
+# 
+# #Make plots of all smoothed nonoverlapping growth rates
+# for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
+#   my_sub <- gc_sm[(gc_sm$mpptir %in% unique(gc_sm$mpptir)[i:(i+24)]), ]
+#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
+#           facet_wrap(~mpptir))
+# }
+
+
 #Code for looking at an example well
-my_sub <- gc_data[gc_data$mpptir == "50.1.A.L.A.1", ]
+my_well <- "100.1.D.C.A.1"
+my_sub <- gc_data[gc_data$mpptir == my_well, ]
 ggplot(data = my_sub, aes(x = Time, y = CFU)) +
   geom_line() + labs(y = "Colony Forming Units (CFU)")
 ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
   geom_line() + labs(y = "Colony Forming Units (CFU)")
 ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
   geom_line() + labs(y = "Doubling Time (mins)")
+ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
+  geom_line()
+
+my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
+ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
+ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
+  geom_line()
+ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
+
+
 my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
 my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
 ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
@@ -804,29 +841,23 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
   
 
 #resistance vs growth
+gc_resis_data <- merge(resis_data, gc_mppti)
+gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
+gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
+                           avg_dt = mean(dt_min_avg))
 
-gc_resis_data <- max_gc_rate
-gc_ppti <- paste(gc_resis_data$Proj, gc_resis_data$Pop, 
-                      gc_resis_data$Treat, gc_resis_data$Isol, sep = ".")
-res_ppti <- paste(resis_data$Proj, resis_data$Pop, 
-               resis_data$Treat, resis_data$Isol, sep = ".")
-mppt <- paste(gc_resis_data$Media, gc_resis_data$Proj, gc_resis_data$Pop,
-              gc_resis_data$Treat, sep = ".")
-gc_resis_data$EOP <- resis_data$EOP[match(gc_ppti, res_ppti)]
-ggplot(gc_resis_data, aes(x = EOP, y = avg_max_dCFUprhr)) +
-  geom_point() + facet_grid(Media~.) + 
-  stat_summary(aes(group = mppt))
-# stat_smooth(method = "lm") +
-summary(lm(avg_max_dCFUprhr~Media+EOP, data = gc_resis_data))
-
-library("dplyr")
-means_data <- summarise(group_by(gc_resis_data, Media, Proj, Pop, Treat),
-                        mean_EOP = mean(EOP), mean_gc = mean(avg_max_dCFUprhr))
-ggplot(means_data, aes(x = 1-mean_EOP, y = mean_gc)) + geom_point() +
-  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) + 
+#Make plot of all isolates
+ggplot(gc_resis_data, aes(x = 1-EOP, y = dt_min_avg)) +
+  geom_point() + 
+  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
   geom_smooth(method = "lm") +
-  scale_y_continuous(name = bquote("Maximum Growth Rate ("~10^8~"CFU/hour)"),
-                     breaks = 100000000*c(3, 4, 5, 6),
-                     labels = c("3", "4", "5", "6")) +
-  xlab("Resistance to Phage") + theme_bw()
-summary(lm(mean_gc~Media+mean_EOP, data = means_data))
+  labs(x = "Resistance", y = "Doubling Time (min)")
+
+summary(lm(dt_min_avg~Media*EOP, data = gc_resis_data))
+
+#Make plot of all pops
+ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_dt)) +
+  geom_point() + facet_grid(Media~.) +
+  geom_smooth(method = "lm")
+
+summary(lm(avg_dt~avg_eop*Media, data = gc_resis_mppt))
