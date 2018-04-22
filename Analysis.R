@@ -636,14 +636,6 @@ gc_sm$Smooth_noverlap <- smooth_data_noverlap(gc_data$CFU, 5,
                                            subset_by = gc_data$mpptir)
 gc_sm <- gc_sm[is.na(gc_sm$Smooth_noverlap) == F, ]
 
-doubling_time <- function(CFU, time, subset_by) {
-  ans <- c(as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)],
-             units = "mins"))/
-    log2(CFU[2:length(CFU)]/CFU[1:(length(CFU)-1)]), NA)
-  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
-  return(ans)
-}
-
 per_cap_grate <- function(CFU, time, subset_by) {
   ans <- c((CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])/
     (as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)], 
@@ -653,31 +645,8 @@ per_cap_grate <- function(CFU, time, subset_by) {
   return(ans)
 }
 
-gc_data$doubtime <- doubling_time(gc_data$Smooth_CFU, gc_data$Time,
-                                  gc_data$mpptir)
-gc_sm$doubtime <- doubling_time(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 gc_data$pcgr <- per_cap_grate(gc_data$Smooth_CFU, gc_data$Time, gc_data$mpptir)
 gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
-
-# #Remove unrealistic values
-# gc_data$doubtime[gc_data$doubtime < 0] <- NA
-# gc_sm$doubtime[gc_sm$doubtime < 0] <- NA
-# gc_data$doubtime[gc_data$doubtime > 1000] <- NA
-# gc_sm$doubtime[gc_sm$doubtime > 1000] <- NA
-
-# #Make plot of all smoothed overlapping doubtimes
-# for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
-#   my_sub <- gc_data[(gc_data$mpptir %in% unique(gc_data$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
-# 
-# #Make plots of all smoothed nonoverlapping doubtimes
-# for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
-#   my_sub <- gc_sm[(gc_sm$mpptir %in% unique(gc_sm$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = doubtime)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
 
 # #Make plot of all smoothed growth rates
 # for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
@@ -693,7 +662,6 @@ gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 #           facet_wrap(~mpptir))
 # }
 
-
 # #Code for looking at an example well
 # my_well <- "100.1.D.C.A.1"
 # my_sub <- gc_data[gc_data$mpptir == my_well, ]
@@ -701,8 +669,6 @@ gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 #   geom_line() + labs(y = "Colony Forming Units (CFU)")
 # ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
 #   geom_line() + labs(y = "Colony Forming Units (CFU)")
-# ggplot(data = my_sub, aes(x = Time, y = doubtime)) +
-#   geom_line() + labs(y = "Doubling Time (mins)")
 # ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
 #   geom_line()
 # 
@@ -718,75 +684,6 @@ gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
 # ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
 #   geom_line()
 
-
-#extract minimum doubling times for each uniq well
-#using overlapping averaged smoothing
-gc_data$Time <- as.character(gc_data$Time)
-gc_mpptir <- group_by(gc_data, Media, Proj, Pop, Treat, Isol, Rep_Well)
-gc_mpptir <- summarize(gc_mpptir, min_dt = min(doubtime, na.rm = T))
-gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
-gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(min_dt),
-                      dt_min_sd = sd(min_dt))
-gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
-gc_mppt <- summarize(gc_mppt, avg_isols = mean(dt_min_avg),
-                     sd_isols = sd(dt_min_avg))
-
-#Making doubtime plots
-my_facet_labels <- c("100" = "Rich Environment", 
-                     "50" = "Adapted Environment",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
-
-#plot of all isols
-ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) + 
-  geom_jitter(width = 0.1, height = 0, size = 2) + 
-  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
-  labs(x = "Treatment", y = "Doubling Time (min)") +
-  theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11)) +
-  theme_bw()
-
-#plot of all pops
-ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
-  facet_grid(Media ~ ., labeller = labeller(Media = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
-  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
-
-#extract minimum doubling times for each uniq well
-#using non-overlapping averaged smoothing
-gc_sm$Time <- as.character(gc_sm$Time)
-gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
-gc_mpptir <- summarize(gc_mpptir, min_dt = min(doubtime, na.rm = T))
-gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
-gc_mppti <- summarize(gc_mppti, dt_min_avg = mean(min_dt),
-                      dt_min_sd = sd(min_dt))
-gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
-gc_mppt <- summarize(gc_mppt, avg_isols = mean(dt_min_avg),
-                     sd_isols = sd(dt_min_avg))
-
-#Making doubtime plots
-my_facet_labels <- c("100" = "Rich Environment", 
-                     "50" = "Adapted Environment",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
-
-#plot of all isols
-gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
-ggplot(gc_mppti, aes(x = Treat, y = dt_min_avg)) + 
-  geom_jitter(width = 0.1, height = 0, size = 2) + 
-  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
-  labs(x = "Treatment", y = "Doubling Time (min)") +
-  theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11)) +
-  theme_bw()
-
-#plot of all pops
-gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
-ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
-  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Doubling Time (min)") + theme_bw() + 
-  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
-
 #extract maximum percap growth rates for each uniq well
 #using non-overlapping averaged smoothing
 gc_sm$Time <- as.character(gc_sm$Time)
@@ -799,7 +696,7 @@ gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
 gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
                      sd_isols = sd(gr_max_avg))
 
-#Making doubtime plots
+#Making percap growth rate plots
 my_facet_labels <- c("100" = "Rich Environment", 
                      "50" = "Adapted Environment",
                      "C" = "Control", "G" = "Global", "L" = "Local",
