@@ -700,7 +700,7 @@ gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
 my_facet_labels <- c("100" = "Rich Environment", 
                      "50" = "Adapted Environment",
                      "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
+                     "A" = "WT", "1" = "Weak Phage", "2" = "Strong Phage")
 
 #plot of all isols
 gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
@@ -714,11 +714,29 @@ ggplot(gc_mppti, aes(x = Treat, y = gr_max_avg)) +
 
 #plot of all pops
 gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
-ggplot(gc_mppt, aes(x = Treat, y = avg_isols), labeller = labeller(Treat = my_facet_labels)) + geom_point(pch = 1, size = 3) +
-  facet_grid(.~Media, labeller = labeller(Media = my_facet_labels)) + 
+
+#For local viewing
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_point(pch = 1, size = 3) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
   labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") + theme_bw() + 
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
+#For poster
+png(filename = "growth_rate_pops.png", width = 14, height = 7,
+    units = "in", res = 300)
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_jitter(width = 0.075, height = 0, pch = 16, size = 6) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Per Capita Growth Rate (/hr)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local")) +
+  theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
+        strip.text = element_text(size = 20))
+dev.off()
 
 ##Isolate resistance analysis
 resis_data_7x <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
