@@ -774,6 +774,7 @@ for (i in 1:nrow(resis_data)) {
   resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
 }
 
+#For local viewing
 ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
   scale_x_discrete(name = "Treatment") +
   ylab("Resistance to Phage") +
@@ -787,8 +788,21 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
         axis.text.x = element_text(color = "black", size = 12)) +
   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
 
-# geom_point(position = position_dodge(width = 0), size = 2) +
-  
+#For poster
+png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
+ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
+  scale_x_discrete(name = "Treatment") +
+  ylab("Resistance to Phage") +
+  facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
+  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
+               dotsize = 2) +
+  theme_bw() + ggtitle("Population") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5), 
+        axis.title = element_text(size = 20),
+        axis.text = element_text(color = "black", size = 16),
+        strip.text = element_text(size = 20)) +
+  geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+dev.off()
 
 #resistance vs growth
 gc_resis_data <- merge(resis_data, gc_mppti)
@@ -806,8 +820,21 @@ ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
 summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
 
 #Make plot of all pops
+#For local viewing
 ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-  geom_point(size = 2) + 
+  geom_point(size = 2, aes(pch = Treat)) + 
+  facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
+                                             Proj = my_facet_labels)) +
+  geom_smooth(method = "lm") +
+  labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
+  theme_bw() + 
+  scale_shape_discrete(name = "Treatment",
+                       breaks = c("A", "C", "G", "L"),
+                       labels = c("WT", "Control", "Global", "Local"))
+
+#For poster
+ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+  geom_point(size = 2, aes(pch = Treat)) + 
   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
   geom_smooth(method = "lm") +
   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)")
