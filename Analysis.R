@@ -272,6 +272,7 @@ my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage")
 ggplot(data = mean_rates, 
        aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
   geom_line(size = 1.2) + geom_point() + 
+  theme_bw() +
   theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
         legend.text = element_text(size = 16)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
@@ -279,8 +280,7 @@ ggplot(data = mean_rates,
                 width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local")) +
-  theme_bw()
+                  labels = c("Control", "Global", "Local"))
 
 #make plot by treatment
 #for poster
@@ -289,17 +289,18 @@ png("evol_mig_rate.png", width = 11, height = 7, units = "in",
 ggplot(data = mean_rates, 
        aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
   geom_line(size = 1.2) + geom_point() + 
-  theme(axis.text = element_text(size = 55),
-        axis.title = element_text(size = 34),
-        legend.text = element_text(size = 34),
-        strip.text = element_text(size = 34)) +
+  theme_bw() +
+  theme(axis.text = element_text(size = 16),
+        axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 20)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
                 width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local")) +
-  theme_bw()
+                  labels = c("Control", "Global", "Local"))
 dev.off()
 
 #make plot of ea treat to check if pops are stable position
