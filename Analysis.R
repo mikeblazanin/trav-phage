@@ -282,6 +282,26 @@ ggplot(data = mean_rates,
                   labels = c("Control", "Global", "Local")) +
   theme_bw()
 
+#make plot by treatment
+#for poster
+png("evol_mig_rate.png", width = 11, height = 7, units = "in",
+    res = 300)
+ggplot(data = mean_rates, 
+       aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
+  geom_line(size = 1.2) + geom_point() + 
+  theme(axis.text = element_text(size = 55),
+        axis.title = element_text(size = 34),
+        legend.text = element_text(size = 34),
+        strip.text = element_text(size = 34)) +
+  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
+  geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
+                width=1, size = .7, position=position_dodge(0.2)) +
+  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
+  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
+                  labels = c("Control", "Global", "Local")) +
+  theme_bw()
+dev.off()
+
 #make plot of ea treat to check if pops are stable position
 my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
                      "G" = "Global", "L" = "Local")
@@ -725,7 +745,7 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
 #For poster
-png(filename = "growth_rate_pops.png", width = 14, height = 7,
+png(filename = "growth_rate_pops.png", width = 10, height = 7,
     units = "in", res = 300)
 ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
        labeller = labeller(Treat = my_facet_labels)) + 
@@ -823,20 +843,28 @@ summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
 #For local viewing
 ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
   geom_point(size = 2, aes(pch = Treat)) + 
+  scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+                     breaks = c("A", "C", "G", "L"),
+                     labels = c("WT", "Control", "Global", "Local")) +
   facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
                                              Proj = my_facet_labels)) +
   geom_smooth(method = "lm") +
   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
-  theme_bw() + 
-  scale_shape_discrete(name = "Treatment",
-                       breaks = c("A", "C", "G", "L"),
-                       labels = c("WT", "Control", "Global", "Local"))
+  theme_bw()
 
 #For poster
+png("resis_gc_tradeoff.png", width = 7, height = 7, units = "in",
+    res = 300)
 ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
   geom_point(size = 2, aes(pch = Treat)) + 
-  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
+  scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+                     breaks = c("A", "C", "G", "L"),
+                     labels = c("WT", "Control", "Global", "Local")) +
+  facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
+                                             Proj = my_facet_labels)) +
   geom_smooth(method = "lm") +
-  labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)")
+  labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hour)") +
+  theme_bw()
+dev.off()
 
 summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
