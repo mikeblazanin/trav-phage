@@ -413,10 +413,18 @@ isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
 ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
   geom_jitter(position = position_jitter(0), size = 2) + 
   facet_grid(.~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() + labs(y = "Migration Rate (cm/hr)") +
+  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
   scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
                               "D", "E", LETTERS[1:3], "E")) +
-  theme(axis.text.x = element_text(size = 12, color = "black"))
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        plot.margin = unit(c(0, 0, 0.075, 0), "npc"))
+grid.text(label = c("Control", "Global", "Local"),
+          x = unit(c(.31, .6, 0.86), "npc"),
+          y = unit(0.06, "npc"))
+grid.polyline(x = unit(c(0.17, 0.45, 0.49, 0.72, 0.75, 0.975), unit = "npc"),
+              y = unit(rep(0.09, 6), unit = "npc"),
+              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 3))
+
 
 #have to clean up correlation code
 
