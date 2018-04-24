@@ -286,9 +286,8 @@ ggplot(data = mean_rates,
 #for poster
 png("evol_mig_rate.png", width = 11, height = 7, units = "in",
     res = 300)
-ggplot(data = mean_rates, 
-       aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
-  geom_line(size = 1.2) + geom_point() + 
+ggplot(data = mean_rates, aes(x=Time, y=Mean_Rate, group=Treat)) +
+  geom_line(size = 1.5, aes(colour = Treat)) +
   theme_bw() +
   theme(axis.text = element_text(size = 16),
         axis.title = element_text(size = 20),
@@ -296,9 +295,10 @@ ggplot(data = mean_rates,
         legend.text = element_text(size = 16),
         strip.text = element_text(size = 20)) +
   facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) + 
-  geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
-                width=1, size = .7, position=position_dodge(0.2)) +
-  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
+  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") +
+  geom_jitter(height = 0, width = 0.1, data = end_data, size = 2.5,
+              aes(x = Time, y = `Rate (cm/hr)`, colour = Treat, 
+                  alpha = 0.4)) + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local"))
 dev.off()
@@ -441,10 +441,10 @@ ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) +
         strip.text = element_text(size = 20),
         plot.margin = unit(c(0.01, 0.01, 0.075, 0.01), "npc"))
 grid.text(label = c("Control", "Global", "Local"),
-          x = unit(c(.3, .59, 0.85), "npc"),
+          x = unit(c(.3, .58, 0.825), "npc"),
           y = unit(0.06, "npc"),
           gp = gpar(fontsize = 20))
-grid.polyline(x = unit(c(0.16, 0.45, 0.48, 0.71, 0.74, 0.965), unit = "npc"),
+grid.polyline(x = unit(c(0.17, 0.45, 0.48, 0.69, 0.72, 0.94), unit = "npc"),
               y = unit(rep(0.09, 6), unit = "npc"),
               id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 4))
 dev.off()
@@ -773,7 +773,7 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
   geom_point(pch = 1, size = 3) +
   facet_grid(Proj~Media, 
              labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") + theme_bw() + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hour)") + theme_bw() + 
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
 
 #For poster
@@ -784,7 +784,7 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
   geom_jitter(width = 0.075, height = 0, pch = 16, size = 6) +
   facet_grid(Proj~Media, 
              labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Per Capita Growth Rate (/hr)") + theme_bw() + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hr)") + theme_bw() + 
   scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local")) +
   theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
         strip.text = element_text(size = 20))
@@ -849,10 +849,10 @@ ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
                dotsize = 2) +
   theme_bw() + ggtitle("Population") +
-  theme(plot.title = element_text(size = 20, hjust = 0.5), 
-        axis.title = element_text(size = 20),
-        axis.text = element_text(color = "black", size = 16),
-        strip.text = element_text(size = 20)) +
+  theme(plot.title = element_text(size = 24, hjust = 0.5), 
+        axis.title = element_text(size = 24),
+        axis.text = element_text(color = "black", size = 20),
+        strip.text = element_text(size = 24)) +
   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
 dev.off()
 
@@ -895,7 +895,7 @@ ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
   facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
                                              Proj = my_facet_labels)) +
   geom_smooth(method = "lm", se = F) +
-  labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hour)") +
+  labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
   theme_bw() +
   theme(axis.text = element_text(size = 16),
         strip.text = element_text(size = 20),
