@@ -295,7 +295,7 @@ ggplot(data = mean_rates,
         legend.title = element_text(size = 20),
         legend.text = element_text(size = 16),
         strip.text = element_text(size = 20)) +
-  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
+  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) + 
   geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
                 width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
@@ -425,6 +425,29 @@ grid.polyline(x = unit(c(0.17, 0.45, 0.49, 0.72, 0.75, 0.975), unit = "npc"),
               y = unit(rep(0.09, 6), unit = "npc"),
               id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 3))
 
+#plot isolate variation for each pop
+#for poster
+isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
+png("isol_mig_rate.png", width = 11, height = 7, units = "in",
+    res = 300)
+ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
+  geom_jitter(position = position_jitter(0), size = 4) + 
+  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
+  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
+                              "D", "E", LETTERS[1:3], "E")) +
+  theme(axis.text = element_text(size = 16, color = "black"),
+        axis.title = element_text(size = 20),
+        strip.text = element_text(size = 20),
+        plot.margin = unit(c(0.01, 0.01, 0.075, 0.01), "npc"))
+grid.text(label = c("Control", "Global", "Local"),
+          x = unit(c(.3, .59, 0.85), "npc"),
+          y = unit(0.06, "npc"),
+          gp = gpar(fontsize = 20))
+grid.polyline(x = unit(c(0.16, 0.45, 0.48, 0.71, 0.74, 0.965), unit = "npc"),
+              y = unit(rep(0.09, 6), unit = "npc"),
+              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 4))
+dev.off()
 
 #have to clean up correlation code
 
@@ -862,18 +885,23 @@ ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
   theme_bw()
 
 #For poster
-png("resis_gc_tradeoff.png", width = 7, height = 7, units = "in",
+png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
     res = 300)
 ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-  geom_point(size = 2, aes(pch = Treat)) + 
+  geom_point(size = 4, aes(pch = Treat)) + 
   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
                      breaks = c("A", "C", "G", "L"),
                      labels = c("WT", "Control", "Global", "Local")) +
-  facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
+  facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
                                              Proj = my_facet_labels)) +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "lm", se = F) +
   labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hour)") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text = element_text(size = 16),
+        strip.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 16))
 dev.off()
 
 summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
