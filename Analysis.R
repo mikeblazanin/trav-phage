@@ -10,6 +10,8 @@ library("reshape")
 # #define function to get means of rates
 # mean_rates <- function(sub_by_list, my_data)
 # analyze additional plate scans
+#change resistance to be by treat then by pop
+#Change growth rate for ancestor to dotted line
 
 ##experimental evolution analysis
 end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
