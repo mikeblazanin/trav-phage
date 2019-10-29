@@ -907,3 +907,24 @@ ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
 dev.off()
 
 summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
+
+
+## 125 Migration ----
+migration_125 <- read.csv("131_125_isol_migration.csv")
+migration_125$area <- pi*migration_125$Width..cm.*migration_125$Height..cm./4
+migration_125$relative_area <- NA
+migration_125$date <- paste(migration_125$Year, migration_125$Month,
+                            migration_125$Day, sep = "_")
+for (date in unique(migration_125$date)) {
+  migration_125$relative_area[which(migration_125$date == date)] <- 
+    migration_125$area[which(migration_125$date == date)]/
+    migration_125$area[migration_125$date == date & 
+                         migration_125$Population == "Anc"]
+}
+
+ggplot(data = migration_125, aes(x = paste(Treatment, Population),
+                                 y = relative_area)) +
+  geom_point()
+
+ggplot(data = migration_125, aes(x = date, y = area)) +
+  geom_point()
