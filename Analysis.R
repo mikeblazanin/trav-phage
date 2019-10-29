@@ -1,6 +1,14 @@
 library("ggplot2")
 library("reshape")
 
+#Need to split this into 2 scripts: one to take the messy data
+# (e.g. isolate information in underscore formats, etc)
+#and get it cleaned up, then output those clean data
+#And another to take the clean data & analyze it
+#Then put the messy data in one folder and the clean data in another folder
+#Along with the separate scripts
+#So when it's published, can just tell people to re-run the clean data script
+
 #need to make Rep vs Pop consistent
 #redo all analysis using dplyr
 #redo analysis using vectorization
@@ -924,7 +932,4 @@ for (date in unique(migration_125$date)) {
 
 ggplot(data = migration_125, aes(x = paste(Treatment, Population),
                                  y = relative_area)) +
-  geom_point()
-
-ggplot(data = migration_125, aes(x = date, y = area)) +
   geom_point()
