@@ -1,3 +1,5 @@
+#TODO: finish isolate migration cleanup and beyond
+
 library("reshape")
 
 #Need to split this into 2 scripts: one to take the messy data
@@ -252,25 +254,25 @@ write.csv(end_data, "./Clean_Data/Experimental_evolution_growth.csv",
 
 ##isolate migration cleanup ----
 
-isol_end_7x <- read.csv("74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
-isol_start_7x <- read.csv("74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
-# isol_end_125 <- read.csv("125_isol_motility.csv", header = T, stringsAsFactors = F)
-# isol_start_125 <- read.csv("125_isol_motility_start.csv", header = T, stringsAsFactors = F)
+isol_end_7x <- read.csv("./Raw_Data/74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
+isol_start_7x <- read.csv("./Raw_Data/74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
+isol_end_125 <- read.csv("./Raw_Data/131_125_isol_migration.csv", header = T, stringsAsFactors = F)
+isol_start_125 <- read.csv("./Raw_Data/131_125_isol_migration_start.csv", header = T, stringsAsFactors = F)
 
 #define function to split Strain data
 isol_end_strain_split <- function(isol_end) {
   isol_end <- cbind(isol_end, NA, NA, NA, NA, NA)
-  colnames(isol_end)[(ncol(isol_end)-4):ncol(isol_end)] <- c("Proj", "Rep", "Treat", "Isol", "Media")
+  colnames(isol_end)[(ncol(isol_end)-4):ncol(isol_end)] <- c("Proj", "Pop", "Treat", "Isol", "Media")
   for (i in 1:nrow(isol_end)) {
     my_split <- strsplit(isol_end$Strain[i], split = "_")[[1]]
     isol_end$Proj[i] <- my_split[[1]]
     if (isol_end$Proj[i] == "P1.1") {
-      isol_end$Rep[i] <- "A"
+      isol_end$Pop[i] <- "A"
       isol_end$Treat[i] <- "A" #for Ancestor
       isol_end$Isol[i] <- my_split[[2]]
       isol_end$Media[i] <- "+Mg"
     } else if (isol_end$Proj[i] == "74") {
-      isol_end$Rep[i] <- "A"
+      isol_end$Pop[i] <- "A"
       isol_end$Treat[i] <- my_split[[2]]
       isol_end$Isol[i] <- my_split[[3]]
       if (length(my_split) > 3) {
@@ -279,7 +281,7 @@ isol_end_strain_split <- function(isol_end) {
         isol_end$Media[i] <- "+Mg"
       }
     } else {
-      isol_end$Rep[i] <- my_split[[2]]
+      isol_end$Pop[i] <- my_split[[2]]
       isol_end$Treat[i] <- my_split[[3]]
       isol_end$Isol[i] <- my_split[[4]]
       if (length(my_split) > 4) {
@@ -294,11 +296,10 @@ isol_end_strain_split <- function(isol_end) {
 
 #actually split Strain data
 isol_end_7x <- isol_end_strain_split(isol_end_7x)
-# isol_end_125 <- isol_end_strain_split(isol_end_125)
 
 #Assign ancestor: time 0, proj 1 or 2, rep F, Treat A, isol same
 ancestor_fix_end <- function(isol_end) {
-  my_rows <- isol_end$Proj == "P1.1"
+  my_rows <- isol_end$Proj == "P1.1" | isol_end$Pop == "Anc"
   isol_end$Time[my_rows] <- 0
   isol_end$Rep[my_rows] <- "F"
   isol_end$Treat[my_rows] <- "A"
