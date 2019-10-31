@@ -234,7 +234,7 @@ end_data$Strain_clean <- paste(end_data$Proj,
                                end_data$Time, sep = "_")
 end_data$start_timestamp <- start_data$timestamp[match(end_data$Strain_clean,
                                                        start_data$Strain_clean)]
-end_data$difftime <- NA
+end_data$time_since_inoc <- NA
 for (i in 1:nrow(end_data)) {
   end_data$time_since_inoc <- difftime(end_data$end_timestamp,
                                 end_data$start_timestamp,
@@ -312,15 +312,15 @@ isol_end_125$Time[my_rows] <- 0
 #& change project to be 1 (74, 75, 76) or 2 (125)
 isol_end_7x <- uniq_pops(isol_end_7x)
 
-#Drop runs done in -Mg media
-isol_end_7x <- isol_end_7x[isol_end_7x$Media == "+Mg", ]
+#Add media info to 125 end
+isol_end_125$Media <- "+Mg"
 
 #Standardize columns/format in start dataframes
 isol_start_7x$Isol[isol_start_7x$Proj == "P1.1"] <- "Anc"
 isol_start_125$Isol[isol_start_125$Pop == "Anc"] <- "Anc"
 
 isol_start_7x$Time[isol_start_7x$Isol == "Anc"] <- 0
-isol_start_125$Timepoint[isol_start_125$Isol == "Anc"] <- 0
+isol_start_125$Time[isol_start_125$Isol == "Anc"] <- 0
 
 isol_start_7x$Proj <- 1
 isol_start_125$Proj <- 2
@@ -336,6 +336,8 @@ colnames(isol_start_125) <- c("Year", "Month", "Day", "Hour", "Minute",
 
 isol_start <- rbind(isol_start_7x, isol_start_125)
 isol_start <- unique(isol_start)
+isol_start <- isol_start[order(isol_start$Proj,
+                               isol_start$Isol), ]
 
 #Standardize columns/format in end dataframes
 isol_end_7x <- isol_end_7x[, c("Year", "Month", "Day", "Hour", "Minute", "Second",
@@ -360,100 +362,27 @@ isol_end <- rbind(isol_end_7x, isol_end_125)
 isol_end <- make_timestamp(isol_end, type = "end")
 isol_start <- make_timestamp(isol_start, type = "isol start")
 
-#convert timestamp to time since inoculation
-isol_end <- calc_timediff(isol_start, isol_end, "isol")
+#Put both timestamps in isol_end
+colnames(isol_end)[ncol(isol_end)] <- "end_timestamp"
+isol_start$start_date <- paste(as.Date(isol_start$timestamp), isol_start$Isol,
+                               sep = "_")
+isol_end$start_date <- paste(as.Date(isol_end$end_timestamp-24*60*60),
+                             isol_end$Isol, sep = "_")
+isol_end$start_timestamp <- isol_start$timestamp[match(isol_end$start_date,
+                                                       isol_start$start_date)]
+isol_end$time_since_inoc <- NA
+for (i in 1:nrow(isol_end)) {
+  isol_end$time_since_inoc <- difftime(isol_end$end_timestamp,
+                                       isol_end$start_timestamp,
+                                       units = "hours")
+}
 
-my_facet_labels <- c("1" = "Weak Phage", 
-                     "2" = "Strong Phage",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
-
-#plot isolate variation for each pop
-isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
-ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
-  geom_jitter(position = position_jitter(0), size = 2) + 
-  facet_grid(.~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
-  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
-                              "D", "E", LETTERS[1:3], "E")) +
-  theme(axis.text.x = element_text(size = 12, color = "black"),
-        plot.margin = unit(c(0, 0, 0.075, 0), "npc"))
-grid.text(label = c("Control", "Global", "Local"),
-          x = unit(c(.31, .6, 0.86), "npc"),
-          y = unit(0.06, "npc"))
-grid.polyline(x = unit(c(0.17, 0.45, 0.49, 0.72, 0.75, 0.975), unit = "npc"),
-              y = unit(rep(0.09, 6), unit = "npc"),
-              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 3))
-
-#plot isolate variation for each pop
-#for poster
-isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
-png("isol_mig_rate.png", width = 11, height = 7, units = "in",
-    res = 300)
-ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
-  geom_jitter(position = position_jitter(0), size = 4) + 
-  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
-  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
-                              "D", "E", LETTERS[1:3], "E")) +
-  theme(axis.text = element_text(size = 16, color = "black"),
-        axis.title = element_text(size = 20),
-        strip.text = element_text(size = 20),
-        plot.margin = unit(c(0.01, 0.01, 0.075, 0.01), "npc"))
-grid.text(label = c("Control", "Global", "Local"),
-          x = unit(c(.3, .58, 0.825), "npc"),
-          y = unit(0.06, "npc"),
-          gp = gpar(fontsize = 20))
-grid.polyline(x = unit(c(0.17, 0.45, 0.48, 0.69, 0.72, 0.94), unit = "npc"),
-              y = unit(rep(0.09, 6), unit = "npc"),
-              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 4))
-dev.off()
-
-#have to clean up correlation code
-
-# #plot correlation of T14 pop rate & isol rates
-# pop_isol_frame <- data.frame(Time=integer(), Rep=character(), Treat=character(), 
-#                              Isol=character(), Pop_Rate=double(), Isol_Rate=double(),
-#                              stringsAsFactors = F)
-# for (i in 1:nrow(isol_end)) {
-#   if (isol_end$Proj[i] != "P1.1") {
-#     my.sub <- subset(end_data, end_data$Time == isol_end$Time[i] & 
-#                        end_data$Rep == isol_end$Rep[i] & 
-#                        substr(end_data$Treat, 1, 1) == isol_end$Treat[i])
-#     pop_isol_frame <- rbind(pop_isol_frame, 
-#                             data.frame(Time=isol_end$Time[i],
-#                                        Rep=isol_end$Rep[i],
-#                                        Treat=isol_end$Treat[i],
-#                                        Isol=isol_end$Isol[i],
-#                                        Pop_Rate=my.sub$`Rate (cm/hr)`[1],
-#                                        Isol_Rate=isol_end$`Rate (cm/hr)`[i]))
-#   }
-# }
-# # plot(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate, xlim = c(0.025, 0.065),
-# #      ylim = c(0.025, 0.065))
-# # lines(x=c(0.02, 0.07), y=c(0.02, 0.07))
-# # summary(lm(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate))
-# my_colors <- c("red", "green", "blue")
-# my.pch = c(20, 20, 20)
-# tiff(filename = "isol_vs_pop.tiff", width = 10, height = 10, units = "in",
-#      compression = "none", res = 300)
-# par(mar = my.mar + c(0, 1, 0, 0))
-# for (i in 1:length(unique(pop_isol_frame$Treat))) {
-#   treat = unique(pop_isol_frame$Treat)[i]
-#   my.sub <- subset(pop_isol_frame, pop_isol_frame$Treat == treat)
-#   if (i == 1) {
-#     plot(my.sub$Isol_Rate~my.sub$Pop_Rate, xlim = c(0.027, 0.061), ylim = c(0.027, 0.061),
-#          pch = my.pch[i], xlab = "Population Migration Rate (cm/hr)", ylab = "Isolate Migration Rate (cm/hr)",
-#          col = my_colors[i], cex = 2, cex.lab = 2, cex.axis = 2)
-#   } else {
-#     points(my.sub$Isol_Rate~my.sub$Pop_Rate, pch = my.pch[i], col = my_colors[i],
-#            cex = 2)
-#   }
-# }
-# lines(x=c(0, 1), y=c(0, 1), lwd = 2)
-# legend(x = 0.053, y = 0.035, legend = unique(mean_rates$Treatment), pch = my.pch, 
-#        col = my_colors, cex = 2)
-# dev.off()
+#Tidy up & drop unneccesary columns
+isol_end <- isol_end[, c("Proj", "Pop", "Treat", "Timepoint", "Isol",
+                         "start_timestamp", "end_timestamp", "time_since_inoc",
+                         "Width_cm", "Height_cm")]
+write.csv(isol_end, "./Clean_Data/Isolate_migration.csv",
+          row.names = FALSE)
 
 ##isolate growth curve analysis ----
 
