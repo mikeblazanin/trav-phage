@@ -297,40 +297,65 @@ isol_end_strain_split <- function(isol_end) {
 #actually split Strain data
 isol_end_7x <- isol_end_strain_split(isol_end_7x)
 
-#Assign ancestor: time 0, proj 1 or 2, rep F, Treat A, isol same
-ancestor_fix_end <- function(isol_end) {
-  my_rows <- isol_end$Proj == "P1.1" | isol_end$Pop == "Anc"
-  isol_end$Time[my_rows] <- 0
-  isol_end$Rep[my_rows] <- "F"
-  isol_end$Treat[my_rows] <- "A"
-  return(isol_end)
-}
-
-#fix ancestor
-isol_end_7x <- ancestor_fix_end(isol_end_7x)
-# isol_end_125 <- ancestor_fix_end(isol_end_125)
-isol_start_7x$Time[isol_start_7x$Proj == "P1.1"] <- 0
-# isol_start_125[isol_start_125$Proj == "P1.1"]$Time <- 0
+#Fix Ancestor
+my_rows <- which(isol_end_7x$Proj == "P1.1")
+isol_end_7x$Pop[my_rows] <- "Anc"
+isol_end_7x$Treat[my_rows] <- "Anc"
+isol_end_7x$Isol[my_rows] <- "Anc"
+isol_end_7x$Time[my_rows] <- "0"
+my_rows <- which(isol_end_125$Population == "Anc")
+isol_end_125$Treatment[my_rows] <- "Anc"
+isol_end_125$Isolate[my_rows] <- "Anc"
+isol_end_125$Time[my_rows] <- 0
 
 #make Reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
 #& change project to be 1 (74, 75, 76) or 2 (125)
-isol_end_7x <- uniq_reps(isol_end_7x)
-# isol_end_125 <- uniq_reps(isol_end_125)
+isol_end_7x <- uniq_pops(isol_end_7x)
 
-#Standardize project numbers
+#Drop runs done in -Mg media
+isol_end_7x <- isol_end_7x[isol_end_7x$Media == "+Mg", ]
+
+#Standardize columns/format in start dataframes
+isol_start_7x$Isol[isol_start_7x$Proj == "P1.1"] <- "Anc"
+isol_start_125$Isol[isol_start_125$Pop == "Anc"] <- "Anc"
+
+isol_start_7x$Time[isol_start_7x$Isol == "Anc"] <- 0
+isol_start_125$Timepoint[isol_start_125$Isol == "Anc"] <- 0
+
 isol_start_7x$Proj <- 1
+isol_start_125$Proj <- 2
+
+isol_start_7x <- isol_start_7x[, c("Year", "Month", "Day", "Hour", "Minute",
+                                   "Proj", "Isol", "Time")]
+colnames(isol_start_7x) <- c("Year", "Month", "Day", "Hour", "Minute",
+                             "Proj", "Isol", "Timepoint")
+isol_start_125 <- isol_start_125[, c("Year", "Month", "Day", "Hour", "Minute",
+                                    "Proj", "Isol", "Time")]
+colnames(isol_start_125) <- c("Year", "Month", "Day", "Hour", "Minute",
+                             "Proj", "Isol", "Timepoint")
+
+isol_start <- rbind(isol_start_7x, isol_start_125)
+isol_start <- unique(isol_start)
+
+#Standardize columns/format in end dataframes
+isol_end_7x <- isol_end_7x[, c("Year", "Month", "Day", "Hour", "Minute", "Second",
+                               "Proj", "Pop", "Treat", "Time", "Isol",
+                               "Width..cm.", "Height..cm.")]
+colnames(isol_end_7x) <- c("Year", "Month", "Day", "Hour", "Minute", "Second",
+                           "Proj", "Pop", "Treat", "Timepoint", "Isol",
+                           "Width_cm", "Height_cm")
+isol_end_125 <- isol_end_125[, c("Year", "Month", "Day", "Hour", "Minute", "Second",
+                               "Project", "Population", "Treatment", "Time", "Isolate",
+                               "Width..cm.", "Height..cm.")]
+colnames(isol_end_125) <- c("Year", "Month", "Day", "Hour", "Minute", "Second",
+                           "Proj", "Pop", "Treat", "Timepoint", "Isol",
+                           "Width_cm", "Height_cm")
+
 isol_end_7x$Proj <- 1
-# isol_start_125$Project <- 2
-# isol_end_125$Proj <- 2
+isol_end_125$Proj <- 2
 
-#combine datasets
-isol_end <- rbind(isol_end_7x)
-isol_start <- rbind(isol_start_7x)
-
-#remove -Mg data
-isol_end <- subset(isol_end, isol_end$Media == "+Mg")
-isol_end$Media <- NULL
-
+isol_end <- rbind(isol_end_7x, isol_end_125)
+                                   
 #compile time information into timestamp
 isol_end <- make_timestamp(isol_end, type = "end")
 isol_start <- make_timestamp(isol_start, type = "isol start")
