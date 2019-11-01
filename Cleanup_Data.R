@@ -386,10 +386,14 @@ write.csv(isol_end, "./Clean_Data/Isolate_migration.csv",
 
 ##isolate growth curve analysis ----
 
-##standard curve to convert OD to CFU (based on 107 data)
-stan_plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
-stan_plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
-stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
+#Travisano lab standard curve:
+# (note: I didn't actually plate out from the plate standard curve, instead
+# I just measured OD in the plate and in the spec and since I knew the spec
+# standard curve I just connected the two)
+
+trav_stan_spec <- read.csv("./Raw_Data/107_Trav_Spec.csv", stringsAsFactors = F, header = T)
+trav_stan_plate <- read.csv("./Raw_Data/107_Std_Curve.csv", stringsAsFactors = F, header = T)
+trav_stan_plate_layout <- read.csv("./Raw_Data/107_Plate_Layout.csv", stringsAsFactors = F, header = F)
 
 #define function to melt plate arrays
 get_layout <- function(plate_layout, row_start = 1, col_start = 1) {
@@ -407,30 +411,42 @@ get_layout <- function(plate_layout, row_start = 1, col_start = 1) {
   return(layout_list)
 }
 
-#melt plate arrays, combine & exclude empty wells
-stan_layout_list <- get_layout(stan_plate_layout, 2, 2)
-stan_plate_list <- get_layout(stan_plate, 1, 2)
-colnames(stan_plate_list)[2] <- "OD600"
-stan_plate_list$Dilution <- stan_layout_list$Contents
-stan_plate_list <- subset(stan_plate_list, is.na(stan_plate_list$Dilution) == F)
+#melt trav std curve plate arrays, combine & exclude empty wells
+trav_stan_layout_list <- get_layout(trav_stan_plate_layout, 2, 2)
+trav_stan_plate_list <- get_layout(trav_stan_plate, 1, 2)
+colnames(trav_stan_plate_list)[2] <- "OD600"
+trav_stan_plate_list$Dilution <- trav_stan_layout_list$Contents
+trav_stan_plate_list <- subset(trav_stan_plate_list, 
+                               is.na(trav_stan_plate_list$Dilution) == F)
 
-#in data from Trav-lab spec, convert OD to CFU
-stan_spec$CFU <- (stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
+# #in data from Trav-lab spec, convert OD to CFU
+trav_stan_spec$CFU <- (trav_stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
 
 #transfer CFU data to plate list
-stan_plate_list <- cbind(stan_plate_list, "CFU"=stan_spec$CFU[match(stan_plate_list$Dilution, 
-                                                     stan_spec$Dilution)])
+trav_stan_plate_list <- cbind(trav_stan_plate_list, 
+                              "CFU"=trav_stan_spec$CFU[match(trav_stan_plate_list$Dilution, 
+                                                     trav_stan_spec$Dilution)])
 
 #get regression of data
 # ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
-stan_plate_list$OD600 <- as.numeric(stan_plate_list$OD600)
-my.fit <- lm(CFU ~ OD600, data = stan_plate_list)
+trav_stan_plate_list$OD600 <- as.numeric(trav_stan_plate_list$OD600)
+trav_std_curve <- lm(CFU ~ OD600, data = trav_stan_plate_list)
+
+#Turner lab standard curve:
+turn_std_cv_data <- data.frame("Dil" = 1*1/(2**(0:8)),
+                               "Abs_cuv" = c(2.109, 1.098, 0.450, 0.224, 0.108, 0.050,
+                                             0.025, 0.010, 0.004),
+                               "Abs_plt" = c(0.8319, 0.4711, 0.2591, 0.176, 0.1263,
+                                             0.1009, 0.0905, 0.085, 0.0825))
+turn_std_cv_data$CFU <- turn_std_cv_data$Dil * 1305600000
+
+turn_std_curve <- lm(CFU ~ Abs_plt, data = turn_std_cv_data)
 
 ##growth curve analysis
-library("minpack.lm")
-library("tidyr")
-library("lubridate")
-library("dplyr")
+# library("minpack.lm")
+# library("tidyr")
+# library("lubridate")
+# library("dplyr")
 
 options(stringsAsFactors = F)
 growth_97 <- read.csv("97B.csv", header = T, stringsAsFactors = F)
@@ -679,7 +695,7 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
         strip.text = element_text(size = 20))
 dev.off()
 
-##Isolate resistance analysis
+##Isolate resistance analysis ----
 resis_data_7x <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
 
 #split out project info & make unique reps
@@ -794,21 +810,3 @@ ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
 dev.off()
 
 summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
-
-
-## 125 Migration ----
-migration_125 <- read.csv("131_125_isol_migration.csv")
-migration_125$area <- pi*migration_125$Width..cm.*migration_125$Height..cm./4
-migration_125$relative_area <- NA
-migration_125$date <- paste(migration_125$Year, migration_125$Month,
-                            migration_125$Day, sep = "_")
-for (date in unique(migration_125$date)) {
-  migration_125$relative_area[which(migration_125$date == date)] <- 
-    migration_125$area[which(migration_125$date == date)]/
-    migration_125$area[migration_125$date == date & 
-                         migration_125$Population == "Anc"]
-}
-
-ggplot(data = migration_125, aes(x = paste(Treatment, Population),
-                                 y = relative_area)) +
-  geom_point()
