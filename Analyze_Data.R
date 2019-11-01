@@ -21,7 +21,7 @@ library("dplyr")
 #change resistance to be by treat then by pop
 #Change growth rate for ancestor to dotted line
 
-##experimental evolution analysis
+##Experimental evolution analysis ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
 
 #Drop points after T14
@@ -62,184 +62,36 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local"))
 
-##isolate migration analysis
+##Isolate migration analysis ----
+isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
 
-isol_end_7x <- read.csv("74_75_76_isol_motility.csv", header = T, stringsAsFactors = F)
-isol_start_7x <- read.csv("74_75_76_isol_motility_start.csv", header = T, stringsAsFactors = F)
-# isol_end_125 <- read.csv("125_isol_motility.csv", header = T, stringsAsFactors = F)
-# isol_start_125 <- read.csv("125_isol_motility_start.csv", header = T, stringsAsFactors = F)
+#Calculate total area
+isol_migration$area_cm <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
 
-#define function to split Strain data
-isol_end_strain_split <- function(isol_end) {
-  isol_end <- cbind(isol_end, NA, NA, NA, NA, NA)
-  colnames(isol_end)[(ncol(isol_end)-4):ncol(isol_end)] <- c("Proj", "Rep", "Treat", "Isol", "Media")
-  for (i in 1:nrow(isol_end)) {
-    my_split <- strsplit(isol_end$Strain[i], split = "_")[[1]]
-    isol_end$Proj[i] <- my_split[[1]]
-    if (isol_end$Proj[i] == "P1.1") {
-      isol_end$Rep[i] <- "A"
-      isol_end$Treat[i] <- "A" #for Ancestor
-      isol_end$Isol[i] <- my_split[[2]]
-      isol_end$Media[i] <- "+Mg"
-    } else if (isol_end$Proj[i] == "74") {
-      isol_end$Rep[i] <- "A"
-      isol_end$Treat[i] <- my_split[[2]]
-      isol_end$Isol[i] <- my_split[[3]]
-      if (length(my_split) > 3) {
-        isol_end$Media[i] <- my_split[[4]]
-      } else {
-        isol_end$Media[i] <- "+Mg"
-      }
-    } else {
-      isol_end$Rep[i] <- my_split[[2]]
-      isol_end$Treat[i] <- my_split[[3]]
-      isol_end$Isol[i] <- my_split[[4]]
-      if (length(my_split) > 4) {
-        isol_end$Media[i] <- my_split[[5]]
-      } else {
-        isol_end$Media[i] <- "+Mg"
-      }
-    }
-  }
-  return(isol_end)
-}
+#Calculate total area relative to same-day ancestor
+ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
+isol_migration$relative_area <-
+  isol_migration$area_cm/ancestors$area_cm[
+    match(as.Date(isol_migration$end_timestamp),
+          as.Date(ancestors$end_timestamp))]
 
-#actually split Strain data
-isol_end_7x <- isol_end_strain_split(isol_end_7x)
-# isol_end_125 <- isol_end_strain_split(isol_end_125)
-
-#Assign ancestor: time 0, proj 1 or 2, rep F, Treat A, isol same
-ancestor_fix_end <- function(isol_end) {
-  my_rows <- isol_end$Proj == "P1.1"
-  isol_end$Time[my_rows] <- 0
-  isol_end$Rep[my_rows] <- "F"
-  isol_end$Treat[my_rows] <- "A"
-  return(isol_end)
-}
-
-#fix ancestor
-isol_end_7x <- ancestor_fix_end(isol_end_7x)
-# isol_end_125 <- ancestor_fix_end(isol_end_125)
-isol_start_7x$Time[isol_start_7x$Proj == "P1.1"] <- 0
-# isol_start_125[isol_start_125$Proj == "P1.1"]$Time <- 0
-
-#make Reps unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
-#& change project to be 1 (74, 75, 76) or 2 (125)
-isol_end_7x <- uniq_reps(isol_end_7x)
-# isol_end_125 <- uniq_reps(isol_end_125)
-
-#Standardize project numbers
-isol_start_7x$Proj <- 1
-isol_end_7x$Proj <- 1
-# isol_start_125$Project <- 2
-# isol_end_125$Proj <- 2
-
-#combine datasets
-isol_end <- rbind(isol_end_7x)
-isol_start <- rbind(isol_start_7x)
-
-#remove -Mg data
-isol_end <- subset(isol_end, isol_end$Media == "+Mg")
-isol_end$Media <- NULL
-
-#compile time information into timestamp
-isol_end <- make_timestamp(isol_end, type = "end")
-isol_start <- make_timestamp(isol_start, type = "isol start")
-
-#convert timestamp to time since inoculation
-isol_end <- calc_timediff(isol_start, isol_end, "isol")
-
+#Plot data
 my_facet_labels <- c("1" = "Weak Phage", 
                      "2" = "Strong Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
-#plot isolate variation for each pop
-isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
-ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
-  geom_jitter(position = position_jitter(0), size = 2) + 
-  facet_grid(.~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
-  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
-                              "D", "E", LETTERS[1:3], "E")) +
-  theme(axis.text.x = element_text(size = 12, color = "black"),
-        plot.margin = unit(c(0, 0, 0.075, 0), "npc"))
-grid.text(label = c("Control", "Global", "Local"),
-          x = unit(c(.31, .6, 0.86), "npc"),
-          y = unit(0.06, "npc"))
-grid.polyline(x = unit(c(0.17, 0.45, 0.49, 0.72, 0.75, 0.975), unit = "npc"),
-              y = unit(rep(0.09, 6), unit = "npc"),
-              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 3))
-
-#plot isolate variation for each pop
-#for poster
-isol_end$Treat.Rep <- paste(isol_end$Treat, isol_end$Rep)
-png("isol_mig_rate.png", width = 11, height = 7, units = "in",
-    res = 300)
-ggplot(isol_end, aes(x = Treat.Rep, y = `Rate (cm/hr)`)) + 
-  geom_jitter(position = position_jitter(0), size = 4) + 
-  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() + labs(y = "Migration Rate (cm/hr)", x = "") +
-  scale_x_discrete(labels = c("WT", LETTERS[1:5], "A", "B",
-                              "D", "E", LETTERS[1:3], "E")) +
-  theme(axis.text = element_text(size = 16, color = "black"),
-        axis.title = element_text(size = 20),
-        strip.text = element_text(size = 20),
-        plot.margin = unit(c(0.01, 0.01, 0.075, 0.01), "npc"))
-grid.text(label = c("Control", "Global", "Local"),
-          x = unit(c(.3, .58, 0.825), "npc"),
-          y = unit(0.06, "npc"),
-          gp = gpar(fontsize = 20))
-grid.polyline(x = unit(c(0.17, 0.45, 0.48, 0.69, 0.72, 0.94), unit = "npc"),
-              y = unit(rep(0.09, 6), unit = "npc"),
-              id = c(1, 1, 2, 2, 3, 3), gp = gpar(lwd = 4))
-dev.off()
-
-#have to clean up correlation code
-
-# #plot correlation of T14 pop rate & isol rates
-# pop_isol_frame <- data.frame(Time=integer(), Rep=character(), Treat=character(), 
-#                              Isol=character(), Pop_Rate=double(), Isol_Rate=double(),
-#                              stringsAsFactors = F)
-# for (i in 1:nrow(isol_end)) {
-#   if (isol_end$Proj[i] != "P1.1") {
-#     my.sub <- subset(end_data, end_data$Time == isol_end$Time[i] & 
-#                        end_data$Rep == isol_end$Rep[i] & 
-#                        substr(end_data$Treat, 1, 1) == isol_end$Treat[i])
-#     pop_isol_frame <- rbind(pop_isol_frame, 
-#                             data.frame(Time=isol_end$Time[i],
-#                                        Rep=isol_end$Rep[i],
-#                                        Treat=isol_end$Treat[i],
-#                                        Isol=isol_end$Isol[i],
-#                                        Pop_Rate=my.sub$`Rate (cm/hr)`[1],
-#                                        Isol_Rate=isol_end$`Rate (cm/hr)`[i]))
-#   }
-# }
-# # plot(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate, xlim = c(0.025, 0.065),
-# #      ylim = c(0.025, 0.065))
-# # lines(x=c(0.02, 0.07), y=c(0.02, 0.07))
-# # summary(lm(pop_isol_frame$Isol_Rate~pop_isol_frame$Pop_Rate))
-# my_colors <- c("red", "green", "blue")
-# my.pch = c(20, 20, 20)
-# tiff(filename = "isol_vs_pop.tiff", width = 10, height = 10, units = "in",
-#      compression = "none", res = 300)
-# par(mar = my.mar + c(0, 1, 0, 0))
-# for (i in 1:length(unique(pop_isol_frame$Treat))) {
-#   treat = unique(pop_isol_frame$Treat)[i]
-#   my.sub <- subset(pop_isol_frame, pop_isol_frame$Treat == treat)
-#   if (i == 1) {
-#     plot(my.sub$Isol_Rate~my.sub$Pop_Rate, xlim = c(0.027, 0.061), ylim = c(0.027, 0.061),
-#          pch = my.pch[i], xlab = "Population Migration Rate (cm/hr)", ylab = "Isolate Migration Rate (cm/hr)",
-#          col = my_colors[i], cex = 2, cex.lab = 2, cex.axis = 2)
-#   } else {
-#     points(my.sub$Isol_Rate~my.sub$Pop_Rate, pch = my.pch[i], col = my_colors[i],
-#            cex = 2)
-#   }
-# }
-# lines(x=c(0, 1), y=c(0, 1), lwd = 2)
-# legend(x = 0.053, y = 0.035, legend = unique(mean_rates$Treatment), pch = my.pch, 
-#        col = my_colors, cex = 2)
-# dev.off()
+ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+       aes(x = Treat, y = relative_area, group = Pop)) +
+  geom_point(position = position_dodge(0.6)) +
+  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+  theme_bw() + 
+  labs(y = "Isolate Area of Growth Relative to Ancestor",
+       x = "Treatment") +
+  geom_hline(yintercept = 1, lty = 2) +
+  scale_x_discrete(limits = c("C", "L", "G"),
+                   labels = c("Control", "Local", "Global")) +
+  NULL
 
 ##isolate growth curve analysis
 
