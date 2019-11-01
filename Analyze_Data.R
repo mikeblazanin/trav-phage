@@ -1,5 +1,5 @@
 library("ggplot2")
-library("reshape")
+library("dplyr")
 
 #Need to split this into 2 scripts: one to take the messy data
 # (e.g. isolate information in underscore formats, etc)
@@ -22,309 +22,45 @@ library("reshape")
 #Change growth rate for ancestor to dotted line
 
 ##experimental evolution analysis
-end_data_7x <- read.csv("74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
-start_data_7x <- read.csv("74_75_76_Start_Data.csv", header = T, stringsAsFactors = F)
-fails_7x <- read.csv("74_75_76_fails.csv", header = T, stringsAsFactors = F)
-contam_7x <- read.csv("74_75_76_contaminants.csv", header = T, stringsAsFactors = F)
-end_data_125 <- read.csv("125_Data_Measurements.csv", header = T, stringsAsFactors = F)
-start_data_125 <- read.csv("125_Start_Data.csv", header = T, stringsAsFactors = F)
-fails_125 <- read.csv("125_fails.csv", header = T, stringsAsFactors = F)
+exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
 
-##fix Sydney's measurements in 74, 75, 76 (they were taken in inches, not cm)
-for (i in 1:nrow(end_data_7x)) {
-  if (end_data_7x$Entered.By[i] == "Sydney") {
-    end_data_7x$Width..cm.[i] <- 2.54*end_data_7x$Width..cm.[i]
-    end_data_7x$Height..cm.[i] <- 2.54*end_data_7x$Height..cm.[i]
-  }
-}
+#Drop points after T14
+exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 
-#define function to parse out Strain data into component parts
-strain_split <- function(my_data, num_cols) {
-  my_data$Proj <- NA
-  my_data$Time <- NA
-  my_data$Rep <- NA
-  if (num_cols == 4) {my_data$Treat <- NA}
-  for (i in 1:nrow(my_data)) {
-    my_split <- strsplit(my_data$Strain[i], split = "_")[[1]]
-    my_data$Proj[i] <- my_split[[1]]
-    my_data$Time[i] <- my_split[[2]]
-    if (length(my_split) < num_cols) {
-      my_data$Rep[i] <- "A"
-    } else {
-      my_data$Rep[i] <- my_split[[num_cols]]
-    }
-    if (num_cols == 4) {
-      my_data$Treat[i] <- my_split[[3]]
-    }
-  }
-  return(my_data)
-}
+#Calculate total area
+exper_evol_migr$area_cm <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
 
-#parse out strain data
-start_data_7x <- strain_split(start_data_7x, 3)
-end_data_7x <- strain_split(end_data_7x, 4)
-start_data_125 <- strain_split(start_data_125, 3)
-end_data_125 <- strain_split(end_data_125, 4)
+#Make plot with all pops shown
+ggplot(data = exper_evol_migr,
+       aes(x = Timepoint, y = area_cm, group = paste(Treat, Pop),
+           color = Treat)) +
+  geom_line() +
+  facet_grid(~Proj)
 
-#turn treatment values into only first letter for end_data_7x
-end_data_7x$Treat <- substr(end_data_7x$Treat, 1, 1)
-contam_7x$Treat <- substr(contam_7x$Treat, 1, 1)
+#Summarize
+exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
+exper_evol_summ <- summarize(exper_evol_migr,
+                             area_mean = mean(area_cm),
+                             area_sd = sd(area_cm),
+                             area_n = n())
 
-#combine 2 projects: end data & start data
-end_data <- rbind(end_data_7x, end_data_125)
-start_data <- rbind(start_data_7x, start_data_125)
-fails_data <- rbind(fails_7x, fails_125)
-
-#define functions to remove failed runs
-start_remove_fails <- function(start_data, fails) {
-  start_data <- cbind(start_data, NA)
-  colnames(start_data)[ncol(start_data)] <- "Remove"
-  for (i in 1:nrow(start_data)) {
-    for (j in 1:nrow(fails)) {
-      if (start_data$Proj[i] == fails$Proj[j] & start_data$Time[i] == fails$Time[j] & start_data$Rep[i] == fails$Rep[j]) {
-        start_data$Remove[i] <- TRUE
-      }
-    }
-    if (is.na(start_data$Remove[i])) {start_data$Remove[i] <- FALSE}
-  }
-  start_data <- subset(start_data, start_data$Remove == F)
-  start_data <- start_data[, -ncol(start_data)]
-  return(start_data)
-}
-end_remove_fails <- function(end_data, fails) {
-  end_data <- cbind(end_data, NA)
-  colnames(end_data)[ncol(end_data)] <- "Remove"
-  for (i in 1:nrow(end_data)) {
-    for (j in 1:nrow(fails)) {
-      if (end_data$Proj[i] == fails$Proj[j] & end_data$Time[i] == fails$Time[j] & end_data$Rep[i] == fails$Rep[j]) {
-        end_data$Remove[i] <- TRUE
-      }
-    }
-    if (is.na(end_data$Remove[i])) {end_data$Remove[i] <- FALSE}
-  }
-  end_data <- subset(end_data, end_data$Remove == F)
-  end_data <- end_data[, -ncol(end_data)]
-  return(end_data)
-}
-
-#actually remove failed runs
-start_data <- start_remove_fails(start_data, fails_data)
-end_data <- end_remove_fails(end_data, fails_data)
-
-#define functions to remove contaminated lines
-end_remove_contam <- function(end_data, contam) {
-  end_data <- cbind(end_data, NA)
-  colnames(end_data)[ncol(end_data)] <- "Remove"
-  for (i in 1:nrow(end_data)) {
-    for (j in 1:nrow(contam)) {
-      if (end_data$Proj[i] == contam$Proj[j] & end_data$Treat[i] == contam$Treat[j] & end_data$Rep[i] == contam$Rep[j]) {
-        end_data$Remove[i] <- TRUE
-      }
-    }
-    if (is.na(end_data$Remove[i])) {end_data$Remove[i] <- FALSE}
-  }
-  end_data <- subset(end_data, end_data$Remove == F)
-  end_data <- end_data[, -ncol(end_data)]
-  return(end_data)
-}
-
-#actually remove contaminated lines: 75 B G, 76 A L
-end_data <- end_remove_contam(end_data, contam_7x)
-
-#define function to change the reps so they're unique (74-A, 75A-B, 75B-C, 76A-D, 76B-E)
-#& change projects to 1 (for 74, 75, 76) & 2 (for 125) 
-uniq_reps <- function(my_data) {
-  for (i in 1:nrow(my_data)) {
-    if (my_data$Proj[i] == "74") {
-      my_data$Rep[i] <- "A"
-    } else if (my_data$Proj[i] == "75") {
-      if (my_data$Rep[i] == "A") {
-        my_data$Rep[i] <- "B"
-      } else if (my_data$Rep[i] == "B") {
-        my_data$Rep[i] <- "C"
-      }
-    } else if (my_data$Proj[i] == "76") {
-      if (my_data$Rep[i] == "A") {
-        my_data$Rep[i] <- "D"
-      } else if (my_data$Rep[i] == "B") {
-        my_data$Rep[i] <- "E"
-      }
-    }
-    if (my_data$Proj[i]=="74" | my_data$Proj[i]=="75" | my_data$Proj[i]=="76") {
-      my_data$Proj[i] <- 1
-    } else if (my_data$Proj[i] == "125") {my_data$Proj[i] <- 2}
-  }
-  return(my_data)
-}
-  
-#make start & end data have unique reps
-start_data <- uniq_reps(start_data)
-end_data <- uniq_reps(end_data)
-
-#define function to pull out forisol into separate data frames
-#returns the main data frame, then the forisol frame, in a list
-forisol_rem <- function(my_data) {
-  my_data <- cbind(my_data, NA)
-  colnames(my_data)[ncol(my_data)] <- "forisol"
-  for (i in 1:nrow(my_data)) {
-    if (grepl("forisol", my_data$Time[i])) {
-      my_data$forisol[i] <- TRUE
-    } else {
-      my_data$forisol[i] <- FALSE
-    }
-  }
-  my_isol <- subset(my_data, my_data$forisol == T)
-  my_data <- subset(my_data, my_data$forisol == F)[, -ncol(my_data)]
-  return(list(my_data, my_isol))
-}
-
-#actually remove forisol
-end_data <- forisol_rem(end_data)[[1]]
-start_data <- forisol_rem(start_data)[[1]]
-
-#define function to remove hyphenated 2nd part from tranfer #'s
-rem_hyphens <- function(my_data) {
-  for (i in 1:nrow(my_data)) {
-    my_split <- strsplit(my_data$Time[i], split = "-")
-    my_data$Time[i] <- substr(my_split[[1]][1], 2, nchar(my_split[[1]][1]))
-  }
-  return(my_data)
-}
-
-#actually change transfer values so re-dos don't have hyphenated 2nd part
-start_data <- rem_hyphens(start_data)
-end_data <- rem_hyphens(end_data)
-
-#define function to compile time info into timestamp
-#then get rid of all time columns as well as Strain column
-make_timestamp <- function(my_data, type) {
-  my_data <- cbind(my_data, NA)
-  colnames(my_data)[ncol(my_data)] <- "timestamp"
-  my_data$timestamp <- paste(paste(my_data$Year, my_data$Month, my_data$Day, sep = "-"),
-                                paste(my_data$Hour, my_data$Minute, sep = ":"), sep = " ")
-  my_data$timestamp <- strptime(my_data$timestamp, format = "%Y-%m-%d %H:%M")
-  if (type=="start") {my_data <- my_data[, -c(1:6)]
-  } else if (type=="end") {my_data <- my_data[, -c(2:8)]
-  } else if (type=="isol start") {my_data <- my_data[, -c(1:5)]}
-  return(my_data)
-}
-
-#compile time information into timestamp
-start_data <- make_timestamp(start_data, "start")
-end_data <- make_timestamp(end_data, "end")
-
-#fix this below to include proj info
-
-#define function to convert timestamp to time since inoculation
-#then calculate rate (average radius spread per hour)
-calc_timediff <- function(my_start, my_end, type="pop") {
-  my_end <- cbind(my_end, NA)
-  colnames(my_end)[ncol(my_end)] <- "timediff"
-  for (i in 1:nrow(my_end)) {
-    if (type == "isol") {
-      sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] &
-                            my_start$Time == my_end$Time[i] &
-                            my_start$Isol == my_end$Isol[i])
-    } else {
-      sub_start <- subset(my_start, my_start$Proj == my_end$Proj[i] & 
-                            my_start$Time == my_end$Time[i] & 
-                            my_start$Rep == my_end$Rep[i])
-    }
-    my_end$timediff[i] <- difftime(my_end$timestamp[i], sub_start$timestamp[1], units = "hours")
-  }
-  my_end <- cbind(my_end, NA)
-  colnames(my_end)[ncol(my_end)] <- "Rate (cm/hr)"
-  my_end$`Rate (cm/hr)` <- (my_end$Width..cm.+my_end$Height..cm.)/(4*my_end$timediff)
-  return(my_end)
-}
-
-#actually convert timestamp to time since inoculation, then calc rate
-end_data <- calc_timediff(start_data, end_data)
-
-#def func for mean & sd of rates for ea treat & timepoint
-sum_rates <- function(my_end_data) {
-  #returns a data frame summary
-  my_mean_rates <- data.frame(Proj=character(), Treat=character(), Time=integer(), 
-                           Mean.Rate=double(), SD.Rate=double(), n=integer(),
-                           stringsAsFactors = F)
-  for (my.proj in unique(my_end_data$Proj)) {
-    my.sub.a <- subset(my_end_data, my_end_data$Proj == my.proj)
-    for (my.time in unique(my.sub.a$Time)) {
-      my.sub.b <- subset(my.sub.a, my.sub.a$Time == my.time)
-      for (my.treat in unique(my.sub.b$Treat)) {
-        my.sub.c <- subset(my.sub.b, my.sub.b$Treat == my.treat)
-        my_mean_rates <- rbind(my_mean_rates, c(as.character(my.proj), as.character(my.treat), 
-                                          as.integer(my.time), as.double(mean(my.sub.c$Rate)), 
-                                          as.double(sd(my.sub.c$Rate)), nrow(my.sub.c)), 
-                            stringsAsFactors = F)
-      }
-    }
-  }
-  colnames(my_mean_rates) <- c("Proj", "Treat", "Time", "Mean_Rate", "SD_Rate", "n")
-  return(my_mean_rates)
-}
-
-#actually get mean rates 
-mean_rates <- sum_rates(end_data)
-
-#change classes
-end_data$Time <- as.numeric(end_data$Time)
-mean_rates$Time <- as.numeric(mean_rates$Time)
-mean_rates$Mean_Rate <- as.numeric(mean_rates$Mean_Rate)
-mean_rates$SD_Rate <- as.numeric(mean_rates$SD_Rate)
-
-#limit analysis to first 14 transfers
-end_data <- subset(end_data, end_data$Time <= 14)
-mean_rates <- subset(mean_rates, mean_rates$Time<=14)
-
+#Make plot of summarized data
 my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage")
-#make plot by treatment
-ggplot(data = mean_rates, 
-       aes(x=Time, y=Mean_Rate, group=Treat, colour=Treat)) +
-  geom_line(size = 1.2) + geom_point() + 
+
+ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
+                                   color = Treat)) +
+  geom_point(position = position_dodge(0.2)) + 
+  geom_line(size = 1.2, position = position_dodge(0.2)) +
   theme_bw() +
   theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
         legend.text = element_text(size = 16)) +
-  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) + 
-  geom_errorbar(aes(ymin=Mean_Rate-SD_Rate, ymax=Mean_Rate+SD_Rate),
+  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+  geom_errorbar(aes(ymax = area_mean+area_sd, ymin = area_mean-area_sd),
                 width=1, size = .7, position=position_dodge(0.2)) +
-  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") + 
+  labs(x = "Transfer", 
+       y = expression(paste("Mean Area of Growth ( ", cm^2, ")"))) + 
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local"))
-
-#make plot by treatment
-#for poster
-png("evol_mig_rate.png", width = 11, height = 7, units = "in",
-    res = 300)
-ggplot(data = mean_rates, aes(x=Time, y=Mean_Rate, group=Treat)) +
-  geom_line(size = 1.5, aes(colour = Treat)) +
-  theme_bw() +
-  theme(axis.text = element_text(size = 16),
-        axis.title = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 16),
-        strip.text = element_text(size = 20)) +
-  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) + 
-  labs(x = "Transfer", y = "Mean Migration Rate (cm/hr)") +
-  geom_jitter(height = 0, width = 0.1, data = end_data, size = 2.5,
-              aes(x = Time, y = `Rate (cm/hr)`, colour = Treat, 
-                  alpha = 0.4)) + 
-  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local"))
-dev.off()
-
-#make plot of ea treat to check if pops are stable position
-my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage", "C" = "Control",
-                     "G" = "Global", "L" = "Local")
-ggplot(data = end_data, aes(x=Time, y=`Rate (cm/hr)`, group=Rep, colour=Rep)) +
-  geom_line(size = 1.1) + geom_point() + 
-  facet_grid(Treat~Proj, labeller = labeller(Proj = my_facet_labels, 
-                                             Treat = my_facet_labels)) + 
-  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11)) +
-  labs(x = "Transfer", y = "Migration Rate (cm/hr)") + 
-  scale_color_hue(name = "Replicate\nPopulation") +
-  theme_bw()
-
 
 ##isolate migration analysis
 
