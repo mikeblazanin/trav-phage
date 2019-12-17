@@ -720,7 +720,7 @@ for (i in 1:nrow(resis_7x_old)) {
     } else {resis_7x_old$Pop[i] <- "E"}
   }
 }
-resis_7x_old$Proj <- 1
+resis_7x_old$Proj <- "7x"
 
 ###Make two dataframes compatible for merge
 
