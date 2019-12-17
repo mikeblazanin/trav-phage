@@ -547,8 +547,8 @@ resis_data$approach[71:nrow(resis_data)] <- "new"
 
 ggplot(resis_data[resis_data$Treat != "Anc", ], 
        aes(x = Treat, y = EOP, color = Pop,
-           shape = bd)) +
-  facet_grid(approach~Proj) +
+           shape = bd, group = Pop)) +
+  facet_grid(Proj~approach) +
   geom_point(position = position_dodge(width = 0.5),
              alpha = 0.7) +
   scale_y_continuous(trans = "log10") +
