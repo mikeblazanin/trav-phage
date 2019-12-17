@@ -1,4 +1,4 @@
-#TODO: finish isolate migration cleanup and beyond
+#TODO: cleanup for growth curves
 
 library("reshape")
 
@@ -696,117 +696,81 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
 dev.off()
 
 ##Isolate resistance analysis ----
-resis_data_7x <- read.csv("74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
+resis_7x_old <- read.csv("./Raw_Data/74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
+resis_new <- read.csv("./Raw_Data/130_new_resis_assays.csv", header = T, stringsAsFactors = F)
 
 #split out project info & make unique reps
-resis_data_7x <- cbind(resis_data_7x[, 1:2], "Pop" = NA, resis_data_7x[, 3:5])
-for (i in 1:nrow(resis_data_7x)) {
-  my.proj <- resis_data_7x$Proj[i]
+resis_7x_old <- cbind(resis_7x_old[, 1:2], "Pop" = NA, resis_7x_old[, 3:5])
+for (i in 1:nrow(resis_7x_old)) {
+  my.proj <- resis_7x_old$Proj[i]
   if (my.proj == "P1.1") {
-    resis_data_7x$Pop[i] <- "F"
-    resis_data_7x$Treat[i] <- "A" #for Ancestor
+    resis_7x_old$Pop[i] <- "F"
+    resis_7x_old$Treat[i] <- "A" #for Ancestor
   } else if (my.proj == "74") {
-    resis_data_7x$Pop[i] <- "A"
+    resis_7x_old$Pop[i] <- "A"
   } else {
-    resis_data_7x$Proj[i] <- substr(my.proj, 1, 2)
-    resis_data_7x$Pop[i] <- substr(my.proj, 3, 3)
+    resis_7x_old$Proj[i] <- substr(my.proj, 1, 2)
+    resis_7x_old$Pop[i] <- substr(my.proj, 3, 3)
   }
-  if (resis_data_7x$Proj[i] == "75") {
-    if (resis_data_7x$Pop[i] == "A") {resis_data_7x$Pop[i] <- "B"
-    } else {resis_data_7x$Pop[i] <- "C"}
-  } else if (resis_data_7x$Proj[i] == "76") {
-    if (resis_data_7x$Pop[i] == "A") {resis_data_7x$Pop[i] <- "D"
-    } else {resis_data_7x$Pop[i] <- "E"}
+  if (resis_7x_old$Proj[i] == "75") {
+    if (resis_7x_old$Pop[i] == "A") {resis_7x_old$Pop[i] <- "B"
+    } else {resis_7x_old$Pop[i] <- "C"}
+  } else if (resis_7x_old$Proj[i] == "76") {
+    if (resis_7x_old$Pop[i] == "A") {resis_7x_old$Pop[i] <- "D"
+    } else {resis_7x_old$Pop[i] <- "E"}
   }
 }
-resis_data_7x$Proj <- 1
+resis_7x_old$Proj <- 1
 
-#this is where merge of resis data will be
-resis_data <- resis_data_7x
+###Make two dataframes compatible for merge
 
-#calculate EOP for ea isol
-resis_data$EOP <- NA
-for (i in 1:nrow(resis_data)) {
-  my_sub <- subset(resis_data, resis_data$Isol == resis_data$Isol[i])
-  resis_data$EOP[i] <- resis_data$PFU[i]/my_sub[my_sub$Treat == "A",]$PFU
+##With old data
+resis_7x_old$Date <- "2017"
+resis_7x_old$Timepoint <- 14
+
+#We used 45.5 uL of -7 dilution for old resistance assays, so PFU/mL needs
+# to be scaled accordingly
+resis_7x_old$dilution <- 10**7 * 1000/45.5
+resis_7x_old$pfu_ml <- resis_7x_old$PFU * resis_7x_old$dilution
+
+#Drop unnecessary columns
+resis_7x_old <- resis_7x_old[, c("Date", "Proj", "Pop", "Treat", "Timepoint",
+                                 "Isol", "PFU", "dilution", "pfu_ml")]
+
+##With new data
+for (i in 8:16) {
+  resis_new[resis_new[, i] == "clr" | resis_new[, i] == "...", i] <- "clear"
+  resis_new[resis_new[, i] == "too", i] <- "too many"
 }
 
-#For local viewing
-ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-  scale_x_discrete(name = "Treatment") +
-  ylab("Resistance to Phage") +
-  facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
-               dotsize = 3) +
-  # geom_jitter(width = 0.2, height = 0, size = 2) +
-  theme_bw() + ggtitle("Population") +
-  theme(plot.title = element_text(size = 12, hjust = 0.5), 
-        axis.title = element_text(size = 12),
-        axis.text.x = element_text(color = "black", size = 12)) +
-  geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+#Calculate pfu & dilution
+resis_new$PFU <- NA
+resis_new$dilution <- NA
+resis_new$pfu_ml <- NA
 
-#For poster
-png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
-ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-  scale_x_discrete(name = "Treatment") +
-  ylab("Resistance to Phage") +
-  facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-  geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
-               dotsize = 2) +
-  theme_bw() + ggtitle("Population") +
-  theme(plot.title = element_text(size = 24, hjust = 0.5), 
-        axis.title = element_text(size = 24),
-        axis.text = element_text(color = "black", size = 20),
-        strip.text = element_text(size = 24)) +
-  geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
-dev.off()
+for (i in 1:nrow(resis_new)) {
+  for (j in 8:16) {
+    if (!is.na(suppressWarnings(as.numeric(resis_new[i, j])))) {
+      resis_new$PFU[i] <- resis_new[i, j]
+      #100 fold for 10 uL, times the dilution of the tube
+      resis_new$dilution[i] <- 100*10**as.numeric( 
+        substr(colnames(resis_new)[j],
+               nchar(colnames(resis_new)[j]),
+               nchar(colnames(resis_new)[j])))
+      break
+    }
+  }
+}
+resis_new$pfu_ml <- as.numeric(resis_new$PFU) * resis_new$dilution
 
-#resistance vs growth
-gc_resis_data <- merge(resis_data, gc_mppti)
-gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
-gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
-                           avg_gr = mean(gr_max_avg))
+#Drop unneeded columns
+resis_new <- resis_new[, c("Date", "Proj", "Pop", "Treat", "Timepoint",
+                                 "Isol", "PFU", "dilution", "pfu_ml")]
 
-#Make plot of all isolates
-ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
-  geom_point() + 
-  facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
-  geom_smooth(method = "lm") +
-  labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
+#Merge
+resis_data <- rbind(resis_7x_old, resis_new)
 
-summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
-
-#Make plot of all pops
-#For local viewing
-ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-  geom_point(size = 2, aes(pch = Treat)) + 
-  scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-                     breaks = c("A", "C", "G", "L"),
-                     labels = c("WT", "Control", "Global", "Local")) +
-  facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
-                                             Proj = my_facet_labels)) +
-  geom_smooth(method = "lm") +
-  labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
-  theme_bw()
-
-#For poster
-png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
-    res = 300)
-ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-  geom_point(size = 4, aes(pch = Treat)) + 
-  scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-                     breaks = c("A", "C", "G", "L"),
-                     labels = c("WT", "Control", "Global", "Local")) +
-  facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
-                                             Proj = my_facet_labels)) +
-  geom_smooth(method = "lm", se = F) +
-  labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
-  theme_bw() +
-  theme(axis.text = element_text(size = 16),
-        strip.text = element_text(size = 20),
-        axis.title = element_text(size = 20),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 16))
-dev.off()
-
-summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
+#Write
+write.csv(resis_data,
+          "./Clean_Data/Isolate_resistance.csv",
+          row.names = FALSE)
