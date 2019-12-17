@@ -725,8 +725,12 @@ resis_7x_old$Proj <- 1
 ###Make two dataframes compatible for merge
 
 ##With old data
-resis_7x_old$Date <- "2017"
+resis_7x_old$Date <- paste("2017-", resis_7x_old$Isol, sep = "")
 resis_7x_old$Timepoint <- 14
+
+#Reformat Ancestor rows
+resis_7x_old[resis_7x_old$Treat == "A", c("Pop", "Treat", "Isol")] <- "Anc"
+resis_7x_old[resis_7x_old$Treat == "Anc", c("Timepoint")] <- 0
 
 #We used 45.5 uL of -7 dilution for old resistance assays, so PFU/mL needs
 # to be scaled accordingly
