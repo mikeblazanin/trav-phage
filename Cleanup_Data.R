@@ -1,4 +1,4 @@
-#TODO: cleanup for growth curves
+#TODO: do growth curve cleanup
 
 library("reshape")
 

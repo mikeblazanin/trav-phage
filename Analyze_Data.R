@@ -1,3 +1,8 @@
+##TODO: clean up migration analysis
+##      migration stats
+##      growth curve analysis
+##      growth curve stats
+
 library("ggplot2")
 library("dplyr")
 
