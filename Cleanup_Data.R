@@ -163,8 +163,8 @@ uniq_pops <- function(my_data) {
       }
     }
     if (my_data$Proj[i]=="74" | my_data$Proj[i]=="75" | my_data$Proj[i]=="76") {
-      my_data$Proj[i] <- 1
-    } else if (my_data$Proj[i] == "125") {my_data$Proj[i] <- 2}
+      my_data$Proj[i] <- "7x"
+    } else if (my_data$Proj[i] == "125") {my_data$Proj[i] <- "125"}
   }
   return(my_data)
 }
@@ -322,8 +322,8 @@ isol_start_125$Isol[isol_start_125$Pop == "Anc"] <- "Anc"
 isol_start_7x$Time[isol_start_7x$Isol == "Anc"] <- 0
 isol_start_125$Time[isol_start_125$Isol == "Anc"] <- 0
 
-isol_start_7x$Proj <- 1
-isol_start_125$Proj <- 2
+isol_start_7x$Proj <- "7x"
+isol_start_125$Proj <- "125"
 
 isol_start_7x <- isol_start_7x[, c("Year", "Month", "Day", "Hour", "Minute",
                                    "Proj", "Isol", "Time")]
@@ -353,8 +353,8 @@ colnames(isol_end_125) <- c("Year", "Month", "Day", "Hour", "Minute", "Second",
                            "Proj", "Pop", "Treat", "Timepoint", "Isol",
                            "Width_cm", "Height_cm")
 
-isol_end_7x$Proj <- 1
-isol_end_125$Proj <- 2
+isol_end_7x$Proj <- "7x"
+isol_end_125$Proj <- "125"
 
 isol_end <- rbind(isol_end_7x, isol_end_125)
                                    
