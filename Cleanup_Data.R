@@ -543,8 +543,9 @@ sep.growth.ID <- function(my.array) {
 gc_data_7x <- sep.growth.ID(gc_data_7x)
 
 #reformat time column
-gc_data_7x$Time <- strptime(gc_data_7x$Time, format = "%H:%M:%S")
-gc_data_7x$Time <- difftime(gc_data_7x$Time,
+colnames(gc_data_7x)[which(colnames(gc_data_7x) == "Time")] <- "Time_s"
+gc_data_7x$Time_s <- strptime(gc_data_7x$Time_s, format = "%H:%M:%S")
+gc_data_7x$Time_s <- difftime(gc_data_7x$Time_s,
                             strptime("0:00:00", format = "%H:%M:%S"), 
                             units = "secs")
 
@@ -566,8 +567,8 @@ for (fil in list.files("./Raw_Data/129_125T14isol_growthcurves/")) {
 #Rename columns, strip "s" off of time and degrees C off of Temp_C
 for (i in 1:length(growth_125)) {
   growth_125[[i]] <- growth_125[[i]][-c(nrow(growth_125[[i]])), ]
-  colnames(growth_125[[i]])[2:3] <- c("Time", "Temp_C")
-  growth_125[[i]][, "Time"] <- gsub("s", "", growth_125[[i]][, "Time"])
+  colnames(growth_125[[i]])[2:3] <- c("Time_s", "Temp_C")
+  growth_125[[i]][, "Time_s"] <- gsub("s", "", growth_125[[i]][, "Time_s"])
   growth_125[[i]][, "Temp_C"] <- gsub(" °C", "", growth_125[[i]][, "Temp_C"])
 }
 
@@ -601,7 +602,7 @@ colnames(media_layout_125)[2] <- "Media"
 #Then drop wells with missing info (e.g. empty wells)
 for (i in 1:length(growth_125)) {
   growth_125[[i]] <- pivot_longer(growth_125[[i]],
-                                  cols = -c("Isol", "Time", "Temp_C"),
+                                  cols = -c("Isol", "Time_s", "Temp_C"),
                                   names_to = "Well",
                                   values_to = "OD600")
   growth_125[[i]] <- left_join(growth_125[[i]],
@@ -627,9 +628,9 @@ gc_data_125$cfu_ml <- predict(turn_std_curve, newdata = gc_data_125)
 
 #Reorder columns
 gc_data_125 <- gc_data_125[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
-                               "Media", "Time", "Temp_C", "OD600", "cfu_ml")]
+                               "Media", "Time_s", "Temp_C", "OD600", "cfu_ml")]
 gc_data_7x <- gc_data_7x[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
-                             "Media", "Time", "Temp_C", "OD600", "cfu_ml")]
+                             "Media", "Time_s", "Temp_C", "OD600", "cfu_ml")]
 
 #Merge
 gc_data_all <- rbind(gc_data_7x, gc_data_125)
