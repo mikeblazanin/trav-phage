@@ -33,11 +33,11 @@ exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
 exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 
 #Calculate total area
-exper_evol_migr$area_cm <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
+exper_evol_migr$area_cm2 <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
 
 #Make plot with all pops shown
 ggplot(data = exper_evol_migr,
-       aes(x = Timepoint, y = area_cm, group = paste(Treat, Pop),
+       aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
            color = Treat)) +
   geom_line() +
   facet_grid(~Proj)
@@ -45,12 +45,12 @@ ggplot(data = exper_evol_migr,
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
-                             area_mean = mean(area_cm),
-                             area_sd = sd(area_cm),
+                             area_mean = mean(area_cm2),
+                             area_sd = sd(area_cm2),
                              area_n = n())
 
 #Make plot of summarized data
-my_facet_labels <- c("1" = "Weak Phage", "2" = "Strong Phage")
+my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
 
 ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
                                    color = Treat)) +
@@ -71,24 +71,25 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
 isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
 
 #Calculate total area
-isol_migration$area_cm <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
+isol_migration$area_cm2 <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
 
 #Calculate total area relative to same-day ancestor
 ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
 isol_migration$relative_area <-
-  isol_migration$area_cm/ancestors$area_cm[
+  isol_migration$area_cm2/ancestors$area_cm2[
     match(as.Date(isol_migration$end_timestamp),
           as.Date(ancestors$end_timestamp))]
 
 #Plot data
-my_facet_labels <- c("1" = "Weak Phage", 
-                     "2" = "Strong Phage",
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
 ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Treat, y = relative_area, group = Pop)) +
-  geom_point(position = position_dodge(0.6)) +
+       aes(x = Treat, y = relative_area, color = Pop,
+           group = Pop)) +
+  geom_point(position = position_dodge(0.4)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() + 
   labs(y = "Isolate Area of Growth Relative to Ancestor",
@@ -526,6 +527,168 @@ for (date in unique(migration_125$date)) {
 ggplot(data = migration_125, aes(x = paste(Treatment, Population),
                                  y = relative_area)) +
   geom_point()
+
+## Growth curves ----
+#Remove first hour of datapoints
+gc_data <- gc_data[hour(gc_data$Time) > 0, ]
+
+#Add variables for getting unique subsets
+gc_data$mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+                        gc_data$Isol, gc_data$Rep_Well, sep = ".")
+gc_data$mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
+                       gc_data$Isol, sep = ".")
+
+#smooth CFU data
+smooth_data <- function(my_data, smooth_over, subset_by) {
+  #data must be sorted sequentially before fed into function
+  #my_data is a vector of the data to be smoothed
+  #smooth over is how many sequential entries to average
+  #the unique values of subset_by will be what is iterated over
+  out_list <- rep(NA, length(my_data))
+  cntr = 1
+  for (my_uniq in unique(subset_by)) {
+    my_sub <- subset(my_data, subset_by == my_uniq)
+    out_list[cntr:(cntr+length(my_sub)-smooth_over)] <- 0
+    for (i in 1:smooth_over) {
+      out_list[(cntr):(cntr+length(my_sub)-smooth_over)] <-
+        out_list[(cntr):(cntr+length(my_sub)-smooth_over)] + 
+        my_sub[i:(length(my_sub)-smooth_over+i)]
+    }  
+    cntr <- cntr+length(my_sub)
+  }
+  out_list <- out_list/smooth_over
+  return(out_list)
+}
+
+#smooth by averaging non-overlapping ranges
+smooth_data_noverlap <- function(my_data, smooth_over, subset_by) {
+  #data must be sorted sequentially before fed into function
+  #my_data is a vector of the data to be smoothed
+  #smooth over is how many sequential entries to average
+  #the unique values of subset_by will be what is iterated over
+  out_list <- rep(NA, length(my_data))
+  cntr = 0
+  for (my_uniq in unique(subset_by)) {
+    my_sub <- subset(my_data, subset_by == my_uniq)
+    for (i in seq(from = 1, to = length(my_sub), by = smooth_over)) {
+      if (i+smooth_over < length(my_sub)) {
+        out_list[cntr+i] <- mean(my_sub[i:(i+smooth_over-1)])
+      }
+    }
+    cntr <- cntr+length(my_sub)
+  }
+  return(out_list)
+}
+
+gc_sm <- gc_data
+
+gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 8, subset_by = gc_data$mpptir)
+gc_sm$Smooth_noverlap <- smooth_data_noverlap(gc_data$CFU, 5, 
+                                              subset_by = gc_data$mpptir)
+gc_sm <- gc_sm[is.na(gc_sm$Smooth_noverlap) == F, ]
+
+per_cap_grate <- function(CFU, time, subset_by) {
+  ans <- c((CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])/
+             (as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)], 
+                                  units = "hours")) * 
+                0.5 * (CFU[2:length(CFU)]+CFU[1:(length(CFU)-1)])), NA)
+  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
+  return(ans)
+}
+
+gc_data$pcgr <- per_cap_grate(gc_data$Smooth_CFU, gc_data$Time, gc_data$mpptir)
+gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
+
+# #Make plot of all smoothed growth rates
+# for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
+#   my_sub <- gc_data[(gc_data$mpptir %in% unique(gc_data$mpptir)[i:(i+24)]), ]
+#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
+#           facet_wrap(~mpptir))
+# }
+# 
+# #Make plots of all smoothed nonoverlapping growth rates
+# for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
+#   my_sub <- gc_sm[(gc_sm$mpptir %in% unique(gc_sm$mpptir)[i:(i+24)]), ]
+#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
+#           facet_wrap(~mpptir))
+# }
+
+# #Code for looking at an example well
+# my_well <- "100.1.D.C.A.1"
+# my_sub <- gc_data[gc_data$mpptir == my_well, ]
+# ggplot(data = my_sub, aes(x = Time, y = CFU)) +
+#   geom_line() + labs(y = "Colony Forming Units (CFU)")
+# ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
+#   geom_line() + labs(y = "Colony Forming Units (CFU)")
+# ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
+#   geom_line()
+# 
+# my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
+# ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
+# ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
+#   geom_line()
+# ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
+# 
+# 
+# my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
+# my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
+# ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
+#   geom_line()
+
+#extract maximum percap growth rates for each uniq well
+#using non-overlapping averaged smoothing
+gc_sm$Time <- as.character(gc_sm$Time)
+gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
+gc_mpptir <- summarize(gc_mpptir, max_pcgr = max(pcgr, na.rm = T))
+gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
+gc_mppti <- summarize(gc_mppti, gr_max_avg = mean(max_pcgr),
+                      dt_min_sd = sd(max_pcgr))
+gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
+gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
+                     sd_isols = sd(gr_max_avg))
+
+#Making percap growth rate plots
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT", "1" = "Weak Phage", "2" = "Strong Phage")
+
+#plot of all isols
+gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
+ggplot(gc_mppti, aes(x = Treat, y = gr_max_avg)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
+#plot of all pops
+gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
+
+#For local viewing
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_point(pch = 1, size = 3) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hour)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
+
+#For poster
+png(filename = "growth_rate_pops.png", width = 10, height = 7,
+    units = "in", res = 300)
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_jitter(width = 0.075, height = 0, pch = 16, size = 6) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hr)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local")) +
+  theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
+        strip.text = element_text(size = 20))
+dev.off()
+
 
 ## Resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
