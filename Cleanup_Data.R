@@ -384,7 +384,9 @@ isol_end <- isol_end[, c("Proj", "Pop", "Treat", "Timepoint", "Isol",
 write.csv(isol_end, "./Clean_Data/Isolate_migration.csv",
           row.names = FALSE)
 
-##isolate growth curve analysis ----
+##isolate growth curve cleanup ----
+
+#Standard curves ----
 
 #Travisano lab standard curve:
 # (note: I didn't actually plate out from the plate standard curve, instead
@@ -420,17 +422,17 @@ trav_stan_plate_list <- subset(trav_stan_plate_list,
                                is.na(trav_stan_plate_list$Dilution) == F)
 
 # #in data from Trav-lab spec, convert OD to CFU
-trav_stan_spec$CFU <- (trav_stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
+trav_stan_spec$cfu_ml <- (trav_stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
 
 #transfer CFU data to plate list
 trav_stan_plate_list <- cbind(trav_stan_plate_list, 
-                              "CFU"=trav_stan_spec$CFU[match(trav_stan_plate_list$Dilution, 
+                              "cfu_ml"=trav_stan_spec$cfu_ml[match(trav_stan_plate_list$Dilution, 
                                                      trav_stan_spec$Dilution)])
 
 #get regression of data
-# ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
+# ggplot(stan_plate_list, aes(x = cfu_ml, y = as.numeric(OD600))) + geom_point()
 trav_stan_plate_list$OD600 <- as.numeric(trav_stan_plate_list$OD600)
-trav_std_curve <- lm(CFU ~ OD600, data = trav_stan_plate_list)
+trav_std_curve <- lm(cfu_ml ~ OD600, data = trav_stan_plate_list)
 
 #Turner lab standard curve:
 turn_std_cv_data <- data.frame("Dil" = 1*1/(2**(0:8)),
@@ -438,22 +440,30 @@ turn_std_cv_data <- data.frame("Dil" = 1*1/(2**(0:8)),
                                              0.025, 0.010, 0.004),
                                "Abs_plt" = c(0.8319, 0.4711, 0.2591, 0.176, 0.1263,
                                              0.1009, 0.0905, 0.085, 0.0825))
-turn_std_cv_data$CFU <- turn_std_cv_data$Dil * 1305600000
+#Change colname to OD600 because that's colname in growthcurve data
+colnames(turn_std_cv_data)[3] <- "OD600"
+turn_std_cv_data$cfu_ml <- turn_std_cv_data$Dil * 1305600000
 
-turn_std_curve <- lm(CFU ~ Abs_plt, data = turn_std_cv_data)
+turn_std_curve <- lm(cfu_ml ~ OD600, data = turn_std_cv_data)
 
 ##growth curve analysis
-# library("minpack.lm")
-# library("tidyr")
-# library("lubridate")
-# library("dplyr")
+#library("minpack.lm")
+library("tidyr")
+#library("lubridate")
+library("dplyr")
 
-options(stringsAsFactors = F)
-growth_97 <- read.csv("97B.csv", header = T, stringsAsFactors = F)
-growth_98 <- read.csv("98B.csv", header = T, stringsAsFactors = F)
-growth_99 <- read.csv("99.csv", header = T, stringsAsFactors = F)
-growth_101 <- read.csv("101.csv", header = T, stringsAsFactors = F)
-plate_layout_97_101 <- read.csv("97_98_99_100_101_plate_layout.csv", header = F, stringsAsFactors = F)
+##7x growth curve cleanup ----
+
+growth_97 <- read.csv("./Raw_Data/7xT14isol_growthcurves/97B.csv", 
+                      header = T, stringsAsFactors = F)
+growth_98 <- read.csv("./Raw_Data/7xT14isol_growthcurves/98B.csv", 
+                      header = T, stringsAsFactors = F)
+growth_99 <- read.csv("./Raw_Data/7xT14isol_growthcurves/99.csv", 
+                      header = T, stringsAsFactors = F)
+growth_101 <- read.csv("./Raw_Data/7xT14isol_growthcurves/101.csv", 
+                       header = T, stringsAsFactors = F)
+plate_layout_97_101 <- read.csv("./Raw_Data/7xT14isol_growthcurves/97_98_99_100_101_plate_layout.csv", 
+                                header = F, stringsAsFactors = F)
 
 #make list of well ID & contents from plate layout
 plate_layout_list_97_101 <- get_layout(plate_layout_97_101, 2, 2)
@@ -492,16 +502,16 @@ tidy_97$Isol <- "A"
 tidy_98$Isol <- "B"
 tidy_99$Isol <- "C"
 tidy_101$Isol <- "E"
-tidy_97$Proj <- 1
-tidy_98$Proj <- 1
-tidy_99$Proj <- 1
-tidy_101$Proj <- 1
+tidy_97$Proj <- "7x"
+tidy_98$Proj <- "7x"
+tidy_99$Proj <- "7x"
+tidy_101$Proj <- "7x"
 
 #Combine data frames
-gc_data <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
+gc_data_7x <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
 
-#convert OD to CFU
-gc_data$CFU <- predict(my.fit, newdata = gc_data)
+#convert OD to cfu/mL
+gc_data_7x$cfu_ml <- predict(trav_std_curve, newdata = gc_data_7x)
 
 #separate out ID info
 sep.growth.ID <- function(my.array) {
@@ -530,172 +540,106 @@ sep.growth.ID <- function(my.array) {
   return(my.array)
 }
 
-gc_data <- sep.growth.ID(gc_data)
+gc_data_7x <- sep.growth.ID(gc_data_7x)
 
 #reformat time column
-gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
+gc_data_7x$Time <- strptime(gc_data_7x$Time, format = "%H:%M:%S")
+gc_data_7x$Time <- difftime(gc_data_7x$Time,
+                            strptime("0:00:00", format = "%H:%M:%S"), 
+                            units = "secs")
 
-#Remove first hour of datapoints
-gc_data <- gc_data[hour(gc_data$Time) > 0, ]
+#Rename temperature column
+colnames(gc_data_7x)[2] <- "Temp_C"
 
-#Add variables for getting unique subsets
-gc_data$mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-                gc_data$Isol, gc_data$Rep_Well, sep = ".")
-gc_data$mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-               gc_data$Isol, sep = ".")
+#125 growth curve cleanup ----
+growth_125 <- list(rep(NA, 5))
+i <- 1
+for (fil in list.files("./Raw_Data/129_125T14isol_growthcurves/")) {
+  growth_125[[i]] <- read.csv(paste("./Raw_Data/129_125T14isol_growthcurves/", fil, sep = ""),
+                              header = T, stringsAsFactors = F)
+  growth_125[[i]] <- cbind(data.frame("Isol" = substr(fil, nchar(fil)-4, nchar(fil)-4)),
+                           growth_125[[i]])
+  i <- i + 1
+}
 
-#smooth CFU data
-smooth_data <- function(my_data, smooth_over, subset_by) {
-  #data must be sorted sequentially before fed into function
-  #my_data is a vector of the data to be smoothed
-  #smooth over is how many sequential entries to average
-  #the unique values of subset_by will be what is iterated over
-  out_list <- rep(NA, length(my_data))
-  cntr = 1
-  for (my_uniq in unique(subset_by)) {
-    my_sub <- subset(my_data, subset_by == my_uniq)
-    out_list[cntr:(cntr+length(my_sub)-smooth_over)] <- 0
-    for (i in 1:smooth_over) {
-      out_list[(cntr):(cntr+length(my_sub)-smooth_over)] <-
-        out_list[(cntr):(cntr+length(my_sub)-smooth_over)] + 
-        my_sub[i:(length(my_sub)-smooth_over+i)]
-    }  
-    cntr <- cntr+length(my_sub)
+#Drop last row ("Date of measurement")
+#Rename columns, strip "s" off of time and degrees C off of Temp_C
+for (i in 1:length(growth_125)) {
+  growth_125[[i]] <- growth_125[[i]][-c(nrow(growth_125[[i]])), ]
+  colnames(growth_125[[i]])[2:3] <- c("Time", "Temp_C")
+  growth_125[[i]][, "Time"] <- gsub("s", "", growth_125[[i]][, "Time"])
+  growth_125[[i]][, "Temp_C"] <- gsub(" °C", "", growth_125[[i]][, "Temp_C"])
+}
+
+#Get layout information
+isol_layout_125 <- read.csv("./Raw_data/129_isolate_layout.csv",
+                            header = F, stringsAsFactors = F)
+media_layout_125 <- read.csv("./Raw_data/129_media_layout.csv",
+                             header = F, stringsAsFactors = F)
+
+isol_layout_125 <- get_layout(isol_layout_125, 2, 2)
+media_layout_125 <- get_layout(media_layout_125, 2, 2)
+
+isol_layout_125$Contents[isol_layout_125$Contents == ""] <- NA
+isol_layout_125 <- cbind(isol_layout_125, data.frame("Pop" = NA, "Treat" = NA, "Rep_Well" = NA))
+my_split <- strsplit(isol_layout_125$Contents, "-")
+for (i in 1:length(my_split)) {
+  if (length(my_split[[i]]) > 1) {
+    isol_layout_125$Pop[i] <- my_split[[i]][1]
+    isol_layout_125$Treat[i] <- my_split[[i]][2]
+    isol_layout_125$Rep_Well[i] <- my_split[[i]][3]
   }
-  out_list <- out_list/smooth_over
-  return(out_list)
+}
+isol_layout_125 <- isol_layout_125[, c("Well", "Pop", "Treat", "Rep_Well")]
+
+media_layout_125$Contents[media_layout_125$Contents == "H2O"] <- NA
+media_layout_125$Contents[media_layout_125$Contents == "Orig"] <- "25/50"
+media_layout_125$Contents[media_layout_125$Contents == "Rich"] <- "50/100"
+colnames(media_layout_125)[2] <- "Media"
+
+#Melt density data, then join with media & isolate information
+#Then drop wells with missing info (e.g. empty wells)
+for (i in 1:length(growth_125)) {
+  growth_125[[i]] <- pivot_longer(growth_125[[i]],
+                                  cols = -c("Isol", "Time", "Temp_C"),
+                                  names_to = "Well",
+                                  values_to = "OD600")
+  growth_125[[i]] <- left_join(growth_125[[i]],
+                               isol_layout_125,
+                               by = "Well")
+  growth_125[[i]] <- left_join(growth_125[[i]],
+                               media_layout_125,
+                               by = "Well")
+  growth_125[[i]] <- growth_125[[i]][complete.cases(growth_125[[i]]), ]
 }
 
-#smooth by averaging non-overlapping ranges
-smooth_data_noverlap <- function(my_data, smooth_over, subset_by) {
-  #data must be sorted sequentially before fed into function
-  #my_data is a vector of the data to be smoothed
-  #smooth over is how many sequential entries to average
-  #the unique values of subset_by will be what is iterated over
-  out_list <- rep(NA, length(my_data))
-  cntr = 0
-  for (my_uniq in unique(subset_by)) {
-    my_sub <- subset(my_data, subset_by == my_uniq)
-    for (i in seq(from = 1, to = length(my_sub), by = smooth_over)) {
-      if (i+smooth_over < length(my_sub)) {
-        out_list[cntr+i] <- mean(my_sub[i:(i+smooth_over-1)])
-      }
-    }
-    cntr <- cntr+length(my_sub)
-  }
-  return(out_list)
+#Merge 125 data into one dataframe
+gc_data_125 <- growth_125[[1]]
+for (i in 2:length(growth_125)) {
+  gc_data_125 <- rbind(gc_data_125, growth_125[[i]])
 }
 
-gc_sm <- gc_data
+#Add project
+gc_data_125$Proj <- "125"
 
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 8, subset_by = gc_data$mpptir)
-gc_sm$Smooth_noverlap <- smooth_data_noverlap(gc_data$CFU, 5, 
-                                           subset_by = gc_data$mpptir)
-gc_sm <- gc_sm[is.na(gc_sm$Smooth_noverlap) == F, ]
+#Add cfu/ml
+gc_data_125$cfu_ml <- predict(turn_std_curve, newdata = gc_data_125)
 
-per_cap_grate <- function(CFU, time, subset_by) {
-  ans <- c((CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])/
-    (as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)], 
-                         units = "hours")) * 
-       0.5 * (CFU[2:length(CFU)]+CFU[1:(length(CFU)-1)])), NA)
-  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
-  return(ans)
-}
+#Reorder columns
+gc_data_125 <- gc_data_125[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
+                               "Media", "Time", "Temp_C", "OD600", "cfu_ml")]
+gc_data_7x <- gc_data_7x[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
+                             "Media", "Time", "Temp_C", "OD600", "cfu_ml")]
 
-gc_data$pcgr <- per_cap_grate(gc_data$Smooth_CFU, gc_data$Time, gc_data$mpptir)
-gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
+#Merge
+gc_data_all <- rbind(gc_data_7x, gc_data_125)
 
-# #Make plot of all smoothed growth rates
-# for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
-#   my_sub <- gc_data[(gc_data$mpptir %in% unique(gc_data$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
-# 
-# #Make plots of all smoothed nonoverlapping growth rates
-# for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
-#   my_sub <- gc_sm[(gc_sm$mpptir %in% unique(gc_sm$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
+#Output
+write.csv(gc_data_all, "./Clean_Data/Isolate_growth_curves.csv",
+          row.names = F)
 
-# #Code for looking at an example well
-# my_well <- "100.1.D.C.A.1"
-# my_sub <- gc_data[gc_data$mpptir == my_well, ]
-# ggplot(data = my_sub, aes(x = Time, y = CFU)) +
-#   geom_line() + labs(y = "Colony Forming Units (CFU)")
-# ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
-#   geom_line() + labs(y = "Colony Forming Units (CFU)")
-# ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
-#   geom_line()
-# 
-# my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
-# ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
-#   geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
-# 
-# 
-# my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
-# my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
-# ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
-#   geom_line()
 
-#extract maximum percap growth rates for each uniq well
-#using non-overlapping averaged smoothing
-gc_sm$Time <- as.character(gc_sm$Time)
-gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
-gc_mpptir <- summarize(gc_mpptir, max_pcgr = max(pcgr, na.rm = T))
-gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
-gc_mppti <- summarize(gc_mppti, gr_max_avg = mean(max_pcgr),
-                      dt_min_sd = sd(max_pcgr))
-gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
-gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
-                     sd_isols = sd(gr_max_avg))
-
-#Making percap growth rate plots
-my_facet_labels <- c("100" = "Rich Environment", 
-                     "50" = "Adapted Environment",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT", "1" = "Weak Phage", "2" = "Strong Phage")
-
-#plot of all isols
-gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
-ggplot(gc_mppti, aes(x = Treat, y = gr_max_avg)) + 
-  geom_jitter(width = 0.1, height = 0, size = 2) + 
-  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
-  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") +
-  theme(axis.text.x = element_text(size = 11), 
-        axis.text.y = element_text(size = 11)) +
-  theme_bw()
-
-#plot of all pops
-gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
-
-#For local viewing
-ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
-       labeller = labeller(Treat = my_facet_labels)) + 
-  geom_point(pch = 1, size = 3) +
-  facet_grid(Proj~Media, 
-             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hour)") + theme_bw() + 
-  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
-
-#For poster
-png(filename = "growth_rate_pops.png", width = 10, height = 7,
-    units = "in", res = 300)
-ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
-       labeller = labeller(Treat = my_facet_labels)) + 
-  geom_jitter(width = 0.075, height = 0, pch = 16, size = 6) +
-  facet_grid(Proj~Media, 
-             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
-  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hr)") + theme_bw() + 
-  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local")) +
-  theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
-        strip.text = element_text(size = 20))
-dev.off()
-
-##Isolate resistance analysis ----
+##Isolate resistance cleanup ----
 resis_7x_old <- read.csv("./Raw_Data/74_75_76_Plaquing.csv", header = T, stringsAsFactors = F)
 resis_new <- read.csv("./Raw_Data/130_new_resis_assays.csv", header = T, stringsAsFactors = F)
 
