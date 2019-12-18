@@ -1,0 +1,9 @@
+,1,2,3,4,5,6,7,8,9,10,11,12
+A,,,,,,,,,,,,
+B,,A-L-1,A-L-2,C-L-1,C-L-2,E-L-1,Anc-Anc-1,B-L-1,B-L-2,D-L-1,D-L-2,
+C,,A-G-1,A-G-2,C-G-1,C-G-2,E-G-1,Anc-Anc-2,B-G-1,B-G-2,D-G-1,D-G-2,
+D,,A-C-1,A-C-2,C-C-1,C-C-2,E-C-1,Anc-Anc-3,B-C-1,B-C-2,D-C-1,D-C-2,
+E,,B-L-1,B-L-2,D-L-1,D-L-2,A-L-1,A-L-2,C-L-1,C-L-2,E-L-1,Anc-Anc-1,
+F,,B-G-1,B-G-2,D-G-1,D-G-2,A-G-1,A-G-2,C-G-1,C-G-2,E-G-1,Anc-Anc-2,
+G,,B-C-1,B-C-2,D-C-1,D-C-2,A-C-1,A-C-2,C-C-1,C-C-2,E-C-1,Anc-Anc-3,
+H,,,,,,,,,,,,
