@@ -1,26 +1,4 @@
-#TODO: do growth curve cleanup
-
 library("reshape")
-
-#Need to split this into 2 scripts: one to take the messy data
-# (e.g. isolate information in underscore formats, etc)
-#and get it cleaned up, then output those clean data
-#And another to take the clean data & analyze it
-#Then put the messy data in one folder and the clean data in another folder
-#Along with the separate scripts
-#So when it's published, can just tell people to re-run the clean data script
-
-#need to make Rep vs Pop consistent
-#redo all analysis using dplyr
-#redo analysis using vectorization
-#include std curve for spec in this code (it may alread be there???)
-#Do a scripted analysis of how much to smoothe gc data (not manually checking)
-# #to be done later:
-# #define function to get means of rates
-# mean_rates <- function(sub_by_list, my_data)
-# analyze additional plate scans
-#change resistance to be by treat then by pop
-#Change growth rate for ancestor to dotted line
 
 ##Experimental evolution cleanup ----
 end_data_7x <- read.csv("./Raw_Data/74_75_76_Data_Measurements.csv", header = T, stringsAsFactors = F)
