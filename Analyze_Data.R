@@ -1,4 +1,4 @@
-##TODO: clean up migration analysis
+##TODO: 
 ##      migration stats
 ##      growth curve analysis
 ##      growth curve stats
@@ -99,246 +99,142 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
                    labels = c("Control", "Local", "Global")) +
   NULL
 
-##isolate growth curve analysis
+##isolate growth curve analysis ----
 
-##standard curve to convert OD to CFU (based on 107 data)
-stan_plate <- read.csv("107_Std_Curve.csv", stringsAsFactors = F, header = T)
-stan_plate_layout <- read.csv("107_Plate_Layout.csv", stringsAsFactors = F, header = F)
-stan_spec <- read.csv("107_Trav_Spec.csv", stringsAsFactors = F, header = T)
-
-#define function to melt plate arrays
-get_layout <- function(plate_layout, row_start = 1, col_start = 1) {
-  #tidies the data: makes list of Well ID & contents from the plate layout
-  layout_list <- data.frame("Well" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))), 
-                            "Contents" = character((nrow(plate_layout)-(row_start-1))*(ncol(plate_layout)-(col_start-1))),
-                            stringsAsFactors = F)
-  cntr = 1
-  for (i in row_start:nrow(plate_layout)) {
-    for (j in col_start:ncol(plate_layout)) {
-      layout_list[cntr, ] <- c(paste(LETTERS[i-row_start+1], j-col_start+1, sep = ""), plate_layout[i, j])
-      cntr = cntr + 1
-    }
-  }
-  return(layout_list)
-}
-
-#melt plate arrays, combine & exclude empty wells
-stan_layout_list <- get_layout(stan_plate_layout, 2, 2)
-stan_plate_list <- get_layout(stan_plate, 1, 2)
-colnames(stan_plate_list)[2] <- "OD600"
-stan_plate_list$Dilution <- stan_layout_list$Contents
-stan_plate_list <- subset(stan_plate_list, is.na(stan_plate_list$Dilution) == F)
-
-#in data from Trav-lab spec, convert OD to CFU
-stan_spec$CFU <- (stan_spec$OD600..on.Trav.lab.spec.+3.318*10^(-3))/(1.252*10^(-9))
-
-#transfer CFU data to plate list
-stan_plate_list <- cbind(stan_plate_list, "CFU"=stan_spec$CFU[match(stan_plate_list$Dilution, 
-                                                     stan_spec$Dilution)])
-
-#get regression of data
-# ggplot(stan_plate_list, aes(x = CFU, y = as.numeric(OD600))) + geom_point()
-stan_plate_list$OD600 <- as.numeric(stan_plate_list$OD600)
-my.fit <- lm(CFU ~ OD600, data = stan_plate_list)
 
 ##growth curve analysis
-library("minpack.lm")
-library("tidyr")
-library("lubridate")
-library("dplyr")
+# library("minpack.lm")
+# library("tidyr")
+# library("lubridate")
+# library("dplyr")
 
-options(stringsAsFactors = F)
-growth_97 <- read.csv("97B.csv", header = T, stringsAsFactors = F)
-growth_98 <- read.csv("98B.csv", header = T, stringsAsFactors = F)
-growth_99 <- read.csv("99.csv", header = T, stringsAsFactors = F)
-growth_101 <- read.csv("101.csv", header = T, stringsAsFactors = F)
-plate_layout_97_101 <- read.csv("97_98_99_100_101_plate_layout.csv", header = F, stringsAsFactors = F)
+#Read data
+gc_data <- read.csv("./Clean_Data/Isolate_growth_curves.csv",
+                    header = T, stringsAsFactors = F)
 
-#make list of well ID & contents from plate layout
-plate_layout_list_97_101 <- get_layout(plate_layout_97_101, 2, 2)
+#Make unique well identifiers
+gc_data$uniq_well <- NA
+for (i in 1:nrow(gc_data)) {
+  gc_data$uniq_well[i] <- paste(gc_data[i, 1:6], collapse = "_")
+}
 
-#remove columns from growth data that correspond to water
-to_rem <- subset(plate_layout_list_97_101, 
-                 plate_layout_list_97_101$Contents == "H2O")
-growth_97 <- growth_97[, !(colnames(growth_97) %in% to_rem$Well)]
-growth_98 <- growth_98[, !(colnames(growth_98) %in% to_rem$Well)]
-growth_99 <- growth_99[, !(colnames(growth_99) %in% to_rem$Well)]
-growth_101 <- growth_101[, !(colnames(growth_101) %in% to_rem$Well)]
+#reorder
+gc_data <- gc_data[order(gc_data$uniq_well, gc_data$Time_s), ]
 
-#replace column names with Isols
-isol.name.func <- function(growth_array, layout_list) {
-  for (i in 1:ncol(growth_array)) {
-    j <- match(colnames(growth_array)[i], layout_list$Well)
-    if (!is.na(j)) {
-      colnames(growth_array)[i] <- as.character(layout_list$Contents[j])
+calc_deriv <- function(CFU, percapita = FALSE,
+                          subset_by = NULL, time = NULL,
+                          time_normalize = NULL) {
+  #Note! CFU values must be sorted sequentially into their unique sets already
+  
+  #Provided a vector of CFU values, this function returns (by default) the
+  # difference between sequential values
+  #if percapita = TRUE, the differences of cfu are divided by cfu
+  #if subset_by is provided, it should be a vector (same length as cfu),
+  # the unique values of which will separate calculations
+  #if time_normalize is specified, time should be provided as a simple 
+  # numeric (e.g. number of seconds) in some unit
+  #Then the difference will be normalized for the time_normalize value
+  #(e.g. if time is provided in seconds and the difference per hour is wanted,
+  # time_normalize should = 3600)
+  
+  #Check inputs
+  if (!is.numeric(time)) {
+    stop("time is not numeric")
+  }
+  if (!is.null(time_normalize)) {
+    if (!is.numeric(time_normalize)) {
+      stop("time_normalize is not numeric")
+    } else if (is.null(time)) {
+      stop("time_normalize is specified, but time is not provided")
     }
   }
-  return(growth_array)
-}
-growth_97 <- isol.name.func(growth_97, plate_layout_list_97_101)
-growth_98 <- isol.name.func(growth_98, plate_layout_list_97_101)
-growth_99 <- isol.name.func(growth_99, plate_layout_list_97_101)
-growth_101 <- isol.name.func(growth_101, plate_layout_list_97_101)
-
-#Tidy growth data
-tidy_97 <- gather(growth_97, "Well", "OD600", 3:ncol(growth_97), na.rm = T)
-tidy_98 <- gather(growth_98, "Well", "OD600", 3:ncol(growth_98), na.rm = T)
-tidy_99 <- gather(growth_99, "Well", "OD600", 3:ncol(growth_99), na.rm = T)
-tidy_101 <- gather(growth_101, "Well", "OD600", 3:ncol(growth_101), na.rm = T)
-
-#Add isolate & project info
-tidy_97$Isol <- "A"
-tidy_98$Isol <- "B"
-tidy_99$Isol <- "C"
-tidy_101$Isol <- "E"
-tidy_97$Proj <- 1
-tidy_98$Proj <- 1
-tidy_99$Proj <- 1
-tidy_101$Proj <- 1
-
-#Combine data frames
-gc_data <- rbind(tidy_97, tidy_98, tidy_99, tidy_101)
-
-#convert OD to CFU
-gc_data$CFU <- predict(my.fit, newdata = gc_data)
-
-#separate out ID info
-sep.growth.ID <- function(my.array) {
-  my.array <- cbind(my.array, "Media"=NA, "Pop"=NA, "Treat"=NA, "Rep_Well"=NA)
-  for (i in 1:nrow(my.array)) {
-    my.split <- strsplit(as.character(my.array$Well[i]), split = "-")
-    my.array$Media[i] <- my.split[[1]][1]
-    my.array$Treat[i] <- my.split[[1]][length(my.split[[1]])-1]
-    my.array$Rep_Well[i] <- my.split[[1]][length(my.split[[1]])]
-    if (length(my.split[[1]])>3) { #it's not an ancestor well
-      if (substr(my.split[[1]][2], 1, 2) == "74") {
-        my.array$Pop[i] <- "A"
-      } else if (substr(my.split[[1]][2], 1, 2) == "75") {
-        if (substr(my.split[[1]][2], 3, 3) == "A") {
-          my.array$Pop[i] <- "B"
-        } else {my.array$Pop[i] <- "C"}
-      } else if (substr(my.split[[1]][2], 1, 2) == "76") {
-        if (substr(my.split[[1]][2], 3, 3) == "A") {
-          my.array$Pop[i] <- "D"
-        } else {my.array$Pop[i] <- "E"} 
-      }
-    } else { #assign ancestor to be Pop F, Treat A
-      my.array$Pop[i] <- "F"
-    }
+  
+  #Calc derivative
+  ans <- c(CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])
+  #Percapita (if specified)
+  if (percapita) {
+    ans <- ans/CFU[1:(length(CFU)-1)]
   }
-  return(my.array)
-}
-
-gc_data <- sep.growth.ID(gc_data)
-
-#reformat time column
-gc_data$Time <- strptime(gc_data$Time, format = "%H:%M:%S")
-
-#Remove first hour of datapoints
-gc_data <- gc_data[hour(gc_data$Time) > 0, ]
-
-#Add variables for getting unique subsets
-gc_data$mpptir <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-                gc_data$Isol, gc_data$Rep_Well, sep = ".")
-gc_data$mppti <- paste(gc_data$Media, gc_data$Proj, gc_data$Pop, gc_data$Treat, 
-               gc_data$Isol, sep = ".")
-
-#smooth CFU data
-smooth_data <- function(my_data, smooth_over, subset_by) {
-  #data must be sorted sequentially before fed into function
-  #my_data is a vector of the data to be smoothed
-  #smooth over is how many sequential entries to average
-  #the unique values of subset_by will be what is iterated over
-  out_list <- rep(NA, length(my_data))
-  cntr = 1
-  for (my_uniq in unique(subset_by)) {
-    my_sub <- subset(my_data, subset_by == my_uniq)
-    out_list[cntr:(cntr+length(my_sub)-smooth_over)] <- 0
-    for (i in 1:smooth_over) {
-      out_list[(cntr):(cntr+length(my_sub)-smooth_over)] <-
-        out_list[(cntr):(cntr+length(my_sub)-smooth_over)] + 
-        my_sub[i:(length(my_sub)-smooth_over+i)]
-    }  
-    cntr <- cntr+length(my_sub)
+  #Time normalize (if specified)
+  if (!is.null(time_normalize)) {
+    ans <- ans/
+      (c(time[2:length(time)]-time[1:(length(time)-1)])/time_normalize)
   }
-  out_list <- out_list/smooth_over
-  return(out_list)
-}
-
-#smooth by averaging non-overlapping ranges
-smooth_data_noverlap <- function(my_data, smooth_over, subset_by) {
-  #data must be sorted sequentially before fed into function
-  #my_data is a vector of the data to be smoothed
-  #smooth over is how many sequential entries to average
-  #the unique values of subset_by will be what is iterated over
-  out_list <- rep(NA, length(my_data))
-  cntr = 0
-  for (my_uniq in unique(subset_by)) {
-    my_sub <- subset(my_data, subset_by == my_uniq)
-    for (i in seq(from = 1, to = length(my_sub), by = smooth_over)) {
-      if (i+smooth_over < length(my_sub)) {
-        out_list[cntr+i] <- mean(my_sub[i:(i+smooth_over-1)])
-      }
-    }
-    cntr <- cntr+length(my_sub)
+  #Subset by (if specified)
+  if (!is.null(subset_by)) {
+    ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
   }
-  return(out_list)
+  return(c(ans, NA))
 }
 
-gc_sm <- gc_data
-
-gc_data$Smooth_CFU <- smooth_data(gc_data$CFU, 8, subset_by = gc_data$mpptir)
-gc_sm$Smooth_noverlap <- smooth_data_noverlap(gc_data$CFU, 5, 
-                                           subset_by = gc_data$mpptir)
-gc_sm <- gc_sm[is.na(gc_sm$Smooth_noverlap) == F, ]
-
-per_cap_grate <- function(CFU, time, subset_by) {
-  ans <- c((CFU[2:length(CFU)]-CFU[1:(length(CFU)-1)])/
-    (as.numeric(difftime(time[2:length(time)], time[1:(length(time)-1)], 
-                         units = "hours")) * 
-       0.5 * (CFU[2:length(CFU)]+CFU[1:(length(CFU)-1)])), NA)
-  ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
-  return(ans)
+#Smooth data
+gc_data$sm_loess <- NA
+gc_data$percap_deriv_sm_loess <- NA
+gc_data$percap_deriv_cfu <- NA
+for (my_well in unique(gc_data$uniq_well)) {
+  my_rows <- which(gc_data$uniq_well == my_well)
+  #Smooth with loess
+  gc_data$sm_loess[my_rows] <- predict(loess(cfu_ml ~ Time_s,
+                                             span = 0.4,
+                                             data = gc_data[my_rows, ]),
+                                       gc_data[my_rows, ])
 }
 
-gc_data$pcgr <- per_cap_grate(gc_data$Smooth_CFU, gc_data$Time, gc_data$mpptir)
-gc_sm$pcgr <- per_cap_grate(gc_sm$Smooth_noverlap, gc_sm$Time, gc_sm$mpptir)
+#Calculate growth per hour from loess curve
+gc_data$deriv_sm_loess <- calc_deriv(gc_data$sm_loess,
+                                     subset_by = gc_data$uniq_well,
+                                     time = gc_data$Time_s,
+                                     time_normalize = 3600)
 
-# #Make plot of all smoothed growth rates
-# for (i in seq(from = 1, to = length(unique(gc_data$mpptir)), by = 25)) {
-#   my_sub <- gc_data[(gc_data$mpptir %in% unique(gc_data$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
-# 
-# #Make plots of all smoothed nonoverlapping growth rates
-# for (i in seq(from = 1, to = length(unique(gc_sm$mpptir)), by = 25)) {
-#   my_sub <- gc_sm[(gc_sm$mpptir %in% unique(gc_sm$mpptir)[i:(i+24)]), ]
-#   print(ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line() +
-#           facet_wrap(~mpptir))
-# }
+#Calculate per capita growth per hour from loess curve
+gc_data$percap_deriv_sm_loess <- calc_deriv(gc_data$sm_loess,
+                                            percapita = TRUE,
+                                            subset_by = gc_data$uniq_well,
+                                            time = gc_data$Time_s,
+                                            time_normalize = 3600)
+  
 
-# #Code for looking at an example well
-# my_well <- "100.1.D.C.A.1"
-# my_sub <- gc_data[gc_data$mpptir == my_well, ]
-# ggplot(data = my_sub, aes(x = Time, y = CFU)) +
-#   geom_line() + labs(y = "Colony Forming Units (CFU)")
-# ggplot(data = my_sub, aes(x = Time, y = Smooth_CFU)) +
-#   geom_line() + labs(y = "Colony Forming Units (CFU)")
-# ggplot(data = my_sub, aes(x = Time, y = pcgr)) +
-#   geom_line()
-# 
-# my_sub <- gc_sm[gc_sm$mpptir == my_well, ]
-# ggplot(data = my_sub, aes(x = Time, y = CFU)) + geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = Smooth_noverlap)) +
-#   geom_line()
-# ggplot(data = my_sub, aes(x = Time, y = pcgr)) + geom_line()
-# 
-# 
-# my_sub$diff <- c(my_sub$CFU[2:nrow(my_sub)]-my_sub$CFU[1:(nrow(my_sub)-1)], NA)
-# my_sub$smdiff <- c(my_sub$Smooth_CFU[2:nrow(my_sub)]-my_sub$Smooth_CFU[1:(nrow(my_sub)-1)], NA)
-# ggplot(data = my_sub, aes(x = Time, y = smdiff)) +
-#   geom_line()
+#Calculate per capita growth per hour from original curve
+gc_data$percap_deriv_cfu <- calc_deriv(gc_data$cfu_ml,
+                                       percapita = TRUE,
+                                       subset_by = gc_data$uniq_well,
+                                       time = gc_data$Time_s,
+                                       time_normalize = 3600)
+
+#View samples of original & smoothed curves
+# as well as derivatives (per cap & not) of both orig and smoothed curves
+for (my_well in sample(unique(gc_data$uniq_well), 20)) {
+  my_rows <- which(gc_data$uniq_well == my_well)
+  
+  print(cowplot::plot_grid(
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = cfu_ml)) +
+      geom_line(color = "red", lwd = 1, alpha = 0.5) +
+      geom_line(aes(x = Time_s, y = sm_loess),
+                color = "blue", lwd = 1, alpha = 0.5) +
+      ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+      NULL,
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = deriv_sm_loess)) +
+      geom_line(color = "blue") +
+      NULL,
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = percap_deriv_sm_loess)) +
+      geom_line(color = "blue") +
+      # geom_line(aes(x = Time_s, y = percap_deriv_cfu),
+      #           color = "red") +
+      NULL,
+    ncol = 1, align = "v"))
+}
+
+#Todo:
+# find max growth rate (& density at max growth rate)
+# find density at first local minima of non-percap growth rate after max growth rate
+#   (pseudo carrying capacity)
+# find time from some low density to peak per capita growth rate (pseudo lag time)
+# find time from max growth rate to pseudo carrying capacity
+
+
 
 #extract maximum percap growth rates for each uniq well
 #using non-overlapping averaged smoothing
@@ -801,3 +697,5 @@ ggplot(resis_data[resis_data$Treat != "Anc", ],
 # dev.off()
 # 
 # summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
+
+## PCA ----
