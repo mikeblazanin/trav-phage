@@ -106,7 +106,6 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
 # library("minpack.lm")
 # library("tidyr")
 # library("lubridate")
-# library("dplyr")
 
 #Read data
 gc_data <- read.csv("./Clean_Data/Isolate_growth_curves.csv",
@@ -232,26 +231,21 @@ for (my_well in sample(unique(gc_data$uniq_well), 5)) {
 
 find_local_extrema <- function(values, 
                                return_maxima = TRUE,
-                               return_minima = FALSE,
+                               return_minima = TRUE,
                                width_limit = NULL,
-                               height_limit = NULL,
-                               subset = NULL) {
+                               height_limit = NULL) {
   #Takes a vector of values and returns a vector of the indices
-  # of all local value extrema (by default, returns all extrema)
+  # of all local value extrema (by default, returns both maxima and minima)
   # To only return maxima or minima, change return_maxima/return_minima to FALSE
 
   #Either width_limit or height_limit must be provided
-  #Width is how wide the window should be to look for a peak
-  # Narrower bandwidth will be more sensitive to narrow local maxima
-  # Wider bandwidth will be less sensitive to narrow local maxima
-  #Height is how deep of a valley the function will search from each local
-  # maxima to find other local maxima
-
-  #Subset can be a Boolean vector same length as density & time
-  # with TRUE as values that should be included
-  # or it can be a vector of the indices of density & time that should be used
+  #Width is how wide the window should be to look for a maxima/minima
+  # Narrower width will be more sensitive to narrow local maxima/minima
+  # Wider width will be less sensitive to narrow local maxima/minima
+  #Height is how deep of a valley/peak the function will search from each local
+  # maxima/minima to find the next local maxima/minima
   
-  #This function is designed to be run with dplyr::group_by and summarize
+  #This function is designed to be compatible with dplyr::group_by and summarize
   
   #Check inputs
   if (!return_maxima & !return_minima) {
@@ -259,141 +253,169 @@ find_local_extrema <- function(values,
   }
   if (is.null(width_limit) & is.null(height_limit)) {
     stop("Either width_limit or height_limit must be provided")
-  } else if (!is.null(width_limit) & !is.null(height_limit)) {
-    stop("Both width_limit and height_limit are provided, currently only support for one at a time is implemented")
+  }
+  if (!is.null(width_limit)) {
+    if (width_limit%%2 == 0) {
+      warning("width_limit must be odd, will use ", width_limit-1, " as width_limit")
+      width_limit <- width_limit - 1
+    }
+  }
+  if(any(is.na(values))) {
+    stop("Some provided values are NA")
   }
   
-  #Start finding peaks
-  maxima_list <- c()
-  minima_list <- c()
-  
-  #use width limit to find peaks
-  if (!is.null(width_limit)) { 
-    ##Check for first maxima
-    cnt_pos <- 1
-    best_pos <- cnt_pos+1 #arbitrary index != to cnt_pos
-    while (cnt_pos != best_pos) {
-      #Move the previous best pointer to current pointer location
-      best_pos <- cnt_pos
-      #Then move current pointer to highest point within window
-      # (making sure not to check non-integer indices, or indices below 1 or
-      #  higher than the length of the vector)
-      cnt_pos <- which.max(values[max(c(1, cnt_pos-floor(width_limit/2))):
-                              min(c(length(values), cnt_pos+floor(width_limit/2)))])
+  #Define sub-function to find limits of the window
+  get_window_limits <- function(cnt_pos,
+                                width_limit = NULL,
+                                height_limit = NULL,
+                                looking_for = c("minima", "maxima"),
+                                values = NULL) {
+    #Check inputs
+    if (length(looking_for) > 1) {stop("looking_for must be specified")}
+    if (!is.null(height_limit) & is.null(values)) {
+      stop("height_limit is specified, but no values are provided")
     }
-    #add value to maxima_list
-    maxima_list <- c(maxima_list, best_pos)
-    
-    ##Check for first minima
-    cnt_pos <- 1
-    best_pos <- cnt_pos+1 #arbitrary index != to cnt_pos
-    while (cnt_pos != best_pos) {
-      #Move the previous best pointer to current pointer location
-      best_pos <- cnt_pos
-      #Then move current pointer to highest point within window
-      # (making sure not to check non-integer indices, or indices below 1 or
-      #  higher than the length of the vector)
-      cnt_pos <- which.min(values[max(c(1, cnt_pos-floor(width_limit/2))):
-                                    min(c(length(values), cnt_pos+floor(width_limit/2)))])
+    if (is.null(width_limit) & is.null(height_limit)) {
+      stop("Either width_limit or height_limit must be provided")
     }
-    #add value to minima_list
-    minima_list <- c(minima_list, best_pos)
     
-    ##Check for next extrema until we no longer find new ones
-    while (TRUE) {
-      #Since maxima & minima must alternate, always start with furthest one 
-      # we've found so far
-      cnt_pos <- max(c(minima_list, maxima_list))
-      #Assign best_pos to arbitrary valid index
-      best_pos <- if (cnt_pos != length(values)) {
-        best_pos <- cnt_pos+1
-      } else {best_pos <- cnt_pos-1}
-      #we're looking for a maxima next
-      if (cnt_pos %in% minima_list) { 
-        while (best_pos != cnt_pos) {
-          #Move the previous best pointer to current pointer location
-          best_pos <- cnt_pos
-          #Then move current pointer to highest point within window
-          # (making sure not to check non-integer indices, or indices below 1 or
-          #  higher than the length of the vector)
-          cnt_pos <- which.max(values[max(c(1, cnt_pos-floor(width_limit/2))):
-                                        min(c(length(values), cnt_pos+floor(width_limit/2)))])
-        }
-        #add value to maxima_list
-        maxima_list <- c(maxima_list, best_pos)
-      #we're looking for a minima next
-      } else if (cnt_pos %in% maxima_list) { 
-        while (best_pos != cnt_pos) {
-          #Move the previous best pointer to current pointer location
-          best_pos <- cnt_pos
-          #Then move current pointer to highest point within window
-          # (making sure not to check non-integer indices, or indices below 1 or
-          #  higher than the length of the vector)
-          cnt_pos <- which.min(values[max(c(1, cnt_pos-floor(width_limit/2))):
-                                        min(c(length(values), cnt_pos+floor(width_limit/2)))])
-        }
-        #add value to minima_list
-        minima_list <- c(minima_list, best_pos)
+    #Define window limits
+    window_start <- c(NA, NA)
+    if (!is.null(width_limit)) {
+      window_start[1] <- max(c(1, cnt_pos-floor(width_limit/2)))
+    }
+    if (!is.null(height_limit)) {
+      if (looking_for == "maxima") {
+        window_start[2] <- max(c(1,
+                                 which(values <= (values[cnt_pos] - height_limit) &
+                                       1:length(values) < cnt_pos)))
+      } else if (looking_for == "minima") {
+        window_start[2] <- max(c(1,
+                                 which(values >= (values[cnt_pos] - height_limit) &
+                                       1:length(values) < cnt_pos)))
       }
-      if (best_pos %in% minima_list | best_pos %in% maxima_list) {break}
     }
-  #use height limit to find peaks
-  } else if (!is.null(height_limit)) {
-    ##Check for first maxima
-    cnt_pos <- 1
-    best_pos <- cnt_pos+1 #arbitrary index != to cnt_pos
-    while (cnt_pos != best_pos) {
-      #Move the previous best pointer to current pointer location
-      best_pos <- cnt_pos
-      #Determine start and end of window
-      #Then move current pointer to highest point within window
-      # (making sure not to check non-integer indices, or indices below 1 or
-      #  higher than the length of the vector)
-      cnt_pos <- which.max(values[max(c(1, cnt_pos-floor(width_limit/2))):
-                                    min(c(length(values), cnt_pos+floor(width_limit/2)))])
+    window_end <- c(NA, NA)
+    if (!is.null(width_limit)) {
+      window_end[1] <- min(c(length(values), cnt_pos+floor(width_limit/2)))
     }
-    #add value to maxima_list
-    maxima_list <- c(maxima_list, best_pos)
-    
-    #Check for first minima
-    
-    #Check for next extrema on loop
+    if (!is.null(height_limit)) {
+      if (looking_for == "maxima") {
+        window_end[2] <- min(c(length(values),
+                               which(values <= (values[cnt_pos] - height_limit) &
+                                     1:length(values) > cnt_pos)))
+      } else if (looking_for == "minima") {
+        window_end[2] <- min(c(length(values),
+                               which(values <= (values[cnt_pos] - height_limit) &
+                                     1:length(values) > cnt_pos)))
+      }
+    }
+    return(c(max(window_start, na.rm = T), min(window_end, na.rm = T)))
   }
   
+  find_next_extrema <- function(cnt_pos, values,
+                        width_limit = NULL,
+                        height_limit = NULL,
+                        looking_for = c("minima", "maxima")) {
+    if (cnt_pos == length(values)) {best_pos <- cnt_pos-1
+    } else {best_pos <- cnt_pos+1}
+    
+    #Save the starting position so we never go backwards
+    start_pos <- cnt_pos
+    
+    ##Looking for next maxima
+    if(looking_for == "maxima") {
+      while (cnt_pos != best_pos) {
+        #Move the previous best pointer to current pointer location
+        best_pos <- cnt_pos
+        #Get next window limits
+        window_lims <- get_window_limits(cnt_pos = cnt_pos,
+                                         width_limit = width_limit,
+                                         height_limit = height_limit,
+                                         looking_for = "maxima",
+                                         values = values)
+        #Make sure we're not going backwards
+        window_lims <- c(max(start_pos, window_lims[1]),
+                         max(start_pos, window_lims[2]))
+        #Then move current pointer to highest point within window
+        # (making sure not to check non-integer indices, or indices below 1 or
+        #  higher than the length of the vector)
+        cnt_pos <- window_lims[1]-1+which.max(values[window_lims[1]:window_lims[2]])
+      }
+    ##Looking for next minima
+    } else if (looking_for == "minima") {
+      while (cnt_pos != best_pos) {
+        #Move the previous best pointer to current pointer location
+        best_pos <- cnt_pos
+        #Get next window limits
+        window_lims <- get_window_limits(cnt_pos = cnt_pos,
+                                         width_limit = width_limit,
+                                         height_limit = height_limit,
+                                         looking_for = "minima",
+                                         values = values)
+        #Make sure we're not going backwards
+        window_lims <- c(max(start_pos, window_lims[1]),
+                         max(start_pos, window_lims[2]))
+        #Then move current pointer to lowest point within window
+        # (making sure not to check non-integer indices, or indices below 1 or
+        #  higher than the length of the vector)
+        cnt_pos <- window_lims[1]-1+which.min(values[window_lims[1]:window_lims[2]])
+      }
+    }
+    return(best_pos)
+  }
   
+  cnt_pos <- 1
+  ##Find first maxima
+  maxima_list <- c(find_next_extrema(cnt_pos, values,
+                                     width_limit = width_limit,
+                                     height_limit = height_limit,
+                                     looking_for = "maxima"))
+  ##Find first minima
+  minima_list <- c(find_next_extrema(cnt_pos, values,
+                                     width_limit = width_limit,
+                                     height_limit = height_limit,
+                                     looking_for = "minima"))
   
+  ##Check for next extrema until we no longer find new ones
+  while (TRUE) {
+    #Since maxima & minima must alternate, always start with furthest one 
+    # we've found so far
+    cnt_pos <- max(c(minima_list, maxima_list))
+    #we're looking for a maxima next
+    if (cnt_pos %in% minima_list) {
+      maxima_list <- c(maxima_list,
+                       find_next_extrema(cnt_pos, values,
+                                         width_limit = width_limit,
+                                         height_limit = height_limit,
+                                         looking_for = "maxima"))
+      #we're looking for a minima next
+    } else if (cnt_pos %in% maxima_list) {
+      minima_list <- c(minima_list,
+                       find_next_extrema(cnt_pos, values,
+                                         width_limit = width_limit,
+                                         height_limit = height_limit,
+                                         looking_for = "minima"))
+    }
+    
+    #if we're finding repeats, then we've hit them all
+    if (any(duplicated(c(minima_list, maxima_list)))) {break}
+  }
   
+  #Combine maxima & minima values & remove duplicates
+  output <- c()
+  if (return_maxima) {output <- c(output, maxima_list)}
+  if (return_minima) {output <- c(output, minima_list)}
+  #If first or last value are present, remove
+  if (1 %in% output) {output <- output[-which(output == 1)]}
+  if (length(values) %in% output) {
+    output <- output[-which(output == length(values))]}
+  #Remove duplicates
+  output <- unique(output)
+  #Order
+  output <- output[order(output)]
   
-  #Check for first maxima
-  while (cnt_pos != best_pos) {
-    cnt_pos <- 
-  
-  
-  
-  #Walk through points to find first local maxima & first local minima
-  #whichever is earlier, start from there and find the next opposite type
-  #repeat, alternating searching for maxima or minima, saving indices along the way
-  #at end, put the types they requested output into an ordered list
-  
-  #Check by width:
-    #Order all points by height
-    #Find highest point
-    #Find highest point not within width
-    #Find highest point not within widths of #1 or #2
-    #Repeat until...
-  
-  #Check by height:
-  # Order all points by height
-  # Find highest point
-  # Determine closest points to peak that fall below height limit
-  # Find highest point outside of that width
-  #   repeat finding width essentially where it doesn't fall below height limit
-#   Repeat
-  
-  #Make sure to remove the first and last points, if they're included
-  ##and check for duplicates
-  
-  return(list("density" = ans_density, "time" = ans_time))
+  return(output)
 }
                                
   
