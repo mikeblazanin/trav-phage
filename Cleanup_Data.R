@@ -591,8 +591,8 @@ for (i in 1:length(my_split)) {
 isol_layout_125 <- isol_layout_125[, c("Well", "Pop", "Treat", "Rep_Well")]
 
 media_layout_125$Contents[media_layout_125$Contents == "H2O"] <- NA
-media_layout_125$Contents[media_layout_125$Contents == "Orig"] <- "25/50"
-media_layout_125$Contents[media_layout_125$Contents == "Rich"] <- "50/100"
+media_layout_125$Contents[media_layout_125$Contents == "Orig"] <- "25-50"
+media_layout_125$Contents[media_layout_125$Contents == "Rich"] <- "50-100"
 colnames(media_layout_125)[2] <- "Media"
 
 #Melt density data, then join with media & isolate information
