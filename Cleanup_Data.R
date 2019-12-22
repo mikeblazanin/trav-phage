@@ -364,6 +364,13 @@ write.csv(isol_end, "./Clean_Data/Isolate_migration.csv",
 
 ##isolate growth curve cleanup ----
 
+#in 7x, ancestors are originally coded as pop F, treat A, 
+# and isol (according to block they were run in)
+#in 125, ancestors are originally coded as pop Anc, treat Anc, 
+# and isol (according to block they were run in)
+#After cleanup, they're all pop Anc, treat Anc, isol Anc
+# (with Date denoting the different experimental blocks)
+
 #Standard curves ----
 
 #Travisano lab standard curve:
@@ -530,23 +537,35 @@ gc_data_7x$Time_s <- difftime(gc_data_7x$Time_s,
 #Rename temperature column
 colnames(gc_data_7x)[2] <- "Temp_C"
 
+#Add Date column for experimental blocks
+gc_data_7x$Date <- paste("2017-", gc_data_7x$Isol, sep = "")
+
+#Adjust Ancestor wells
+my_rows <- which(gc_data_7x$Treat == "A")
+gc_data_7x$Pop[my_rows] <- "Anc"
+gc_data_7x$Treat[my_rows] <- "Anc"
+gc_data_7x$Isol[my_rows] <- "Anc"
+
 #125 growth curve cleanup ----
 growth_125 <- list(rep(NA, 5))
 i <- 1
 for (fil in list.files("./Raw_Data/129_125T14isol_growthcurves/")) {
   growth_125[[i]] <- read.csv(paste("./Raw_Data/129_125T14isol_growthcurves/", fil, sep = ""),
                               header = T, stringsAsFactors = F)
-  growth_125[[i]] <- cbind(data.frame("Isol" = substr(fil, nchar(fil)-4, nchar(fil)-4)),
+  growth_125[[i]] <- cbind(data.frame("Isol" = substr(fil, nchar(fil)-4, nchar(fil)-4),
+                                      "Date" = strsplit(fil, split = "_")[[1]][2]),
                            growth_125[[i]])
   i <- i + 1
 }
 
-#Drop last row ("Date of measurement")
-#Rename columns, strip "s" off of time and degrees C off of Temp_C
 for (i in 1:length(growth_125)) {
+  #Drop last row ("Date of measurement")
   growth_125[[i]] <- growth_125[[i]][-c(nrow(growth_125[[i]])), ]
-  colnames(growth_125[[i]])[2:3] <- c("Time_s", "Temp_C")
+  #Rename columns
+  colnames(growth_125[[i]])[3:4] <- c("Time_s", "Temp_C")
+  #strip "s" off of time
   growth_125[[i]][, "Time_s"] <- gsub("s", "", growth_125[[i]][, "Time_s"])
+  #strip degrees C off of Temp_C
   growth_125[[i]][, "Temp_C"] <- gsub(" °C", "", growth_125[[i]][, "Temp_C"])
 }
 
@@ -580,7 +599,7 @@ colnames(media_layout_125)[2] <- "Media"
 #Then drop wells with missing info (e.g. empty wells)
 for (i in 1:length(growth_125)) {
   growth_125[[i]] <- pivot_longer(growth_125[[i]],
-                                  cols = -c("Isol", "Time_s", "Temp_C"),
+                                  cols = -c("Date", "Isol", "Time_s", "Temp_C"),
                                   names_to = "Well",
                                   values_to = "OD600")
   growth_125[[i]] <- left_join(growth_125[[i]],
@@ -598,6 +617,10 @@ for (i in 2:length(growth_125)) {
   gc_data_125 <- rbind(gc_data_125, growth_125[[i]])
 }
 
+#Adjust Ancestor Isols
+gc_data_125$Isol <- as.character(gc_data_125$Isol)
+gc_data_125$Isol[gc_data_125$Pop == "Anc"] <- "Anc"
+
 #Add project
 gc_data_125$Proj <- "125"
 
@@ -605,9 +628,9 @@ gc_data_125$Proj <- "125"
 gc_data_125$cfu_ml <- predict(turn_std_curve, newdata = gc_data_125)
 
 #Reorder columns
-gc_data_125 <- gc_data_125[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
+gc_data_125 <- gc_data_125[, c("Date", "Proj", "Pop", "Treat", "Isol", "Rep_Well", 
                                "Media", "Time_s", "Temp_C", "OD600", "cfu_ml")]
-gc_data_7x <- gc_data_7x[, c("Proj", "Pop", "Treat", "Isol", "Rep_Well", 
+gc_data_7x <- gc_data_7x[, c("Date", "Proj", "Pop", "Treat", "Isol", "Rep_Well", 
                              "Media", "Time_s", "Temp_C", "OD600", "cfu_ml")]
 
 #Merge
