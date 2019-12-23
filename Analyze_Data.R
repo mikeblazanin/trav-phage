@@ -450,7 +450,6 @@ find_local_extrema <- function(values,
 gc_data <- group_by(gc_data, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
                     uniq_well)
 
-#Todo:
 # at max percap growth rate, find:
 #     per capita growth rate (r)
 #     density
@@ -462,39 +461,62 @@ gc_data <- group_by(gc_data, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
 #     time since max percap growth rate
 #     time since low density
 
-#TODO: make K have to follow max percap gr
-
-window_width_mins <- 7200
 gc_summarized <- summarize(gc_data,
+   first_min_index = find_local_extrema(sm_loess,
+                                        return_maxima = FALSE,
+                                        width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
+                                        na.rm = T,
+                                        remove_endpoints = FALSE)[1],
+   first_min = sm_loess[first_min_index],
+   first_min_time = Time_s[first_min_index],
+  #find the per capita grow rate peaks
   max_percap_index = find_local_extrema(percap_deriv_sm_loess,
                                         return_minima = FALSE,
-                                        width_limit = (window_width_mins/(Time_s[2]-Time_s[1])) + 1,
-                                        na.rm = T)[1],
+                                        width_limit = (21600/(Time_s[2]-Time_s[1])) + 1,
+                                        na.rm = T,
+                                        remove_endpoints = F)[
+     #Use the first one that follows the minimum density
+     match(TRUE, find_local_extrema(percap_deriv_sm_loess,
+                                    return_minima = FALSE,
+                                    width_limit = (21600/(Time_s[2]-Time_s[1])) + 1,
+                                    na.rm = T,
+                                    remove_endpoints = F) >= first_min_index)],                   
   max_percap_gr_rate = percap_deriv_sm_loess[max_percap_index],
   max_percap_gr_rate_time = Time_s[max_percap_index],
   max_percap_gr_rate_dens = sm_loess[max_percap_index],
-  pseudo_K_index = #find the local minima
+  pseudo_K_index = #find the local minima in non-per capita grow rate
     find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
-                                      width_limit = (window_width_mins/(Time_s[2]-Time_s[1])) + 1,
+                                      width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
                                       na.rm = T)[
       #use the first one that follows the max percap gr rate
     match(TRUE, find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
-                                      width_limit = (window_width_mins/(Time_s[2]-Time_s[1])) + 1,
+                                      width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
                                       na.rm = T) > max_percap_index)],
   pseudo_K = sm_loess[pseudo_K_index],
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess[pseudo_K_index],
-  first_min_index = find_local_extrema(sm_loess,
-                                       return_maxima = FALSE,
-                                       width_limit = (window_width_mins/(Time_s[2]-Time_s[1])) + 1,
-                                       na.rm = T,
-                                       remove_endpoints = FALSE)[1],
-  first_min = sm_loess[first_min_index],
-  first_min_time = Time_s[first_min_index]
+  pseudo_K_index2 = #find the local minima with more sensitivity
+    find_local_extrema(deriv_sm_loess,
+                       return_maxima = FALSE,
+                       width_limit = (5400/(Time_s[2]-Time_s[1])) + 1,
+                       na.rm = T)[
+     #use the first one that follows the max percap gr rate
+     match(TRUE, find_local_extrema(deriv_sm_loess,
+                                    return_maxima = FALSE,
+                                    width_limit = (5400/(Time_s[2]-Time_s[1])) + 1,
+                                    na.rm = T) > max_percap_index)],
+  pseudo_K2 = sm_loess[pseudo_K_index2],
+  pseudo_K_time2 = Time_s[pseudo_K_index2],
+  pseudo_K_deriv2 = deriv_sm_loess[pseudo_K_index2],
+  
    #   pseudo_K_timetomaxpcgr = #pseudo K time - max percap gr rate time
 )
+
+#For pseudo K, use more-sensitive data when less-sensitive
+# window didn't find it
+
                        
 
 #The problem continues to be that we cannot find
@@ -504,12 +526,20 @@ gc_summarized <- summarize(gc_data,
 
 
 #Code to check find_local_extrema on a single well
-my_well <- "2017-E_7x_B_C_E_1_50" #lowest pseudo-K
+my_well <- "2017-A_7x_Anc_Anc_Anc_1_50"
+  #"2017-E_7x_B_C_E_1_50" #lowest pseudo-K
 #my_well <- "2017-E_7x_B_G_E_1_100" #highest first min
 #unique(gc_data$uniq_well)[1]
+temp <- gc_data[gc_data$uniq_well == my_well, ]
+find_local_extrema(temp$sm_loess,
+                   return_minima = FALSE,
+                   width_limit = (28800/(temp$Time_s[2]-temp$Time_s[1])) + 1,
+                   na.rm = T,
+                   remove_endpoints = F)
+                   
 
-for (my_well in sample(gc_data$uniq_well, 50)) {
-  tiff(filename = paste("./Growth_curve_plots/", my_well, ".tif", sep = ""),
+for (my_well in unique(gc_data$uniq_well)) {
+  tiff(filename = paste("./Growth_curve_plots/", my_well, ".tiff", sep = ""),
        width = 5, height = 10, units = "in", res = 300)
   my_rows <- which(gc_data$uniq_well == my_well)
   print(cowplot::plot_grid(
@@ -543,6 +573,82 @@ for (my_well in sample(gc_data$uniq_well, 50)) {
     ncol = 1, align = "v"))
   dev.off()
 }
+
+##Check:
+wells_check <- c("2017-B_7x_C_L_B_1_50", #isn't working
+                 "2017-A_7x_Anc_Anc_Anc_1_50",
+                 "2017-A_7x_B_L_A_1_100",
+                 "2017-B_7x_C_L_B_1_50",
+                 "2017-C_7x_B_C_C_1_100",
+                 "2017-C_7x_B_C_C_2_100",
+                 "2017-C_7x_C_C_C_1_50",
+                 "2017-C_7x_C_L_C_2_100",
+                 "2017-C_7x_D_G_C_1_50",
+                 "2017-C_7x_D_G_C_1_100",
+                 "2017-C_7x_D_G_C_2_50",
+                 "2017-C_7x_D_G_C_2_100",
+                 "2017-C_7x_E_G_C_1_100",
+                 "2017-C_7x_E_G_C_2_100",
+                 "2017-E_7x_B_C_E_1_50",
+                 "2017-E_7x_C_C_E_1_100",
+                 "2017-E_7x_C_C_E_2_100",
+                 "2019-09-10_125_B_C_A_1_25-50",
+                 "2019-09-10_125_B_C_A_2_25-50",
+                 "2019-09-10_125_B_G_A_1_25-50",
+                 "2019-09-12_125_B_C_D_1_25-50",
+                 "2019-09-12_125_B_C_D_2_25-50",
+                 "2019-09-12_125_B_G_D_1_25-50",
+                 "2019-09-12_125_D_L_D_1_50-100",
+                 "2019-09-12_125_D_L_D_2_50-100",
+                 "2019-09-13_125_B_C_E_1_50-100",
+                 "2019-09-13_125_B_C_E_2_25-50",
+                 "2019-09-13_125_C_C_E_1_50-100",
+                 "2019-09-13_125_D_L_E_1_50-100"
+                 )
+                 
+
+for (my_well in wells_check) {
+  tiff(filename = paste("./Challenging_growth_curve_plots/", my_well, ".tiff", sep = ""),
+       width = 5, height = 10, units = "in", res = 300)
+  my_rows <- which(gc_data$uniq_well == my_well)
+  print(cowplot::plot_grid(
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = cfu_ml)) +
+      geom_line(color = "red", lwd = 1, alpha = 0.5) +
+      geom_line(aes(x = Time_s, y = sm_loess),
+                color = "blue", lwd = 1, alpha = 0.5) +
+      ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+      #Add point for first minima
+      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                 aes(x = first_min_time, y = first_min),
+                 color = "green", size = 3) +
+      NULL,
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = deriv_sm_loess)) +
+      geom_line(color = "blue") +
+      #Add point for pseudo K
+      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                 aes(x = pseudo_K_time, y = pseudo_K_deriv),
+                 color = "green", size = 3) +
+      #Add point for pseudo K2
+      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                 aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
+                 color = "dark green", size = 2) +
+      NULL,
+    ggplot(data = gc_data[my_rows, ],
+           aes(x = Time_s, y = percap_deriv_sm_loess)) +
+      geom_line(color = "blue") +
+      #Add point for max growth rate
+      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                 aes(x = max_percap_gr_rate_time, y = max_percap_gr_rate),
+                 color = "green", size = 3) +
+      NULL,
+    ncol = 1, align = "v"))
+  dev.off()
+}              
+                 
+                  
+
 
 #get first_min values and sort
 values <- gc_summarized
