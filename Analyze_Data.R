@@ -68,6 +68,24 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
   scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
                   labels = c("Control", "Global", "Local"))
 
+#Make plot with both summarized and non-summarized data
+ggplot(data = exper_evol_migr,
+               aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
+                   color = Treat)) +
+         geom_line(alpha = 0.5) +
+         facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+  theme_bw() +
+  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
+                  labels = c("Control", "Global", "Local")) +
+  geom_line(data = exper_evol_summ,
+            aes(x = Timepoint, y = area_mean, color = Treat,
+                group = Treat),
+            size = 1.2) +
+  labs(x = "Transfer", 
+       y = expression(paste("Mean Area of Growth ( ", cm^2, ")"))) + 
+  NULL
+    
+
 ##Isolate migration ----
 isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
 
