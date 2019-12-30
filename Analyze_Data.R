@@ -117,25 +117,136 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT")
 
 ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Treat, y = relative_area, color = Pop,
+       aes(x = Treat, y = relative_area, color = Treat,
            group = Pop)) +
-  geom_point(position = position_dodge(0.4)) +
+  geom_point(position = position_dodge(0.5)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() + 
-  labs(y = "Isolate Area of Growth Relative to Ancestor",
+  labs(y = "T14 Isolate Area of Growth Relative to Ancestor",
        x = "Treatment") +
   geom_hline(yintercept = 1, lty = 2) +
   scale_x_discrete(limits = c("C", "L", "G"),
                    labels = c("Control", "Local", "Global")) +
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
   NULL
 
+## Isolate resistance ----
+resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
+                       stringsAsFactors = F)
+
+#calculate EOP for ea isol
+resis_data$EOP <- NA
+resis_data$bd <- F
+#First Handle below-detection points
+my_rows <- which(resis_data$PFU == 0)
+resis_data$pfu_ml[my_rows] <- 1*resis_data$dilution[my_rows]
+resis_data$bd[my_rows] <- T
+#Then calculate all EOPs
+for (i in 1:nrow(resis_data)) {
+  my_sub <- subset(resis_data, resis_data$Date == resis_data$Date[i])
+  resis_data$EOP[i] <- resis_data$pfu_ml[i]/
+    mean(my_sub[my_sub$Treat == "Anc",]$pfu_ml)
+}
+
+#Add flag for old vs new approach
+resis_data$approach <- NA
+resis_data$approach[1:70] <- "old"
+resis_data$approach[71:nrow(resis_data)] <- "new"
+
+ggplot(resis_data[resis_data$Treat != "Anc", ], 
+       aes(x = Treat, y = EOP, color = Pop,
+           shape = bd, group = Pop)) +
+  facet_grid(Proj~approach) +
+  geom_point(position = position_dodge(width = 0.5),
+             alpha = 0.7) +
+  scale_y_continuous(trans = "log10") +
+  theme_bw()
+
+# #For local viewing
+# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
+#   scale_x_discrete(name = "Treatment") +
+#   ylab("Resistance to Phage") +
+#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
+#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
+#                dotsize = 3) +
+#   # geom_jitter(width = 0.2, height = 0, size = 2) +
+#   theme_bw() + ggtitle("Population") +
+#   theme(plot.title = element_text(size = 12, hjust = 0.5), 
+#         axis.title = element_text(size = 12),
+#         axis.text.x = element_text(color = "black", size = 12)) +
+#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+# 
+# #For poster
+# png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
+# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
+#   scale_x_discrete(name = "Treatment") +
+#   ylab("Resistance to Phage") +
+#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
+#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
+#                dotsize = 2) +
+#   theme_bw() + ggtitle("Population") +
+#   theme(plot.title = element_text(size = 24, hjust = 0.5), 
+#         axis.title = element_text(size = 24),
+#         axis.text = element_text(color = "black", size = 20),
+#         strip.text = element_text(size = 24)) +
+#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+# dev.off()
+# 
+# #resistance vs growth
+# gc_resis_data <- merge(resis_data, gc_mppti)
+# gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
+# gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
+#                            avg_gr = mean(gr_max_avg))
+# 
+# #Make plot of all isolates
+# ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
+#   geom_point() + 
+#   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
+#   geom_smooth(method = "lm") +
+#   labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
+# 
+# summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
+# 
+# #Make plot of all pops
+# #For local viewing
+# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+#   geom_point(size = 2, aes(pch = Treat)) + 
+#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+#                      breaks = c("A", "C", "G", "L"),
+#                      labels = c("WT", "Control", "Global", "Local")) +
+#   facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
+#                                              Proj = my_facet_labels)) +
+#   geom_smooth(method = "lm") +
+#   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
+#   theme_bw()
+# 
+# #For poster
+# png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
+#     res = 300)
+# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+#   geom_point(size = 4, aes(pch = Treat)) + 
+#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+#                      breaks = c("A", "C", "G", "L"),
+#                      labels = c("WT", "Control", "Global", "Local")) +
+#   facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
+#                                              Proj = my_facet_labels)) +
+#   geom_smooth(method = "lm", se = F) +
+#   labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
+#   theme_bw() +
+#   theme(axis.text = element_text(size = 16),
+#         strip.text = element_text(size = 20),
+#         axis.title = element_text(size = 20),
+#         legend.title = element_text(size = 20),
+#         legend.text = element_text(size = 16))
+# dev.off()
+# 
+# summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
+# 
+
+
 ##Isolate growth curves ----
-
-
-##growth curve analysis
-# library("minpack.lm")
-# library("tidyr")
-# library("lubridate")
 
 #Read data
 gc_data <- read.csv("./Clean_Data/Isolate_growth_curves.csv",
@@ -225,15 +336,16 @@ gc_data$percap_deriv_sm_loess <- calc_deriv(gc_data$sm_loess,
   
 
 #Calculate per capita growth per hour from original curve
-gc_data$percap_deriv_cfu <- calc_deriv(gc_data$cfu_ml,
-                                       percapita = TRUE,
-                                       subset_by = gc_data$uniq_well,
-                                       time = gc_data$Time_s,
-                                       time_normalize = 3600)
+# (for visual comparison)
+# gc_data$percap_deriv_cfu <- calc_deriv(gc_data$cfu_ml,
+#                                        percapita = TRUE,
+#                                        subset_by = gc_data$uniq_well,
+#                                        time = gc_data$Time_s,
+#                                        time_normalize = 3600)
 
 #View samples of original & smoothed curves
 # as well as derivatives (per cap & not) of both orig and smoothed curves
-for (my_well in sample(unique(gc_data$uniq_well), 5)) {
+for (my_well in sample(unique(gc_data$uniq_well), 3)) {
   my_rows <- which(gc_data$uniq_well == my_well)
   
   print(cowplot::plot_grid(
@@ -491,282 +603,437 @@ gc_data <- group_by(gc_data, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
 #     time since max percap growth rate
 #     time since low density
 
+#Define the window widths (sensitivity) for local extrema search
+first_min_time <- 7200
+max_percap_time <- 21600
+max_gr_rate_time <- 10800
+pseudo_K_time <- 7200
+
+#Summarize data
 gc_summarized <- summarize(gc_data,
+  #Find the first minima in total density
    first_min_index = find_local_extrema(sm_loess,
                                         return_maxima = FALSE,
-                                        width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
+                                        width_limit = (first_min_time/
+                                                         (Time_s[2]-Time_s[1])) + 1,
                                         na.rm = T,
                                         remove_endpoints = FALSE)[1],
    first_min = sm_loess[first_min_index],
    first_min_time = Time_s[first_min_index],
-  #find the per capita grow rate peaks
-  max_percap_index = find_local_extrema(percap_deriv_sm_loess,
+  #find peaks in per capita growth rate
+  # but for one well we need a different criteria (see end)
+  max_percap_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_50"),
+    #first find all peaks
+   find_local_extrema(percap_deriv_sm_loess,
                                         return_minima = FALSE,
-                                        width_limit = (21600/(Time_s[2]-Time_s[1])) + 1,
+                                        width_limit = (max_percap_time/
+                                                         (Time_s[2]-Time_s[1])) + 1,
                                         na.rm = T,
                                         remove_endpoints = F)[
-     #Use the first one that follows the minimum density
+     #But save/use the first one that follows the minimum density
      match(TRUE, find_local_extrema(percap_deriv_sm_loess,
                                     return_minima = FALSE,
-                                    width_limit = (21600/(Time_s[2]-Time_s[1])) + 1,
+                                    width_limit = (max_percap_time/
+                                                     (Time_s[2]-Time_s[1])) + 1,
                                     na.rm = T,
-                                    remove_endpoints = F) >= first_min_index)],                   
+                                    remove_endpoints = F) >= first_min_index)],
+   #if we're in that one well, use the second peak
+  find_local_extrema(percap_deriv_sm_loess,
+                                        return_minima = FALSE,
+                                        width_limit = (max_percap_time/
+                                                         (Time_s[2]-Time_s[1])) + 1,
+                                        na.rm = T,
+                                        remove_endpoints = F)[2]),
   max_percap_gr_rate = percap_deriv_sm_loess[max_percap_index],
   max_percap_gr_rate_time = Time_s[max_percap_index],
   max_percap_gr_rate_dens = sm_loess[max_percap_index],
-  pseudo_K_index = #find the local minima in non-per capita grow rate
+  max_percap_gr_rate_timesincemin = max_percap_gr_rate_time - first_min_time,
+  #find the first peak in total growth rate (slope of total density)
+  max_grow_rate_index = find_local_extrema(deriv_sm_loess,
+                                           return_minima = FALSE,
+                                           width_limit = (max_gr_rate_time/
+                                                            (Time_s[2]-Time_s[1])) + 1,
+                                           na.rm = T,
+                                           remove_endpoints = F)[1],
+  #find the local minimas in total grow rate (slope of total density)
+  # (which is the point when the diauxic shift occurs
+  # but for one well we need a different criteria (see end)
+  pseudo_K_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_50"),
     find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
-                                      width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
-                                      na.rm = T)[
-      #use the first one that follows the max percap gr rate
+                                      width_limit = (pseudo_K_time/
+                                                       (Time_s[2]-Time_s[1])) + 1,
+                                      na.rm = T,
+                       remove_endpoints = F)[
+      #use the first one that follows the first peak in total gr rate
+      # (note endpoints will be included, so when no local minima exists
+      # the endpoint will simply be used
     match(TRUE, find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
-                                      width_limit = (7200/(Time_s[2]-Time_s[1])) + 1,
-                                      na.rm = T) > max_percap_index)],
+                                      width_limit = (pseudo_K_time/
+                                                       (Time_s[2]-Time_s[1])) + 1,
+                                      na.rm = T,
+                                   remove_endpoints = F) > max_grow_rate_index)],
+    #if we're in that one well, use the third minima
+    find_local_extrema(deriv_sm_loess,
+                       return_maxima = FALSE,
+                       width_limit = (pseudo_K_time/
+                                        (Time_s[2]-Time_s[1])) + 1,
+                       na.rm = T,
+                       remove_endpoints = F)[3]),
   pseudo_K = sm_loess[pseudo_K_index],
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess[pseudo_K_index],
-  pseudo_K_index2 = #find the local minima with more sensitivity
-    find_local_extrema(deriv_sm_loess,
-                       return_maxima = FALSE,
-                       width_limit = (5400/(Time_s[2]-Time_s[1])) + 1,
-                       na.rm = T)[
-     #use the first one that follows the max percap gr rate
-     match(TRUE, find_local_extrema(deriv_sm_loess,
-                                    return_maxima = FALSE,
-                                    width_limit = (5400/(Time_s[2]-Time_s[1])) + 1,
-                                    na.rm = T) > max_percap_index)],
-  pseudo_K2 = sm_loess[pseudo_K_index2],
-  pseudo_K_time2 = Time_s[pseudo_K_index2],
-  pseudo_K_deriv2 = deriv_sm_loess[pseudo_K_index2],
-  
-   #   pseudo_K_timetomaxpcgr = #pseudo K time - max percap gr rate time
+  pseudo_K_timesincemin = pseudo_K_time - first_min_time,
+  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_rate_time
 )
 
-#For pseudo K, use more-sensitive data when less-sensitive
-# window didn't find it
+#Change to data frame for cleanliness
+gc_summarized <- as.data.frame(gc_summarized)
 
-                       
-
-#The problem continues to be that we cannot find
-# a threshold density which all pops start below
-# and which all pops grow to at a reasonably early time
-#Perhaps the solution is to divide it by project/media?
-
-
-#Code to check find_local_extrema on a single well
-my_well <- "2017-A_7x_Anc_Anc_Anc_1_50"
-  #"2017-E_7x_B_C_E_1_50" #lowest pseudo-K
-#my_well <- "2017-E_7x_B_G_E_1_100" #highest first min
-#unique(gc_data$uniq_well)[1]
-temp <- gc_data[gc_data$uniq_well == my_well, ]
-find_local_extrema(temp$sm_loess,
-                   return_minima = FALSE,
-                   width_limit = (28800/(temp$Time_s[2]-temp$Time_s[1])) + 1,
-                   na.rm = T,
-                   remove_endpoints = F)
-                   
-
-for (my_well in unique(gc_data$uniq_well)) {
-  tiff(filename = paste("./Growth_curve_plots/", my_well, ".tiff", sep = ""),
-       width = 5, height = 10, units = "in", res = 300)
-  my_rows <- which(gc_data$uniq_well == my_well)
-  print(cowplot::plot_grid(
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = cfu_ml)) +
-      geom_line(color = "red", lwd = 1, alpha = 0.5) +
-      geom_line(aes(x = Time_s, y = sm_loess),
-                color = "blue", lwd = 1, alpha = 0.5) +
-      ggtitle(gc_data[my_rows[1], "uniq_well"]) +
-      #Add point for first minima
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = first_min_time, y = first_min),
-                 color = "green", size = 3) +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      #Add point for pseudo K
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = pseudo_K_time, y = pseudo_K_deriv),
-                 color = "green", size = 3) +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = percap_deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      #Add point for max growth rate
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = max_percap_gr_rate_time, y = max_percap_gr_rate),
-                 color = "green", size = 3) +
-      NULL,
-    ncol = 1, align = "v"))
-  dev.off()
-}
-
-##Check:
-wells_check <- c("2017-B_7x_C_L_B_1_50", #isn't working
-                 "2017-A_7x_Anc_Anc_Anc_1_50",
-                 "2017-A_7x_B_L_A_1_100",
-                 "2017-B_7x_C_L_B_1_50",
-                 "2017-C_7x_B_C_C_1_100",
-                 "2017-C_7x_B_C_C_2_100",
-                 "2017-C_7x_C_C_C_1_50",
-                 "2017-C_7x_C_L_C_2_100",
-                 "2017-C_7x_D_G_C_1_50",
-                 "2017-C_7x_D_G_C_1_100",
-                 "2017-C_7x_D_G_C_2_50",
-                 "2017-C_7x_D_G_C_2_100",
-                 "2017-C_7x_E_G_C_1_100",
-                 "2017-C_7x_E_G_C_2_100",
-                 "2017-E_7x_B_C_E_1_50",
-                 "2017-E_7x_C_C_E_1_100",
-                 "2017-E_7x_C_C_E_2_100",
-                 "2019-09-10_125_B_C_A_1_25-50",
-                 "2019-09-10_125_B_C_A_2_25-50",
-                 "2019-09-10_125_B_G_A_1_25-50",
-                 "2019-09-12_125_B_C_D_1_25-50",
-                 "2019-09-12_125_B_C_D_2_25-50",
-                 "2019-09-12_125_B_G_D_1_25-50",
-                 "2019-09-12_125_D_L_D_1_50-100",
-                 "2019-09-12_125_D_L_D_2_50-100",
-                 "2019-09-13_125_B_C_E_1_50-100",
-                 "2019-09-13_125_B_C_E_2_25-50",
-                 "2019-09-13_125_C_C_E_1_50-100",
-                 "2019-09-13_125_D_L_E_1_50-100"
-                 )
-                 
-
-for (my_well in wells_check) {
-  tiff(filename = paste("./Challenging_growth_curve_plots/", my_well, ".tiff", sep = ""),
-       width = 5, height = 10, units = "in", res = 300)
-  my_rows <- which(gc_data$uniq_well == my_well)
-  print(cowplot::plot_grid(
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = cfu_ml)) +
-      geom_line(color = "red", lwd = 1, alpha = 0.5) +
-      geom_line(aes(x = Time_s, y = sm_loess),
-                color = "blue", lwd = 1, alpha = 0.5) +
-      ggtitle(gc_data[my_rows[1], "uniq_well"]) +
-      #Add point for first minima
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = first_min_time, y = first_min),
-                 color = "green", size = 3) +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      #Add point for pseudo K
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = pseudo_K_time, y = pseudo_K_deriv),
-                 color = "green", size = 3) +
-      #Add point for pseudo K2
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
-                 color = "dark green", size = 2) +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = percap_deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      #Add point for max growth rate
-      geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                 aes(x = max_percap_gr_rate_time, y = max_percap_gr_rate),
-                 color = "green", size = 3) +
-      NULL,
-    ncol = 1, align = "v"))
-  dev.off()
-}              
-                 
-                  
-
-
-#get first_min values and sort
-values <- gc_summarized
-values <- values[order(-values$first_min), ]
-
-values <- gc_data[my_rows, ]
-plot(1:nrow(values), values$deriv_sm_loess)
-find_local_extrema(values$deriv_sm_loess,
-                   return_maxima = T,
-                   width_limit = (3600/(values$Time_s[2]-values$Time_s[1])) + 1,
-                   na.rm = T,
-                   remove_endpoints = F)
-
-
-#Find the low-threshold density to use as pseudo time 0
-hist((gc_data$sm_loess[gc_data$Time_s == 0]))
-max(gc_data$sm_loess[gc_data$Time_s == 0])
-
-##TODO put this in descending order and figure out how to 
-##pick a threshold that is before the peaks of most but
-##high enough that we know when most pass it
-test <- gc_data[gc_data$Time_s == 0, ]
-test <- test[order(-test$sm_loess), ]
-
-
-#Plot curves & peaks
-view_peaks <- function(time_data, dens_data, well_contents, plt_point = TRUE,
-                       peak_time = NULL, peak_dens = NULL, peak_well_contents,
-                       numplots = 9, lwd = 1) {
-  #Inputs:  time_data - vector of time values
-  #         dens_data - vector of density values, matched with time_data
-  #         well_contents - vector of well contents, matched with time_data
-  #         peak_time - vector of peaks' time values
-  #         peak_dens - vector of peaks' density values, matched with peak_time
-  #         peak_well_contents - vectore of peaks' well contents, matched with peak_time
-  require(ggplot2)
-  for (start_group in seq(from = 1, to = length(unique(well_contents)),
-                          by = numplots)) {
-    my_wells <- unique(well_contents)[start_group:(start_group+numplots-1)]
-    myplot <- ggplot(data = data.frame(
-      "dens" = dens_data[well_contents %in% my_wells],
-      "time" = time_data[well_contents %in% my_wells],
-      "contents" = well_contents[well_contents %in% my_wells]),
-      aes(x = time, y = dens)) +
-      geom_line(lwd = lwd) +
-      facet_wrap(~contents)
-    if (plt_point) {
-      myplot <- myplot + 
-        geom_point(data = data.frame(
-          "dens" = peak_dens[peak_well_contents %in% my_wells],
-          "time" = peak_time[peak_well_contents %in% my_wells],
-          "contents" = peak_well_contents[peak_well_contents %in% my_wells]),
-          aes(x = time, y = dens),
-          size = 3, pch = 13)
-    }
-    print(myplot)
+#Make output plots for problematic wells
+if (F) {
+  wells_check <- c("2017-B_7x_C_L_B_1_50", #isn't working
+                   "2017-A_7x_Anc_Anc_Anc_1_50",
+                   "2017-A_7x_B_L_A_1_100",
+                   "2017-B_7x_C_L_B_1_50",
+                   "2017-C_7x_B_C_C_1_100",
+                   "2017-C_7x_B_C_C_2_100",
+                   "2017-C_7x_C_C_C_1_50",
+                   "2017-C_7x_C_L_C_2_100",
+                   "2017-C_7x_D_G_C_1_50",
+                   "2017-C_7x_D_G_C_1_100",
+                   "2017-C_7x_D_G_C_2_50",
+                   "2017-C_7x_D_G_C_2_100",
+                   "2017-C_7x_E_G_C_1_100",
+                   "2017-C_7x_E_G_C_2_100",
+                   "2017-E_7x_B_C_E_1_50",
+                   "2017-E_7x_C_C_E_1_100",
+                   "2017-E_7x_C_C_E_2_100",
+                   "2019-09-10_125_B_C_A_1_25-50",
+                   "2019-09-10_125_B_C_A_2_25-50",
+                   "2019-09-10_125_B_G_A_1_25-50",
+                   "2019-09-12_125_B_C_D_1_25-50",
+                   "2019-09-12_125_B_C_D_2_25-50",
+                   "2019-09-12_125_B_G_D_1_25-50",
+                   "2019-09-12_125_D_L_D_1_50-100",
+                   "2019-09-12_125_D_L_D_2_50-100",
+                   "2019-09-13_125_B_C_E_1_50-100",
+                   "2019-09-13_125_B_C_E_2_25-50",
+                   "2019-09-13_125_C_C_E_1_50-100",
+                   "2019-09-13_125_D_L_E_1_50-100"
+  )
+  for (my_well in wells_check) {
+    tiff(filename = paste("./Challenging_growth_curve_plots/", my_well, ".tiff", sep = ""),
+         width = 5, height = 10, units = "in", res = 300)
+    my_rows <- which(gc_data$uniq_well == my_well)
+    print(cowplot::plot_grid(
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = cfu_ml)) +
+        geom_line(color = "red", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess),
+                  color = "blue", lwd = 1, alpha = 0.5) +
+        ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+        #Add point for first minima
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = first_min_time, y = first_min),
+                   color = "green", size = 3) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for pseudo K
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = pseudo_K_time, y = pseudo_K_deriv),
+                   color = "green", size = 3) +
+        #Add point for pseudo K2
+        # geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+        #            aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
+        #            color = "dark green", size = 2) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = percap_deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for max growth rate
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = max_percap_gr_rate_time, y = max_percap_gr_rate),
+                   color = "green", size = 3) +
+        NULL,
+      ncol = 1, align = "v"))
+    dev.off()
   }
 }
 
-view_peaks(tidymerge$Timepoint, tidymerge$OD, tidymerge$Well,
-           peak_time = outmerge$maxtime, peak_dens = outmerge$max, 
-           peak_well_contents = outmerge$Well)
+#Make output plots for all wells
+if (FALSE) {
+  for (my_well in unique(gc_data$uniq_well)) {
+    tiff(filename = paste("./Growth_curve_plots/", my_well, ".tiff", sep = ""),
+         width = 5, height = 10, units = "in", res = 300)
+    my_rows <- which(gc_data$uniq_well == my_well)
+    print(cowplot::plot_grid(
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = cfu_ml)) +
+        geom_line(color = "red", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess),
+                  color = "blue", lwd = 1, alpha = 0.5) +
+        ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+        #Add point for first minima
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = first_min_time, y = first_min),
+                   color = "green", size = 3) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for pseudo K
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = pseudo_K_time, y = pseudo_K_deriv),
+                   color = "green", size = 3) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = percap_deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for max growth rate
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = max_percap_gr_rate_time, y = max_percap_gr_rate),
+                   color = "green", size = 3) +
+        NULL,
+      ncol = 1, align = "v"))
+    dev.off()
+  }
+}
 
-#Group data by indiv growth curves
-grp_data1 <- dplyr::group_by(tidycurves[!is.na(tidycurves$smoothed), ], 
-                             Well)
+#Combine replicate wells then run PCA ----
 
-#Get OD peak height & time for each growth curve
-out_data1 <- dplyr::summarize(grp_data1, 
-                              max = analyze_curves(smoothed, Timepoint, 
-                                                   bandwidth = 9, return = "max"),
-                              maxtime = analyze_curves(smoothed, Timepoint, 
-                                                       bandwidth = 9, 
-                                                       return = "maxtime"))
+#Summarize replicate wells
+gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
+                          Isol, Media)
+gc_sum_noreps <- summarize(gc_summarized,
+                           n = n(),
+                           first_min_avg = mean(first_min),
+                           first_min_sd = sd(first_min),
+                           first_min_time_avg = mean(first_min_time),
+                           first_min_time_sd = sd(first_min_time),
+                           max_percap_gr_rate_avg = mean(max_percap_gr_rate),
+                           max_percap_gr_rate_sd = sd(max_percap_gr_rate),
+                           max_percap_gr_rate_time_avg = mean(max_percap_gr_rate_time),
+                           max_percap_gr_rate_time_sd = sd(max_percap_gr_rate_time),
+                           max_percap_gr_rate_dens_avg = mean(max_percap_gr_rate_dens),
+                           max_percap_gr_rate_dens_sd = sd(max_percap_gr_rate_dens),
+                           max_percap_gr_rate_timesincemin_avg = mean(max_percap_gr_rate_timesincemin),
+                           max_percap_gr_rate_timesincemin_sd = sd(max_percap_gr_rate_timesincemin),
+                           pseudo_K_avg = mean(pseudo_K),
+                           pseudo_K_sd = sd(pseudo_K),
+                           pseudo_K_time_avg = mean(pseudo_K_time),
+                           pseudo_K_time_sd = sd(pseudo_K_time),
+                           pseudo_K_timesincemin_avg = mean(pseudo_K_timesincemin),
+                           pseudo_K_timesincemin_sd = sd(pseudo_K_timesincemin),
+                           pseudo_K_timesince_maxpercap_avg = mean(pseudo_K_timesince_maxpercap),
+                           pseudo_K_timesince_maxpercap_sd = sd(pseudo_K_timesince_maxpercap)
+)
+gc_sum_noreps <- as.data.frame(gc_sum_noreps)
+
+#Take a look at the standard deviations between replicate wells
+if (F) {
+  for (var in c("first_min_", "first_min_time_", 
+                "max_percap_gr_rate_", "max_percap_gr_rate_time_", 
+                "max_percap_gr_rate_dens_", 
+                "max_percap_gr_rate_timesincemin_",
+                "pseudo_K_", "pseudo_K_time_", 
+                "pseudo_K_timesincemin_", 
+                "pseudo_K_timesince_maxpercap_")) {
+    my_sd <- gc_sum_noreps[, paste(var, "sd", sep = "")]
+    my_avg <- mean(gc_sum_noreps[, paste(var, "avg", sep = "")])
+    hist(my_sd, main = var, 
+         xlim = c(min(my_sd, my_avg, na.rm = T), max(my_sd, my_avg, na.rm = T)))
+    abline(v = my_avg, col = "red", lwd = 2)
+  }
+}
+if (F) {
+  for (var in c("first_min_", "first_min_time_", 
+                "max_percap_gr_rate_", "max_percap_gr_rate_time_", 
+                "max_percap_gr_rate_dens_", 
+                "max_percap_gr_rate_timesincemin_",
+                "pseudo_K_", "pseudo_K_time_", 
+                "pseudo_K_timesincemin_", 
+                "pseudo_K_timesince_maxpercap_")) {
+    my_sd <- gc_sum_noreps[, paste(var, "sd", sep = "")]
+    my_avg <- gc_sum_noreps[, paste(var, "avg", sep = "")]
+    hist(my_sd/my_avg, main = var, xlim = c(0, max(my_sd/my_avg, 1, na.rm = T)))
+    abline(v = 1, col = "red", lwd = 2)
+  }
+}
+
+#Generally, sd's between reps are small relative to the values themselves
+
+#Cast measurements in different medias
+# into different columns
+gc_sum_noreps$Media[gc_sum_noreps$Media == "50"] <- "Orig"
+gc_sum_noreps$Media[gc_sum_noreps$Media == "100"] <- "Rich"
+gc_sum_noreps$Media[gc_sum_noreps$Media == "25-50"] <- "Orig"
+gc_sum_noreps$Media[gc_sum_noreps$Media == "50-100"] <- "Rich"
+
+gc_sum_noreps <- as.data.table(gc_sum_noreps)
+gc_sum_noreps_wide <- data.table::dcast(gc_sum_noreps,
+                           Date+Proj+Pop+Treat+Isol ~ Media,
+                           value.var = c("first_min_avg", 
+                                         "first_min_time_avg", 
+                                         "max_percap_gr_rate_avg", 
+                                         "max_percap_gr_rate_time_avg", 
+                                         "max_percap_gr_rate_dens_avg", 
+                                         "max_percap_gr_rate_timesincemin_avg", 
+                                         "pseudo_K_avg", 
+                                         "pseudo_K_time_avg", 
+                                         "pseudo_K_timesincemin_avg", 
+                                         "pseudo_K_timesince_maxpercap_avg"))
+gc_sum_noreps_wide <- as.data.frame(gc_sum_noreps_wide)
+
+#Check for univariate normality
+if (F) {
+  for (proj in unique(gc_sum_noreps_wide$Proj)) {
+    for (var in c("first_min_avg_Orig", 
+                  #"first_min_time_avg_Orig",
+                  "max_percap_gr_rate_avg_Orig",
+                  #"max_percap_gr_rate_time_avg_Orig",
+                  "max_percap_gr_rate_dens_avg_Orig",
+                  "max_percap_gr_rate_timesincemin_avg_Orig",
+                  "pseudo_K_avg_Orig",
+                  #"pseudo_K_time_avg_Orig",
+                  "pseudo_K_timesincemin_avg_Orig",
+                  #"pseudo_K_timesince_maxpercap_avg_Orig",
+                  "first_min_avg_Rich",
+                  #"first_min_time_avg_Rich",
+                  "max_percap_gr_rate_avg_Rich",
+                  #"max_percap_gr_rate_time_avg_Rich",
+                  "max_percap_gr_rate_dens_avg_Rich",
+                  "max_percap_gr_rate_timesincemin_avg_Rich",
+                  "pseudo_K_avg_Rich",
+                  #"pseudo_K_time_avg_Rich",
+                  "pseudo_K_timesincemin_avg_Rich"
+                  #"pseudo_K_timesince_maxpercap_avg_Rich"
+                  )) {
+      hist(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
+           main = paste(proj, var))
+      qqnorm(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
+             main = paste(proj, var))
+    }
+  }
+}
+
+#TODO here
+
+gc_sum_noreps$first_min_avg_log10 <- 
+  log10(gc_sum_noreps$first_min_avg)
+gc_sum_noreps$pseudo_K_avg_log10 <- 
+  log10(gc_sum_noreps$pseudo_K_avg)
+gc_sum_noreps$max_percap_gr_rate_dens_avg_log10 <-
+  log10(gc_sum_noreps$max_percap_gr_rate_dens_avg)
+
+if (F) {
+  for (var in c("first_min_avg_log10",
+                "pseudo_K_avg_log10",
+                "max_percap_gr_rate_dens_avg_log10")) {
+    hist(as.numeric(gc_sum_noreps[, var]), main = var)
+    qqnorm(as.numeric(gc_sum_noreps[, var]), main = var)
+  }
+}
+
+#Now they look much better!
+
+#Check for multivariate normality
+
+#Define function to make chi-square quantile plots 
+# to test for multivariate normality of data or residuals
+# (credit to Jonathan Reuning-Scherer)
+CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
+  #usually, vars is xxx$residuals or data from one group and label is for plot
+  x<-cov(scale(vars),use="pairwise.complete.obs")
+  squares<-sort(diag(as.matrix(scale(vars))%*%solve(x)%*%as.matrix(t(scale(vars)))))
+  quantiles<-quantile(squares)
+  hspr<-quantiles[4]-quantiles[2]
+  cumprob<-c(1:length(vars[,1]))/length(vars[,1])-1/(2*length(vars[,1]))
+  degf<-dim(x)[1]
+  quants<-qchisq(cumprob,df=degf)
+  gval<-(quants**(-1+degf/2))/(exp(quants/2)*gamma(degf/2)*(sqrt(2)**degf))
+  scale<-hspr / (qchisq(.75,degf)-qchisq(.25,degf))
+  se<-(scale/gval)*sqrt(cumprob*(1-cumprob)/length(squares))
+  lower<-quants-2*se
+  upper<-quants+2*se
+  
+  plot(quants,squares,col='red',pch=19,cex=1.2,xlab="Chi-Square Quantiles",
+       ylab=label,main=paste("Chi-Square Quantiles for",label),ylim=range(upper,lower, squares) , xlim=range(c(0,quants)))
+  lines(c(0,100),c(0,100),col=1)
+  lines(quants,upper,col="blue",lty=2,lwd=2)
+  lines(quants,lower,col="blue",lty=2,lwd=2)
+  legend(0,range(upper,lower)[2]*.9,c("Data","95% Conf Limits"),lty=c(0,2),col=c("red","blue"),lwd=c(2,2),
+         pch=c(19,NA))
+}
+
+
+CSQPlot(gc_sum_noreps[, c("first_min_avg_log10", 
+                          #"first_min_time_avg", 
+                          "max_percap_gr_rate_avg", 
+                          #"max_percap_gr_rate_time_avg", 
+                          "max_percap_gr_rate_dens_avg_log10", 
+                          "max_percap_gr_rate_timesincemin_avg",
+                          "pseudo_K_avg_log10", 
+                          #"pseudo_K_time_avg", 
+                          "pseudo_K_timesincemin_avg"
+                          #"pseudo_K_timesince_maxpercap_avg"
+                          )])
+#Our data is still highly non-multivariate normal
+
+#Get principal components
+gc_noreps_prin_comp <- princomp(gc_sum_noreps[, c("first_min_avg_log10", 
+                                                  #"first_min_time_avg", 
+                                                  "max_percap_gr_rate_avg", 
+                                                  #"max_percap_gr_rate_time_avg", 
+                                                  "max_percap_gr_rate_dens_avg_log10", 
+                                                  "max_percap_gr_rate_timesincemin_avg",
+                                                  "pseudo_K_avg_log10", 
+                                                  #"pseudo_K_time_avg", 
+                                                  "pseudo_K_timesincemin_avg"
+                                                  #"pseudo_K_timesince_maxpercap_avg"
+                                              )],
+                                cor = T,
+                                scores = T)
+
+#Print summary
+print(summary(gc_noreps_prin_comp), digits = 2)
+#PC1 - 40% of variance, PC2 is 30%
+
+#From screeplot, keep PC's 1, 2 & 3?
+screeplot(gc_noreps_prin_comp, type = "lines", main = "Movie PCA Scree Plot")
+
+#Check loadings of Principal components
+print(gc_noreps_prin_comp$loadings, digits = 2, cutoff = 0)
+
+#PC1 - the 3 densities (first min, dens as max percap, pseudo K)
+#PC2 - max percap gr rate vs max percap gr rate time since min
+#   (with pseudo K in same direction as max percap gr rate)
+#   AKA the faster you grow the higher your pseudo K and less time
+#    from min to max gr rate and from min to pseudo K
+#PC3 - pseudo K time since min
+
+gc_sum_noreps <- cbind(gc_sum_noreps, gc_noreps_prin_comp$scores)
+
+ggplot(data = gc_sum_noreps,
+       aes(x = Comp.1, y = Comp.2, color = Treat, shape = Proj)) +
+  geom_point() +
+  facet_wrap(~Media)
+
+ggplot(data = gc_sum_noreps,
+       aes(x = Comp.1, y = Comp.3, color = Treat, shape = Proj)) +
+  geom_point() +
+  facet_wrap(~Media)
+
+ggplot(data = gc_sum_noreps,
+       aes(x = Comp.2, y = Comp.3, color = Treat, shape = Proj)) +
+  geom_point() +
+  facet_wrap(~Media)
 
 
 
-#extract maximum percap growth rates for each uniq well
-#using non-overlapping averaged smoothing
-gc_sm$Time <- as.character(gc_sm$Time)
-gc_mpptir <- group_by(gc_sm, Media, Proj, Pop, Treat, Isol, Rep_Well)
-gc_mpptir <- summarize(gc_mpptir, max_pcgr = max(pcgr, na.rm = T))
-gc_mppti <- group_by(gc_mpptir, Media, Proj, Pop, Treat, Isol)
-gc_mppti <- summarize(gc_mppti, gr_max_avg = mean(max_pcgr),
-                      dt_min_sd = sd(max_pcgr))
-gc_mppt <- group_by(gc_mppti, Media, Proj, Pop, Treat)
-gc_mppt <- summarize(gc_mppt, avg_isols = mean(gr_max_avg),
-                     sd_isols = sd(gr_max_avg))
 
 #Making percap growth rate plots
 my_facet_labels <- c("100" = "Rich Environment", 
