@@ -6,6 +6,11 @@
 
 library("ggplot2")
 library("dplyr")
+library("data.table")
+
+#Okabe and Ito 2008 colorblind-safe qualitative color scale
+my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+             "#D55E00", "#CC79A7", "#000000")
 
 #Need to split this into 2 scripts: one to take the messy data
 # (e.g. isolate information in underscore formats, etc)
@@ -41,6 +46,7 @@ ggplot(data = exper_evol_migr,
        aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
            color = Treat)) +
   geom_line() +
+  scale_color_manual(values = my_cols[c(4, 5, 7)]) +
   facet_grid(~Proj)
 
 #Summarize
@@ -65,8 +71,11 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
                 width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", 
        y = expression(paste("Mean Area of Growth ( ", cm^2, ")"))) + 
-  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local"))
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                  labels = c("Control", "Local", "Global"),
+                  values = my_cols[c(8, 2, 6)]) +
+  scale_x_continuous(breaks = c(0, 7, 14)) +
+  NULL
 
 #Make plot with both summarized and non-summarized data
 ggplot(data = exper_evol_migr,
@@ -75,14 +84,16 @@ ggplot(data = exper_evol_migr,
          geom_line(alpha = 0.5) +
          facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() +
-  scale_color_hue(name = "Treatment", breaks = c("C", "G", "L"),
-                  labels = c("Control", "Global", "Local")) +
   geom_line(data = exper_evol_summ,
             aes(x = Timepoint, y = area_mean, color = Treat,
                 group = Treat),
             size = 1.2) +
   labs(x = "Transfer", 
-       y = expression(paste("Mean Area of Growth ( ", cm^2, ")"))) + 
+       y = expression(paste("Area of Growth ( ", cm^2, ")"))) + 
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_x_continuous(breaks = c(0, 7, 14)) +
   NULL
     
 
@@ -143,6 +154,7 @@ gc_data$uniq_well <- paste(gc_data$Date,
 #reorder
 gc_data <- gc_data[order(gc_data$uniq_well, gc_data$Time_s), ]
 
+#Define function that calculates derivatives
 calc_deriv <- function(density, percapita = FALSE,
                           subset_by = NULL, time = NULL,
                           time_normalize = NULL) {
@@ -799,118 +811,4 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
 dev.off()
 
 
-## Isolate resistance ----
-resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
-                       stringsAsFactors = F)
-
-#calculate EOP for ea isol
-resis_data$EOP <- NA
-resis_data$bd <- F
-#First Handle below-detection points
-my_rows <- which(resis_data$PFU == 0)
-resis_data$pfu_ml[my_rows] <- 1*resis_data$dilution[my_rows]
-resis_data$bd[my_rows] <- T
-#Then calculate all EOPs
-for (i in 1:nrow(resis_data)) {
-  my_sub <- subset(resis_data, resis_data$Date == resis_data$Date[i])
-  resis_data$EOP[i] <- resis_data$pfu_ml[i]/
-    mean(my_sub[my_sub$Treat == "Anc",]$pfu_ml)
-}
-
-#Add flag for old vs new approach
-resis_data$approach <- NA
-resis_data$approach[1:70] <- "old"
-resis_data$approach[71:nrow(resis_data)] <- "new"
-
-ggplot(resis_data[resis_data$Treat != "Anc", ], 
-       aes(x = Treat, y = EOP, color = Pop,
-           shape = bd, group = Pop)) +
-  facet_grid(Proj~approach) +
-  geom_point(position = position_dodge(width = 0.5),
-             alpha = 0.7) +
-  scale_y_continuous(trans = "log10") +
-  theme_bw()
-
-# #For local viewing
-# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-#   scale_x_discrete(name = "Treatment") +
-#   ylab("Resistance to Phage") +
-#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
-#                dotsize = 3) +
-#   # geom_jitter(width = 0.2, height = 0, size = 2) +
-#   theme_bw() + ggtitle("Population") +
-#   theme(plot.title = element_text(size = 12, hjust = 0.5), 
-#         axis.title = element_text(size = 12),
-#         axis.text.x = element_text(color = "black", size = 12)) +
-#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
-# 
-# #For poster
-# png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
-# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-#   scale_x_discrete(name = "Treatment") +
-#   ylab("Resistance to Phage") +
-#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
-#                dotsize = 2) +
-#   theme_bw() + ggtitle("Population") +
-#   theme(plot.title = element_text(size = 24, hjust = 0.5), 
-#         axis.title = element_text(size = 24),
-#         axis.text = element_text(color = "black", size = 20),
-#         strip.text = element_text(size = 24)) +
-#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
-# dev.off()
-# 
-# #resistance vs growth
-# gc_resis_data <- merge(resis_data, gc_mppti)
-# gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
-# gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
-#                            avg_gr = mean(gr_max_avg))
-# 
-# #Make plot of all isolates
-# ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
-#   geom_point() + 
-#   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
-#   geom_smooth(method = "lm") +
-#   labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
-# 
-# summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
-# 
-# #Make plot of all pops
-# #For local viewing
-# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-#   geom_point(size = 2, aes(pch = Treat)) + 
-#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-#                      breaks = c("A", "C", "G", "L"),
-#                      labels = c("WT", "Control", "Global", "Local")) +
-#   facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
-#                                              Proj = my_facet_labels)) +
-#   geom_smooth(method = "lm") +
-#   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
-#   theme_bw()
-# 
-# #For poster
-# png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
-#     res = 300)
-# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-#   geom_point(size = 4, aes(pch = Treat)) + 
-#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-#                      breaks = c("A", "C", "G", "L"),
-#                      labels = c("WT", "Control", "Global", "Local")) +
-#   facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
-#                                              Proj = my_facet_labels)) +
-#   geom_smooth(method = "lm", se = F) +
-#   labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
-#   theme_bw() +
-#   theme(axis.text = element_text(size = 16),
-#         strip.text = element_text(size = 20),
-#         axis.title = element_text(size = 20),
-#         legend.title = element_text(size = 20),
-#         legend.text = element_text(size = 16))
-# dev.off()
-# 
-# summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
-# 
-
-
-## Isolate PCA ----
+## Isolate PCA with all variables ----
