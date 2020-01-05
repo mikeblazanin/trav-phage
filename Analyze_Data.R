@@ -246,7 +246,7 @@ ggplot(resis_data[resis_data$Treat != "Anc", ],
 # 
 
 
-##Isolate growth curves ----
+##Isolate growth curves: read & find peaks ----
 
 #Read data
 gc_data <- read.csv("./Clean_Data/Isolate_growth_curves.csv",
@@ -803,7 +803,7 @@ if (FALSE) {
   }
 }
 
-#Combine replicate wells then run PCA ----
+#Isolate growth curves: summarize replicates, cast media, summarize isolates ----
 
 #Summarize replicate wells
 gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
@@ -888,57 +888,156 @@ gc_sum_noreps_wide <- data.table::dcast(gc_sum_noreps,
                                          "pseudo_K_timesince_maxpercap_avg"))
 gc_sum_noreps_wide <- as.data.frame(gc_sum_noreps_wide)
 
+#Compare isols to Ancestors
+
+#Summarize isols into pops
+
+
+
+
 #Check for univariate normality
 if (F) {
-  for (proj in unique(gc_sum_noreps_wide$Proj)) {
-    for (var in c("first_min_avg_Orig", 
-                  #"first_min_time_avg_Orig",
-                  "max_percap_gr_rate_avg_Orig",
-                  #"max_percap_gr_rate_time_avg_Orig",
-                  "max_percap_gr_rate_dens_avg_Orig",
-                  "max_percap_gr_rate_timesincemin_avg_Orig",
-                  "pseudo_K_avg_Orig",
-                  #"pseudo_K_time_avg_Orig",
-                  "pseudo_K_timesincemin_avg_Orig",
-                  #"pseudo_K_timesince_maxpercap_avg_Orig",
-                  "first_min_avg_Rich",
-                  #"first_min_time_avg_Rich",
-                  "max_percap_gr_rate_avg_Rich",
-                  #"max_percap_gr_rate_time_avg_Rich",
-                  "max_percap_gr_rate_dens_avg_Rich",
-                  "max_percap_gr_rate_timesincemin_avg_Rich",
-                  "pseudo_K_avg_Rich",
-                  #"pseudo_K_time_avg_Rich",
-                  "pseudo_K_timesincemin_avg_Rich"
-                  #"pseudo_K_timesince_maxpercap_avg_Rich"
-                  )) {
-      hist(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
-           main = paste(proj, var))
-      qqnorm(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
-             main = paste(proj, var))
+  for (var_root in c("first_min_avg_", 
+                     #"first_min_time_avg_",
+                     "max_percap_gr_rate_avg_",
+                     #"max_percap_gr_rate_time_avg_",
+                     "max_percap_gr_rate_dens_avg_",
+                     "max_percap_gr_rate_timesincemin_avg_",
+                     "pseudo_K_avg_",
+                     #"pseudo_K_time_avg_",
+                     "pseudo_K_timesincemin_avg_",
+                     #"pseudo_K_timesince_maxpercap_avg_",
+                     "first_min_avg_",
+                     #"first_min_time_avg_",
+                     "max_percap_gr_rate_avg_",
+                     #"max_percap_gr_rate_time_avg_",
+                     "max_percap_gr_rate_dens_avg_",
+                     "max_percap_gr_rate_timesincemin_avg_",
+                     "pseudo_K_avg_",
+                     #"pseudo_K_time_avg_",
+                     "pseudo_K_timesincemin_avg_"
+                     #"pseudo_K_timesince_maxpercap_avg_"
+  )) {
+    for (media in c("Orig", "Rich")) {
+      for (proj in unique(gc_sum_noreps_wide$Proj)) {
+        var <- paste(var_root, media, sep = "")
+        # hist(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
+        #      main = paste(proj, var))
+        qqnorm(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]), 
+               main = paste(proj, var))
+        qqline(as.numeric(gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == proj, var]))
+      }
     }
   }
 }
 
-#TODO here
+#Definitely not skewed:
+# 125 first min Orig
+# 125 pseudo K Orig
+# 125 first min Rich
+#
+#Not skewed but outliers:
+#7x pseudo K Orig
+#7x pseudo K timesincemin Orig
+#7x pseudo K Rich
+#125 max percap dens Rich
+# 
+#Maybe skewed:
+#7x max percap rate Orig
+#7x max percap dens Orig
+#7x max percap timesincemin Orig
+#7x first min Rich
+#7x max percap rate Rich
+#7x max percap timesincemin Rich
+#7x pseudo K timesincemin Rich
+#125 max percap rate Orig
+#125 max percap dens Orig
+#125 max percap timesincemin Orig
+#125 pseudo K timesincemin Orig
+#125 max percap rate Rich
+#125 max percap timesincemin Rich
+#125 pseudo K Rich
+#
+#Definitely skewed:
+#7x first min Orig
+#7x max percap dens Rich
+#125 pseudo K timesincemin Rich
 
-gc_sum_noreps$first_min_avg_log10 <- 
-  log10(gc_sum_noreps$first_min_avg)
-gc_sum_noreps$pseudo_K_avg_log10 <- 
-  log10(gc_sum_noreps$pseudo_K_avg)
-gc_sum_noreps$max_percap_gr_rate_dens_avg_log10 <-
-  log10(gc_sum_noreps$max_percap_gr_rate_dens_avg)
+##See GC Data Normality.rtf
 
-if (F) {
-  for (var in c("first_min_avg_log10",
-                "pseudo_K_avg_log10",
-                "max_percap_gr_rate_dens_avg_log10")) {
-    hist(as.numeric(gc_sum_noreps[, var]), main = var)
-    qqnorm(as.numeric(gc_sum_noreps[, var]), main = var)
+#Split data frame into two projects
+gc_noreps_7x <- gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == "7x", ]
+gc_noreps_125 <- gc_sum_noreps_wide[gc_sum_noreps_wide$Proj == "125", ]
+
+#Take log10 of everything except 125 first min
+for (var in c("first_min_avg_Orig", 
+              #"first_min_time_avg_Orig",
+              "max_percap_gr_rate_avg_Orig",
+              #"max_percap_gr_rate_time_avg_Orig",
+              "max_percap_gr_rate_dens_avg_Orig",
+              "max_percap_gr_rate_timesincemin_avg_Orig",
+              "pseudo_K_avg_Orig",
+              #"pseudo_K_time_avg_Orig",
+              "pseudo_K_timesincemin_avg_Orig",
+              #"pseudo_K_timesince_maxpercap_avg_Orig",
+              "first_min_avg_Rich",
+              #"first_min_time_avg_Rich",
+              "max_percap_gr_rate_avg_Rich",
+              #"max_percap_gr_rate_time_avg_Rich",
+              "max_percap_gr_rate_dens_avg_Rich",
+              "max_percap_gr_rate_timesincemin_avg_Rich",
+              "pseudo_K_avg_Rich",
+              #"pseudo_K_time_avg_Rich",
+              "pseudo_K_timesincemin_avg_Rich"
+              #"pseudo_K_timesince_maxpercap_avg_Rich"
+          )) {
+  newname <- paste(var, "_log10", sep = "")
+  gc_noreps_7x[, newname] <- log10(gc_noreps_7x[, var])
+  if (!var %in% c("first_min_avg_Orig", "first_min_avg_Rich")) {
+    gc_noreps_125[, newname] <- log10(gc_noreps_125[, var])
   }
 }
 
-#Now they look much better!
+#Re-check normality
+#7x:
+for (var_root in c("first_min_avg_", 
+                       #"first_min_time_avg_",
+                       "max_percap_gr_rate_avg_",
+                       #"max_percap_gr_rate_time_avg_",
+                       "max_percap_gr_rate_dens_avg_",
+                       "max_percap_gr_rate_timesincemin_avg_",
+                       "pseudo_K_avg_",
+                       #"pseudo_K_time_avg_",
+                       "pseudo_K_timesincemin_avg_",
+                       #"pseudo_K_timesince_maxpercap_avg_",
+                       "first_min_avg_",
+                       #"first_min_time_avg_",
+                       "max_percap_gr_rate_avg_",
+                       #"max_percap_gr_rate_time_avg_",
+                       "max_percap_gr_rate_dens_avg_",
+                       "max_percap_gr_rate_timesincemin_avg_",
+                       "pseudo_K_avg_",
+                       #"pseudo_K_time_avg_",
+                       "pseudo_K_timesincemin_avg_"
+                       #"pseudo_K_timesince_maxpercap_avg_"
+      )) {
+  for (media in c("Orig", "Rich")) {
+    var <- paste(var_root, media, "_log10", sep = "")
+    qqnorm(as.numeric(gc_noreps_7x[, var]), 
+           main = paste("7x", var))
+    qqline(as.numeric(gc_noreps_7x[, var]))
+    if (var_root != "first_min_avg_") {
+      qqnorm(as.numeric(gc_noreps_125[, var]), 
+             main = paste("125", var))
+      qqline(as.numeric(gc_noreps_125[, var]))
+    }
+  }
+}
+
+#After looking at the outcomes of log10 normalization,
+# first min did not improve, use original values
+# All three max percap improved in some cases, use log10 values
+# Pseudo K did not change, use original values
 
 #Check for multivariate normality
 
@@ -969,69 +1068,115 @@ CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
          pch=c(19,NA))
 }
 
+CSQPlot(gc_noreps_7x[, c("first_min_avg_Orig", 
+                         "first_min_avg_Rich",
+                         "max_percap_gr_rate_avg_Orig_log10",
+                         "max_percap_gr_rate_avg_Rich_log10",
+                         "max_percap_gr_rate_dens_avg_Orig_log10",
+                         "max_percap_gr_rate_dens_avg_Rich_log10",
+                         "max_percap_gr_rate_timesincemin_avg_Orig_log10",
+                         "max_percap_gr_rate_timesincemin_avg_Rich_log10",
+                         "pseudo_K_avg_Orig",
+                         "pseudo_K_avg_Rich",
+                         "pseudo_K_timesincemin_avg_Orig",
+                         "pseudo_K_timesincemin_avg_Rich"
+                )],
+        label = "7x")
 
-CSQPlot(gc_sum_noreps[, c("first_min_avg_log10", 
-                          #"first_min_time_avg", 
-                          "max_percap_gr_rate_avg", 
-                          #"max_percap_gr_rate_time_avg", 
-                          "max_percap_gr_rate_dens_avg_log10", 
-                          "max_percap_gr_rate_timesincemin_avg",
-                          "pseudo_K_avg_log10", 
-                          #"pseudo_K_time_avg", 
-                          "pseudo_K_timesincemin_avg"
-                          #"pseudo_K_timesince_maxpercap_avg"
-                          )])
-#Our data is still highly non-multivariate normal
+CSQPlot(gc_noreps_125[, c("first_min_avg_Orig", 
+                         "first_min_avg_Rich",
+                         "max_percap_gr_rate_avg_Orig_log10",
+                         "max_percap_gr_rate_avg_Rich_log10",
+                         "max_percap_gr_rate_dens_avg_Orig_log10",
+                         "max_percap_gr_rate_dens_avg_Rich_log10",
+                         "max_percap_gr_rate_timesincemin_avg_Orig_log10",
+                         "max_percap_gr_rate_timesincemin_avg_Rich_log10",
+                         "pseudo_K_avg_Orig",
+                         "pseudo_K_avg_Rich",
+                         "pseudo_K_timesincemin_avg_Orig",
+                         "pseudo_K_timesincemin_avg_Rich"
+                      )],
+          label = "125")                   
 
+#Looks like our data is pretty non-normal, although the majority of
+# it falls within or near the 95% confidence intervals                    
+                     
 #Get principal components
-gc_noreps_prin_comp <- princomp(gc_sum_noreps[, c("first_min_avg_log10", 
-                                                  #"first_min_time_avg", 
-                                                  "max_percap_gr_rate_avg", 
-                                                  #"max_percap_gr_rate_time_avg", 
-                                                  "max_percap_gr_rate_dens_avg_log10", 
-                                                  "max_percap_gr_rate_timesincemin_avg",
-                                                  "pseudo_K_avg_log10", 
-                                                  #"pseudo_K_time_avg", 
-                                                  "pseudo_K_timesincemin_avg"
-                                                  #"pseudo_K_timesince_maxpercap_avg"
-                                              )],
+gc_princomp_7x <- princomp(gc_noreps_7x[, c("first_min_avg_Orig", 
+                                            "first_min_avg_Rich",
+                                            "max_percap_gr_rate_avg_Orig_log10",
+                                            "max_percap_gr_rate_avg_Rich_log10",
+                                            "max_percap_gr_rate_dens_avg_Orig_log10",
+                                            "max_percap_gr_rate_dens_avg_Rich_log10",
+                                            "max_percap_gr_rate_timesincemin_avg_Orig_log10",
+                                            "max_percap_gr_rate_timesincemin_avg_Rich_log10",
+                                            "pseudo_K_avg_Orig",
+                                            "pseudo_K_avg_Rich",
+                                            "pseudo_K_timesincemin_avg_Orig",
+                                            "pseudo_K_timesincemin_avg_Rich")],
                                 cor = T,
                                 scores = T)
 
+gc_princomp_125 <- princomp(gc_noreps_125[, c("first_min_avg_Orig", 
+                                              "first_min_avg_Rich",
+                                              "max_percap_gr_rate_avg_Orig_log10",
+                                              "max_percap_gr_rate_avg_Rich_log10",
+                                              "max_percap_gr_rate_dens_avg_Orig_log10",
+                                              "max_percap_gr_rate_dens_avg_Rich_log10",
+                                              "max_percap_gr_rate_timesincemin_avg_Orig_log10",
+                                              "max_percap_gr_rate_timesincemin_avg_Rich_log10",
+                                              "pseudo_K_avg_Orig",
+                                              "pseudo_K_avg_Rich",
+                                              "pseudo_K_timesincemin_avg_Orig",
+                                              "pseudo_K_timesincemin_avg_Rich")],
+                            cor = T,
+                            scores = T)
+
 #Print summary
-print(summary(gc_noreps_prin_comp), digits = 2)
-#PC1 - 40% of variance, PC2 is 30%
+print(summary(gc_princomp_7x), digits = 2)
+#PC1 - 36% of variance, PC2 22%, PC3 16%
+print(summary(gc_princomp_125), digits = 2)
+#PC1 43%, PC2 18% PC3 14%
 
-#From screeplot, keep PC's 1, 2 & 3?
-screeplot(gc_noreps_prin_comp, type = "lines", main = "Movie PCA Scree Plot")
+#Make screeplots
+screeplot(gc_princomp_7x, type = "lines", main = "7x PCA Scree Plot")
+#Keep 2 or 4?
+screeplot(gc_princomp_125, type = "lines", main = "7x PCA Scree Plot")
+#Keep 2
 
-#Check loadings of Principal components
-print(gc_noreps_prin_comp$loadings, digits = 2, cutoff = 0)
+#Check loadings of Principal components for 7x
+print(gc_princomp_7x$loadings, digits = 2, cutoff = 0)
+#PC1 - first min, percap dens, percap time vs percap rate
+#PC2 - pseudo K time & dens
 
-#PC1 - the 3 densities (first min, dens as max percap, pseudo K)
-#PC2 - max percap gr rate vs max percap gr rate time since min
-#   (with pseudo K in same direction as max percap gr rate)
-#   AKA the faster you grow the higher your pseudo K and less time
-#    from min to max gr rate and from min to pseudo K
-#PC3 - pseudo K time since min
+#Check loadings of Principal components for 7x
+print(gc_princomp_125$loadings, digits = 2, cutoff = 0)
+#PC1 - max percap rate vs max percap time & dens, pseudo K time, first min
+#PC2 - first min, pseudo K dens vs max percap time & pseudo K time
 
-gc_sum_noreps <- cbind(gc_sum_noreps, gc_noreps_prin_comp$scores)
+#Add scores to dataframes
+gc_noreps_7x <- cbind(gc_noreps_7x, gc_princomp_7x$scores)
+gc_noreps_125 <- cbind(gc_noreps_125, gc_princomp_125$scores)
 
-ggplot(data = gc_sum_noreps,
-       aes(x = Comp.1, y = Comp.2, color = Treat, shape = Proj)) +
-  geom_point() +
-  facet_wrap(~Media)
+#Make plots of all isols
+ggplot(data = gc_noreps_7x,
+       aes(x = Comp.1, y = Comp.2, color = Treat)) +
+  geom_point()
 
-ggplot(data = gc_sum_noreps,
-       aes(x = Comp.1, y = Comp.3, color = Treat, shape = Proj)) +
-  geom_point() +
-  facet_wrap(~Media)
+ggplot(data = gc_noreps_125,
+       aes(x = Comp.1, y = Comp.2, color = Treat)) +
+  geom_point()
 
-ggplot(data = gc_sum_noreps,
-       aes(x = Comp.2, y = Comp.3, color = Treat, shape = Proj)) +
-  geom_point() +
-  facet_wrap(~Media)
+#Summarize each pop
+gc_noreps_7x <- group_by(gc_noreps_7x,
+                         "Proj",
+                         "Pop",
+                         "Treat")
+gc_noisols_7x <- summarise(gc_noreps_7x,
+                           
+)
 
+##TODO should isols be run relative to the ancestor?
 
 
 
