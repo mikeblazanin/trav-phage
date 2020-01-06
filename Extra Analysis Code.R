@@ -227,3 +227,236 @@ ggplot(data = gc_summarized,
        aes(x = Comp.1, y = Comp.2, color = Treat, shape = Proj)) +
   geom_point() +
   facet_wrap(~Media)
+
+#Definitely not skewed:
+# 125 first min Orig
+# 125 pseudo K Orig
+# 125 first min Rich
+#
+#Not skewed but outliers:
+#7x pseudo K Orig
+#7x pseudo K timesincemin Orig
+#7x pseudo K Rich
+#125 max percap dens Rich
+# 
+#Maybe skewed:
+#7x max percap rate Orig
+#7x max percap dens Orig
+#7x max percap timesincemin Orig
+#7x first min Rich
+#7x max percap rate Rich
+#7x max percap timesincemin Rich
+#7x pseudo K timesincemin Rich
+#125 max percap rate Orig
+#125 max percap dens Orig
+#125 max percap timesincemin Orig
+#125 pseudo K timesincemin Orig
+#125 max percap rate Rich
+#125 max percap timesincemin Rich
+#125 pseudo K Rich
+#
+#Definitely skewed:
+#7x first min Orig
+#7x max percap dens Rich
+#125 pseudo K timesincemin Rich
+
+##See GC Data Normality.rtf
+
+#Split data frame into two projects
+gc_noreps_7x <- gc_sum_isols_wide[gc_sum_isols_wide$Proj == "7x", ]
+gc_noreps_125 <- gc_sum_isols_wide[gc_sum_isols_wide$Proj == "125", ]
+
+#Take log10 of everything except 125 first min
+for (var in c("first_min_avg_Orig", 
+              #"first_min_time_avg_Orig",
+              "max_percap_gr_rate_avg_Orig",
+              #"max_percap_gr_time_avg_Orig",
+              "max_percap_gr_dens_avg_Orig",
+              "max_percap_gr_timesincemin_avg_Orig",
+              "pseudo_K_avg_Orig",
+              #"pseudo_K_time_avg_Orig",
+              "pseudo_K_timesincemin_avg_Orig",
+              #"pseudo_K_timesince_maxpercap_avg_Orig",
+              "first_min_avg_Rich",
+              #"first_min_time_avg_Rich",
+              "max_percap_gr_rate_avg_Rich",
+              #"max_percap_gr_time_avg_Rich",
+              "max_percap_gr_dens_avg_Rich",
+              "max_percap_gr_timesincemin_avg_Rich",
+              "pseudo_K_avg_Rich",
+              #"pseudo_K_time_avg_Rich",
+              "pseudo_K_timesincemin_avg_Rich"
+              #"pseudo_K_timesince_maxpercap_avg_Rich"
+)) {
+  newname <- paste(var, "_log10", sep = "")
+  gc_noreps_7x[, newname] <- log10(gc_noreps_7x[, var])
+  if (!var %in% c("first_min_avg_Orig", "first_min_avg_Rich")) {
+    gc_noreps_125[, newname] <- log10(gc_noreps_125[, var])
+  }
+}
+
+#Re-check normality
+#7x:
+for (var_root in c("first_min_avg_", 
+                   #"first_min_time_avg_",
+                   "max_percap_gr_rate_avg_",
+                   #"max_percap_gr_time_avg_",
+                   "max_percap_gr_dens_avg_",
+                   "max_percap_gr_timesincemin_avg_",
+                   "pseudo_K_avg_",
+                   #"pseudo_K_time_avg_",
+                   "pseudo_K_timesincemin_avg_",
+                   #"pseudo_K_timesince_maxpercap_avg_",
+                   "first_min_avg_",
+                   #"first_min_time_avg_",
+                   "max_percap_gr_rate_avg_",
+                   #"max_percap_gr_time_avg_",
+                   "max_percap_gr_dens_avg_",
+                   "max_percap_gr_timesincemin_avg_",
+                   "pseudo_K_avg_",
+                   #"pseudo_K_time_avg_",
+                   "pseudo_K_timesincemin_avg_"
+                   #"pseudo_K_timesince_maxpercap_avg_"
+)) {
+  for (media in c("Orig", "Rich")) {
+    var <- paste(var_root, media, "_log10", sep = "")
+    qqnorm(as.numeric(gc_noreps_7x[, var]), 
+           main = paste("7x", var))
+    qqline(as.numeric(gc_noreps_7x[, var]))
+    if (var_root != "first_min_avg_") {
+      qqnorm(as.numeric(gc_noreps_125[, var]), 
+             main = paste("125", var))
+      qqline(as.numeric(gc_noreps_125[, var]))
+    }
+  }
+}
+
+#After looking at the outcomes of log10 normalization,
+# first min did not improve, use original values
+# All three max percap improved in some cases, use log10 values
+# Pseudo K did not change, use original values
+
+#Check for multivariate normality
+
+
+
+#Looks like our data is pretty non-normal, although the majority of
+# it falls within or near the 95% confidence intervals                    
+
+#Get principal components
+gc_princomp_7x <- princomp(gc_noreps_7x[, c("first_min_avg_Orig", 
+                                            "first_min_avg_Rich",
+                                            "max_percap_gr_rate_avg_Orig_log10",
+                                            "max_percap_gr_rate_avg_Rich_log10",
+                                            "max_percap_gr_dens_avg_Orig_log10",
+                                            "max_percap_gr_dens_avg_Rich_log10",
+                                            "max_percap_gr_timesincemin_avg_Orig_log10",
+                                            "max_percap_gr_timesincemin_avg_Rich_log10",
+                                            "pseudo_K_avg_Orig",
+                                            "pseudo_K_avg_Rich",
+                                            "pseudo_K_timesincemin_avg_Orig",
+                                            "pseudo_K_timesincemin_avg_Rich")],
+                           cor = T,
+                           scores = T)
+
+gc_princomp_125 <- princomp(gc_noreps_125[, c("first_min_avg_Orig", 
+                                              "first_min_avg_Rich",
+                                              "max_percap_gr_rate_avg_Orig_log10",
+                                              "max_percap_gr_rate_avg_Rich_log10",
+                                              "max_percap_gr_dens_avg_Orig_log10",
+                                              "max_percap_gr_dens_avg_Rich_log10",
+                                              "max_percap_gr_timesincemin_avg_Orig_log10",
+                                              "max_percap_gr_timesincemin_avg_Rich_log10",
+                                              "pseudo_K_avg_Orig",
+                                              "pseudo_K_avg_Rich",
+                                              "pseudo_K_timesincemin_avg_Orig",
+                                              "pseudo_K_timesincemin_avg_Rich")],
+                            cor = T,
+                            scores = T)
+
+#Print summary
+print(summary(gc_princomp_7x), digits = 2)
+#PC1 - 36% of variance, PC2 22%, PC3 16%
+print(summary(gc_princomp_125), digits = 2)
+#PC1 43%, PC2 18% PC3 14%
+
+#Make screeplots
+screeplot(gc_princomp_7x, type = "lines", main = "7x PCA Scree Plot")
+#Keep 2 or 4?
+screeplot(gc_princomp_125, type = "lines", main = "7x PCA Scree Plot")
+#Keep 2
+
+#Check loadings of Principal components for 7x
+print(gc_princomp_7x$loadings, digits = 2, cutoff = 0)
+#PC1 - first min, percap dens, percap time vs percap rate
+#PC2 - pseudo K time & dens
+
+#Check loadings of Principal components for 7x
+print(gc_princomp_125$loadings, digits = 2, cutoff = 0)
+#PC1 - max percap rate vs max percap time & dens, pseudo K time, first min
+#PC2 - first min, pseudo K dens vs max percap time & pseudo K time
+
+#Add scores to dataframes
+gc_noreps_7x <- cbind(gc_noreps_7x, gc_princomp_7x$scores)
+gc_noreps_125 <- cbind(gc_noreps_125, gc_princomp_125$scores)
+
+#Make plots of all isols
+ggplot(data = gc_noreps_7x,
+       aes(x = Comp.1, y = Comp.2, color = Treat)) +
+  geom_point()
+
+ggplot(data = gc_noreps_125,
+       aes(x = Comp.1, y = Comp.2, color = Treat)) +
+  geom_point()
+
+#Summarize each pop
+gc_noreps_7x <- group_by(gc_noreps_7x,
+                         "Proj",
+                         "Pop",
+                         "Treat")
+gc_noisols_7x <- summarise(gc_noreps_7x,
+                           
+)
+
+
+#Making percap growth rate plots
+my_facet_labels <- c("100" = "Rich Environment", 
+                     "50" = "Adapted Environment",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT", "1" = "Weak Phage", "2" = "Strong Phage")
+
+#plot of all isols
+gc_mppti$Media <- factor(gc_mppti$Media, levels = c(50, 100))
+ggplot(gc_mppti, aes(x = Treat, y = gr_max_avg)) + 
+  geom_jitter(width = 0.1, height = 0, size = 2) + 
+  facet_grid(Media ~ Pop, labeller = labeller(Media = my_facet_labels)) +
+  labs(x = "Treatment", y = "Per Capita Growth Rate (/hour)") +
+  theme(axis.text.x = element_text(size = 11), 
+        axis.text.y = element_text(size = 11)) +
+  theme_bw()
+
+#plot of all pops
+gc_mppt$Media <- factor(gc_mppt$Media, levels = c(50, 100))
+
+#For local viewing
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_point(pch = 1, size = 3) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hour)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local"))
+
+#For poster
+png(filename = "growth_rate_pops.png", width = 10, height = 7,
+    units = "in", res = 300)
+ggplot(gc_mppt, aes(x = Treat, y = avg_isols), 
+       labeller = labeller(Treat = my_facet_labels)) + 
+  geom_jitter(width = 0.075, height = 0, pch = 16, size = 6) +
+  facet_grid(Proj~Media, 
+             labeller = labeller(Media = my_facet_labels, Proj = my_facet_labels)) + 
+  labs(x = "Treatment", y = "Maximum Per Capita Growth Rate (/hr)") + theme_bw() + 
+  scale_x_discrete(labels = c("Ancestor", "Control", "Global", "Local")) +
+  theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
+        strip.text = element_text(size = 20))
+dev.off()
