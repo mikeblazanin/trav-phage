@@ -36,6 +36,10 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
 
+#Reorder so weak phage is first
+exper_evol_migr$Proj <- factor(exper_evol_migr$Proj,
+                               levels = c("7x", "125"))
+
 #Drop points after T14
 exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 
@@ -79,16 +83,19 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
   NULL
 
 #Make plot with both summarized and non-summarized data
+
+tiff("./Output_figures/Exper_evol_migr.tiff",
+     width = 7, height = 4, units = "in", res = 300)
 ggplot(data = exper_evol_migr,
                aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
                    color = Treat)) +
-         geom_line(alpha = 0.5) +
+         geom_line(alpha = 0.5, lwd = .4) +
          facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() +
   geom_line(data = exper_evol_summ,
             aes(x = Timepoint, y = area_mean, color = Treat,
                 group = Treat),
-            size = 1.2) +
+            size = 1.3) +
   labs(x = "Transfer", 
        y = expression(paste("Area of Growth ( ", cm^2, ")"))) + 
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
@@ -96,10 +103,14 @@ ggplot(data = exper_evol_migr,
                      values = my_cols[c(8, 2, 6)]) +
   scale_x_continuous(breaks = c(0, 7, 14)) +
   NULL
-    
+dev.off()
 
 ##Isolate migration ----
 isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
+
+#Reorder so weak phage is first
+isol_migration$Proj <- factor(isol_migration$Proj,
+                              levels = c("7x", "125"))
 
 #Calculate total area
 isol_migration$area_cm2 <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
@@ -117,10 +128,12 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
+tiff("./Output_figures/Isol_migration.tiff",
+     width = 6, height = 4, units = "in", res = 300)
 ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Treat, y = relative_area, color = Treat,
-           group = Pop)) +
-  geom_point(position = position_dodge(0.5)) +
+       aes(x = Treat, y = relative_area, color = Treat, fill = Treat,
+           shape = Pop, group = Pop)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.8) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() + 
   labs(y = "T14 Isolate Area of Growth Relative to Ancestor",
@@ -131,7 +144,14 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                      labels = c("Control", "Local", "Global"),
                      values = my_cols[c(8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+  scale_shape_manual(name = "Population", breaks = LETTERS[1:5],
+                     labels = LETTERS[1:5],
+                     values = 21:25) +
   NULL
+dev.off()
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -164,6 +184,37 @@ ggplot(resis_data[resis_data$Treat != "Anc", ],
              alpha = 0.7) +
   scale_y_continuous(trans = "log10") +
   theme_bw()
+
+eop_limit <- max(resis_data$EOP[resis_data$bd &
+                                  resis_data$approach == "new"])
+
+tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
+     units = "in", res = 300)
+ggplot(resis_data[resis_data$Treat != "Anc" &
+                    resis_data$approach == "new", ],
+       aes(x = Treat, y = EOP, color = Treat, fill = Treat,
+           shape = Pop, group = Pop)) +
+  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+  geom_point(position = position_dodge(width = 0.6),
+             alpha = 0.8) +
+  scale_y_continuous(trans = "log10") +
+  theme_bw() +
+  geom_hline(yintercept = 1, lty = 2) +
+  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1.15) +
+  scale_x_discrete(limits = c("C", "L", "G"),
+                   labels = c("Control", "Local", "Global")) +
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_shape_manual(name = "Population", breaks = LETTERS[1:5],
+                     labels = LETTERS[1:5],
+                     values = 21:25) +
+  labs(x = "Treatment", y = "Efficiency of Plaquing of T14 Isolate") +
+  NULL
+dev.off()
 
 # #For local viewing
 # ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
@@ -1069,6 +1120,15 @@ ggplot(data = gc_sum_pops_wide_125,
   geom_point()  +
   ggtitle("125") +
   theme_bw()
+
+ggplot(data = gc_sum_pops_wide_7x,
+       aes(x = Treat, y = LD1)) +
+  geom_boxplot() +
+  ggtitle("7x")
+ggplot(data = gc_sum_pops_wide_125,
+       aes(x = Treat, y = LD1)) +
+  geom_boxplot() +
+  ggtitle("125")
 
 #View loadings
 gc_lda_7x
