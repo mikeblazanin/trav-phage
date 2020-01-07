@@ -1,11 +1,9 @@
 ##TODO: 
 ##      migration stats
-##      growth curve analysis
+##      resistance stats
 ##      growth curve stats
-##      
 
 ## Load packages and color scale ----
-
 library("ggplot2")
 library("dplyr")
 library("data.table")
@@ -15,26 +13,6 @@ library("ggnomics")
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
-
-#Need to split this into 2 scripts: one to take the messy data
-# (e.g. isolate information in underscore formats, etc)
-#and get it cleaned up, then output those clean data
-#And another to take the clean data & analyze it
-#Then put the messy data in one folder and the clean data in another folder
-#Along with the separate scripts
-#So when it's published, can just tell people to re-run the clean data script
-
-#need to make Rep vs Pop consistent
-#redo all analysis using dplyr
-#redo analysis using vectorization
-#include std curve for spec in this code (it may alread be there???)
-#Do a scripted analysis of how much to smoothe gc data (not manually checking)
-# #to be done later:
-# #define function to get means of rates
-# mean_rates <- function(sub_by_list, my_data)
-# analyze additional plate scans
-#change resistance to be by treat then by pop
-#Change growth rate for ancestor to dotted line
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
