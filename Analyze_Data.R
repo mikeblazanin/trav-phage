@@ -4,10 +4,13 @@
 ##      growth curve stats
 ##      
 
+## Load packages and color scale ----
+
 library("ggplot2")
 library("dplyr")
 library("data.table")
 library("MASS")
+library("ggnomics")
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -112,6 +115,10 @@ isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
 isol_migration$Proj <- factor(isol_migration$Proj,
                               levels = c("7x", "125"))
 
+#Reorder treatments
+isol_migration$Treat <- factor(isol_migration$Treat,
+                               levels = c("Anc", "C", "L", "G"))
+
 #Calculate total area
 isol_migration$area_cm2 <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
 
@@ -131,31 +138,37 @@ my_facet_labels <- c("7x" = "Weak Phage",
 tiff("./Output_figures/Isol_migration.tiff",
      width = 6, height = 4, units = "in", res = 300)
 ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Treat, y = relative_area, color = Treat, fill = Treat,
-           shape = Pop, group = Pop)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.8) +
-  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+       aes(x = Pop, y = relative_area, 
+           color = Treat, fill = Treat)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.6,
+             size = 2) +
+  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
   theme_bw() + 
   labs(y = "T14 Isolate Area of Growth Relative to Ancestor",
-       x = "Treatment") +
+       x = "Population") +
   geom_hline(yintercept = 1, lty = 2) +
-  scale_x_discrete(limits = c("C", "L", "G"),
-                   labels = c("Control", "Local", "Global")) +
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                      labels = c("Control", "Local", "Global"),
                      values = my_cols[c(8, 2, 6)]) +
   scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
                     labels = c("Control", "Local", "Global"),
                     values = my_cols[c(8, 2, 6)]) +
-  scale_shape_manual(name = "Population", breaks = LETTERS[1:5],
-                     labels = LETTERS[1:5],
-                     values = 21:25) +
+  theme(legend.position = "none") +
   NULL
 dev.off()
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
                        stringsAsFactors = F)
+
+#Reorder projects
+resis_data$Proj <- factor(resis_data$Proj,
+                          levels = c("7x", "125"))
+
+#Reorder treatments
+resis_data$Treat <- factor(resis_data$Treat,
+                           levels = c("Anc", "C", "L", "G"))
 
 #calculate EOP for ea isol
 resis_data$EOP <- NA
@@ -176,6 +189,7 @@ resis_data$approach <- NA
 resis_data$approach[1:70] <- "old"
 resis_data$approach[71:nrow(resis_data)] <- "new"
 
+#Make plot with both old and new approach
 ggplot(resis_data[resis_data$Treat != "Anc", ], 
        aes(x = Treat, y = EOP, color = Pop,
            shape = bd, group = Pop)) +
@@ -185,118 +199,43 @@ ggplot(resis_data[resis_data$Treat != "Anc", ],
   scale_y_continuous(trans = "log10") +
   theme_bw()
 
+#Calculate EOP limit & adjust values below limit
 eop_limit <- max(resis_data$EOP[resis_data$bd &
                                   resis_data$approach == "new"])
+resis_data$EOP[resis_data$EOP < eop_limit] <- eop_limit
 
+#Assign facet labels
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT")
+
+#Nice plot
 tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
      units = "in", res = 300)
 ggplot(resis_data[resis_data$Treat != "Anc" &
                     resis_data$approach == "new", ],
-       aes(x = Treat, y = EOP, color = Treat, fill = Treat,
-           shape = Pop, group = Pop)) +
-  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  geom_point(position = position_dodge(width = 0.6),
-             alpha = 0.8) +
+       aes(x = Pop, y = EOP, 
+           color = Treat, fill = Treat,
+           shape = bd)) +
+  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
+  geom_point(alpha = 0.6, size = 2) +
   scale_y_continuous(trans = "log10") +
   theme_bw() +
   geom_hline(yintercept = 1, lty = 2) +
-  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1.15) +
-  scale_x_discrete(limits = c("C", "L", "G"),
-                   labels = c("Control", "Local", "Global")) +
+  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                      labels = c("Control", "Local", "Global"),
                      values = my_cols[c(8, 2, 6)]) +
   scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_shape_manual(name = "Population", breaks = LETTERS[1:5],
-                     labels = LETTERS[1:5],
-                     values = 21:25) +
-  labs(x = "Treatment", y = "Efficiency of Plaquing of T14 Isolate") +
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+  scale_shape_manual(name = "Below Limit", values = c(16, 4)) +
+  labs(x = "Population", y = "Efficiency of Plaquing of T14 Isolate") +
+  theme(legend.position = "none") +
   NULL
 dev.off()
-
-# #For local viewing
-# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-#   scale_x_discrete(name = "Treatment") +
-#   ylab("Resistance to Phage") +
-#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
-#                dotsize = 3) +
-#   # geom_jitter(width = 0.2, height = 0, size = 2) +
-#   theme_bw() + ggtitle("Population") +
-#   theme(plot.title = element_text(size = 12, hjust = 0.5), 
-#         axis.title = element_text(size = 12),
-#         axis.text.x = element_text(color = "black", size = 12)) +
-#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
-# 
-# #For poster
-# png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
-# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
-#   scale_x_discrete(name = "Treatment") +
-#   ylab("Resistance to Phage") +
-#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
-#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
-#                dotsize = 2) +
-#   theme_bw() + ggtitle("Population") +
-#   theme(plot.title = element_text(size = 24, hjust = 0.5), 
-#         axis.title = element_text(size = 24),
-#         axis.text = element_text(color = "black", size = 20),
-#         strip.text = element_text(size = 24)) +
-#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
-# dev.off()
-# 
-# #resistance vs growth
-# gc_resis_data <- merge(resis_data, gc_mppti)
-# gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
-# gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
-#                            avg_gr = mean(gr_max_avg))
-# 
-# #Make plot of all isolates
-# ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
-#   geom_point() + 
-#   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
-#   geom_smooth(method = "lm") +
-#   labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
-# 
-# summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
-# 
-# #Make plot of all pops
-# #For local viewing
-# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-#   geom_point(size = 2, aes(pch = Treat)) + 
-#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-#                      breaks = c("A", "C", "G", "L"),
-#                      labels = c("WT", "Control", "Global", "Local")) +
-#   facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
-#                                              Proj = my_facet_labels)) +
-#   geom_smooth(method = "lm") +
-#   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
-#   theme_bw()
-# 
-# #For poster
-# png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
-#     res = 300)
-# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
-#   geom_point(size = 4, aes(pch = Treat)) + 
-#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
-#                      breaks = c("A", "C", "G", "L"),
-#                      labels = c("WT", "Control", "Global", "Local")) +
-#   facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
-#                                              Proj = my_facet_labels)) +
-#   geom_smooth(method = "lm", se = F) +
-#   labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
-#   theme_bw() +
-#   theme(axis.text = element_text(size = 16),
-#         strip.text = element_text(size = 20),
-#         axis.title = element_text(size = 20),
-#         legend.title = element_text(size = 20),
-#         legend.text = element_text(size = 16))
-# dev.off()
-# 
-# summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
-# 
-
 
 ##Isolate growth curves: read & find peaks ----
 

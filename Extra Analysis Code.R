@@ -460,3 +460,85 @@ ggplot(gc_mppt, aes(x = Treat, y = avg_isols),
   theme(axis.title = element_text(size = 20), axis.text = element_text(size = 16),
         strip.text = element_text(size = 20))
 dev.off()
+
+#Old resistance plots ----
+# #For local viewing
+# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
+#   scale_x_discrete(name = "Treatment") +
+#   ylab("Resistance to Phage") +
+#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
+#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.01, 
+#                dotsize = 3) +
+#   # geom_jitter(width = 0.2, height = 0, size = 2) +
+#   theme_bw() + ggtitle("Population") +
+#   theme(plot.title = element_text(size = 12, hjust = 0.5), 
+#         axis.title = element_text(size = 12),
+#         axis.text.x = element_text(color = "black", size = 12)) +
+#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+# 
+# #For poster
+# png("resis_isols.png", width = 14, height = 9, units = "in", res = 300)
+# ggplot(resis_data[resis_data$Treat != "A", ], aes(x = Treat, y = 1-EOP)) +
+#   scale_x_discrete(name = "Treatment") +
+#   ylab("Resistance to Phage") +
+#   facet_grid(Proj~Pop, labeller = labeller(Proj = my_facet_labels)) +
+#   geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 0.02, 
+#                dotsize = 2) +
+#   theme_bw() + ggtitle("Population") +
+#   theme(plot.title = element_text(size = 24, hjust = 0.5), 
+#         axis.title = element_text(size = 24),
+#         axis.text = element_text(color = "black", size = 20),
+#         strip.text = element_text(size = 24)) +
+#   geom_hline(yintercept = 0, linetype = "dotted", size = 1.5)
+# dev.off()
+# 
+# #resistance vs growth
+# gc_resis_data <- merge(resis_data, gc_mppti)
+# gc_resis_mppt <- group_by(gc_resis_data, Media, Proj, Pop, Treat)
+# gc_resis_mppt <- summarize(gc_resis_mppt, avg_eop = mean(EOP),
+#                            avg_gr = mean(gr_max_avg))
+# 
+# #Make plot of all isolates
+# ggplot(gc_resis_data, aes(x = 1-EOP, y = gr_max_avg)) +
+#   geom_point() + 
+#   facet_grid(Media~., labeller = labeller(Media = my_facet_labels)) +
+#   geom_smooth(method = "lm") +
+#   labs(x = "Resistance", y = "Per Capita Growth Rate (/hour)")
+# 
+# summary(lm(gr_max_avg~Media*EOP, data = gc_resis_data))
+# 
+# #Make plot of all pops
+# #For local viewing
+# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+#   geom_point(size = 2, aes(pch = Treat)) + 
+#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+#                      breaks = c("A", "C", "G", "L"),
+#                      labels = c("WT", "Control", "Global", "Local")) +
+#   facet_grid(Media~Proj, labeller = labeller(Media = my_facet_labels,
+#                                              Proj = my_facet_labels)) +
+#   geom_smooth(method = "lm") +
+#   labs(x = "Resistance", y = "Average Per Capita Growth Rate (/hour)") +
+#   theme_bw()
+# 
+# #For poster
+# png("resis_gc_tradeoff.png", width = 10, height = 7, units = "in",
+#     res = 300)
+# ggplot(gc_resis_mppt, aes(x = 1-avg_eop, y = avg_gr)) +
+#   geom_point(size = 4, aes(pch = Treat)) + 
+#   scale_shape_manual(values = c(3, 15, 16, 17), name = "Treatment",
+#                      breaks = c("A", "C", "G", "L"),
+#                      labels = c("WT", "Control", "Global", "Local")) +
+#   facet_grid(Proj~Media, labeller = labeller(Media = my_facet_labels,
+#                                              Proj = my_facet_labels)) +
+#   geom_smooth(method = "lm", se = F) +
+#   labs(x = "Resistance", y = "Average Maximum Per Capita Growth Rate (/hr)") +
+#   theme_bw() +
+#   theme(axis.text = element_text(size = 16),
+#         strip.text = element_text(size = 20),
+#         axis.title = element_text(size = 20),
+#         legend.title = element_text(size = 20),
+#         legend.text = element_text(size = 16))
+# dev.off()
+# 
+# summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
+# 
