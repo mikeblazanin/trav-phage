@@ -27,14 +27,6 @@ exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 #Calculate total area
 exper_evol_migr$area_cm2 <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
 
-#Make plot with all pops shown
-ggplot(data = exper_evol_migr,
-       aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
-           color = Treat)) +
-  geom_line() +
-  scale_color_manual(values = my_cols[c(4, 5, 7)]) +
-  facet_grid(~Proj)
-
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
@@ -64,7 +56,6 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
   NULL
 
 #Make plot with both summarized and non-summarized data
-
 tiff("./Output_figures/Exper_evol_migr.tiff",
      width = 7, height = 4, units = "in", res = 300)
 ggplot(data = exper_evol_migr,
@@ -198,7 +189,9 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
            shape = bd)) +
   facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
                                                 Treat = my_facet_labels)) +
-  geom_point(alpha = 0.6, size = 2) +
+  geom_point(aes(size = bd, alpha = bd)) +
+  scale_size_manual(values = c(2, 2.5)) +
+  scale_alpha_manual(values = c(0.6, 1)) +
   scale_y_continuous(trans = "log10") +
   theme_bw() +
   geom_hline(yintercept = 1, lty = 2) +
@@ -209,7 +202,7 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
   scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
                     labels = c("Control", "Local", "Global"),
                     values = my_cols[c(8, 2, 6)]) +
-  scale_shape_manual(name = "Below Limit", values = c(16, 4)) +
+  scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
   labs(x = "Population", y = "Efficiency of Plaquing of T14 Isolate") +
   theme(legend.position = "none") +
   NULL
