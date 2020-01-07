@@ -9,6 +9,7 @@ library("dplyr")
 library("data.table")
 library("MASS")
 library("ggnomics")
+library("npmv")
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -61,6 +62,7 @@ tiff("./Output_figures/Exper_evol_migr.tiff",
 ggplot(data = exper_evol_migr,
                aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
                    color = Treat)) +
+#  geom_point(size = 0.5, alpha = 0.5) +
          geom_line(alpha = 0.5, lwd = .4) +
          facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() +
@@ -981,6 +983,7 @@ CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
          pch=c(19,NA))
 }
 
+#Make multivariate normality plots
 for (proj in unique(gc_sum_pops_wide$Proj)) {
     CSQPlot(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, 
                              4:15],
@@ -1019,15 +1022,15 @@ gc_sum_pops_wide_125 <- cbind(gc_sum_pops_wide_125,
                               scale(gc_sum_pops_wide_125[, cols_to_use])%*%
                                 gc_lda_125$scaling)
 
-#Plot
+#Make plots of LD1 and LD2
 ggplot(data = gc_sum_pops_wide_7x,
        aes(x = LD1, y = LD2, color = Treat)) +
-  geom_point() +
+  geom_point(size = 3) +
   ggtitle("7x") +
   theme_bw()
 ggplot(data = gc_sum_pops_wide_125,
        aes(x = LD1, y = LD2, color = Treat)) +
-  geom_point()  +
+  geom_point(size = 3)  +
   ggtitle("125") +
   theme_bw()
 
@@ -1055,4 +1058,27 @@ gc_lda_125
 #125
 # 
 
-##Isolate growth curves: MANOVA
+##Isolate growth curves: statistical tests
+
+#7x
+nonpartest(LD1|LD2~Treat, 
+           gc_sum_pops_wide_7x[gc_sum_pops_wide_7x$Treat != "Anc", ],
+           permreps=1000, plots = F)
+
+#125
+nonpartest(LD1|LD2~Treat, 
+           gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
+           permreps=1000, plots = F)
+ssnonpartest(LD1|LD2~Treat, 
+             gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
+             factors.and.variables = T)
+            
+
+
+  
+  
+  
+  
+  
+  
+  
