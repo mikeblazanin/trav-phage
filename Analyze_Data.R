@@ -194,7 +194,8 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
   geom_point(aes(size = bd, alpha = bd)) +
   scale_size_manual(values = c(2, 2.5)) +
   scale_alpha_manual(values = c(0.6, 1)) +
-  scale_y_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**(c(0, -2, -4, -6))) +
   theme_bw() +
   geom_hline(yintercept = 1, lty = 2) +
   geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
@@ -205,7 +206,7 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
                     labels = c("Control", "Local", "Global"),
                     values = my_cols[c(8, 2, 6)]) +
   scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
-  labs(x = "Population", y = "Efficiency of Plaquing of T14 Isolate") +
+  labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
   theme(legend.position = "none") +
   NULL
 dev.off()
