@@ -5,6 +5,7 @@
 
 ## Load packages and color scale ----
 library("ggplot2")
+library("scales")
 library("dplyr")
 library("data.table")
 library("MASS")
@@ -195,7 +196,9 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
   scale_size_manual(values = c(2, 2.5)) +
   scale_alpha_manual(values = c(0.6, 1)) +
   scale_y_continuous(trans = "log10",
-                     breaks = 10**(c(0, -2, -4, -6))) +
+                     breaks = 10**(c(0, -2, -4, -6)),
+                     labels = c(1, expression(10^-2), expression(10^-4),
+                                expression(10^-6))) +
   theme_bw() +
   geom_hline(yintercept = 1, lty = 2) +
   geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
