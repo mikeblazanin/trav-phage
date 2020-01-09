@@ -599,7 +599,7 @@ gc_summarized <- summarize(gc_data,
    first_min_time = Time_s[first_min_index],
   #find peaks in per capita growth rate
   # but for one well we need a different criteria (see end)
-  max_percap_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_50"),
+  max_percap_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_Orig"),
     #first find all peaks
    find_local_extrema(percap_deriv_sm_loess,
                                         return_minima = FALSE,
@@ -635,7 +635,7 @@ gc_summarized <- summarize(gc_data,
   #find the local minimas in total grow rate (slope of total density)
   # (which is the point when the diauxic shift occurs
   # but for one well we need a different criteria (see end)
-  pseudo_K_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_50"),
+  pseudo_K_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_Orig"),
     find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
                                       width_limit = (pseudo_K_time/
@@ -670,35 +670,35 @@ gc_summarized <- as.data.frame(gc_summarized)
 
 #Make output plots for problematic wells
 if (F) {
-  wells_check <- c("2017-B_7x_C_L_B_1_50", #isn't working
-                   "2017-A_7x_Anc_Anc_Anc_1_50",
-                   "2017-A_7x_B_L_A_1_100",
-                   "2017-B_7x_C_L_B_1_50",
-                   "2017-C_7x_B_C_C_1_100",
-                   "2017-C_7x_B_C_C_2_100",
-                   "2017-C_7x_C_C_C_1_50",
-                   "2017-C_7x_C_L_C_2_100",
-                   "2017-C_7x_D_G_C_1_50",
-                   "2017-C_7x_D_G_C_1_100",
-                   "2017-C_7x_D_G_C_2_50",
-                   "2017-C_7x_D_G_C_2_100",
-                   "2017-C_7x_E_G_C_1_100",
-                   "2017-C_7x_E_G_C_2_100",
-                   "2017-E_7x_B_C_E_1_50",
-                   "2017-E_7x_C_C_E_1_100",
-                   "2017-E_7x_C_C_E_2_100",
-                   "2019-09-10_125_B_C_A_1_25-50",
-                   "2019-09-10_125_B_C_A_2_25-50",
-                   "2019-09-10_125_B_G_A_1_25-50",
-                   "2019-09-12_125_B_C_D_1_25-50",
-                   "2019-09-12_125_B_C_D_2_25-50",
-                   "2019-09-12_125_B_G_D_1_25-50",
-                   "2019-09-12_125_D_L_D_1_50-100",
-                   "2019-09-12_125_D_L_D_2_50-100",
-                   "2019-09-13_125_B_C_E_1_50-100",
-                   "2019-09-13_125_B_C_E_2_25-50",
-                   "2019-09-13_125_C_C_E_1_50-100",
-                   "2019-09-13_125_D_L_E_1_50-100"
+  wells_check <- c("2017-B_7x_C_L_B_1_Orig", #isn't working
+                   "2017-A_7x_Anc_Anc_Anc_1_Orig",
+                   "2017-A_7x_B_L_A_1_Rich",
+                   "2017-B_7x_C_L_B_1_Orig",
+                   "2017-C_7x_B_C_C_1_Rich",
+                   "2017-C_7x_B_C_C_2_Rich",
+                   "2017-C_7x_C_C_C_1_Orig",
+                   "2017-C_7x_C_L_C_2_Rich",
+                   "2017-C_7x_D_G_C_1_Orig",
+                   "2017-C_7x_D_G_C_1_Rich",
+                   "2017-C_7x_D_G_C_2_Orig",
+                   "2017-C_7x_D_G_C_2_Rich",
+                   "2017-C_7x_E_G_C_1_Rich",
+                   "2017-C_7x_E_G_C_2_Rich",
+                   "2017-E_7x_B_C_E_1_Orig",
+                   "2017-E_7x_C_C_E_1_Rich",
+                   "2017-E_7x_C_C_E_2_Rich",
+                   "2019-09-10_125_B_C_A_1_Orig",
+                   "2019-09-10_125_B_C_A_2_Orig",
+                   "2019-09-10_125_B_G_A_1_Orig",
+                   "2019-09-12_125_B_C_D_1_Orig",
+                   "2019-09-12_125_B_C_D_2_Orig",
+                   "2019-09-12_125_B_G_D_1_Orig",
+                   "2019-09-12_125_D_L_D_1_Rich",
+                   "2019-09-12_125_D_L_D_2_Rich",
+                   "2019-09-13_125_B_C_E_1_Rich",
+                   "2019-09-13_125_B_C_E_2_Orig",
+                   "2019-09-13_125_C_C_E_1_Rich",
+                   "2019-09-13_125_D_L_E_1_Rich"
   )
   for (my_well in wells_check) {
     tiff(filename = paste("./Challenging_growth_curve_plots/", my_well, ".tiff", sep = ""),
@@ -780,6 +780,17 @@ if (FALSE) {
   }
 }
 
+#Look at wells where percap growth rate is very early
+temp_rows <- which(gc_summarized$max_percap_index < 3)
+gc_summarized[temp_rows, ]
+
+#Noting here wells where there is no rise to max percap
+# because it's the first point
+#2017 B 7x CLB 1 50
+#2017 B 7x DGB 1 50
+#2017 B 7x EGB 1 100
+#2017 B 7x ELB 1 50
+
 #Isolate growth curves: summarize & reorganize, view variable data & distributions ----
 
 #Summarize replicate wells
@@ -834,21 +845,23 @@ if (F) {
 #View all the isols by variable
 if (F) {
   for (var_root in c("first_min_", 
-                     "first_min_time_", 
+#                     "first_min_time_", 
                      "max_percap_gr_rate_", 
-                     "max_percap_gr_time_", 
+#                     "max_percap_gr_time_", 
                      "max_percap_gr_dens_", 
                      "max_percap_gr_timesincemin_",
                      "pseudo_K_", 
-                     "pseudo_K_time_", 
-                     "pseudo_K_timesincemin_", 
-                     "pseudo_K_timesince_maxpercap_")) {
+#                     "pseudo_K_time_", 
+                     "pseudo_K_timesincemin_" 
+#                     "pseudo_K_timesince_maxpercap_"
+            )) {
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     print(ggplot(data = gc_sum_isols,
                  aes(x = Treat, y = get(var), group = Pop)) +
             geom_point(position = position_dodge(0.6)) +
             facet_grid(Proj ~ Media, scales = "free_y") +
+            scale_x_discrete(limits = c("Anc", "C", "L", "G")) +
             ggtitle(var) +
             geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
                           ymax = get(var)+get(var_sd)),
