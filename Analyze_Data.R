@@ -322,7 +322,7 @@ gc_data$percap_deriv_sm_loess <- calc_deriv(gc_data$sm_loess,
 
 #View samples of original & smoothed curves
 # as well as derivatives (per cap & not) of both orig and smoothed curves
-for (my_well in sample(unique(gc_data$uniq_well), 3)) {
+for (my_well in sample(unique(gc_data$uniq_well), 1)) {
   my_rows <- which(gc_data$uniq_well == my_well)
   
   print(cowplot::plot_grid(
@@ -781,15 +781,64 @@ if (FALSE) {
 }
 
 #Look at wells where percap growth rate is very early
-temp_rows <- which(gc_summarized$max_percap_index < 3)
-gc_summarized[temp_rows, ]
+temp_rows <- which(gc_summarized$max_percap_index <= 3)
 
 #Noting here wells where there is no rise to max percap
-# because it's the first point
+# because it's in the first two points
 #2017 B 7x CLB 1 50
 #2017 B 7x DGB 1 50
 #2017 B 7x EGB 1 100
 #2017 B 7x ELB 1 50
+
+#Make plots of these early-max percap wells
+if (F) {
+  for (my_well in gc_summarized$uniq_well[temp_rows]) {
+    my_rows <- which(gc_data$uniq_well == my_well)
+    print(cowplot::plot_grid(
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = cfu_ml)) +
+        geom_line(color = "red", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess),
+                  color = "blue", lwd = 1, alpha = 0.5) +
+        ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+        #Add point for first minima
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = first_min_time, y = first_min),
+                   color = "green", size = 3) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for pseudo K
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = pseudo_K_time, y = pseudo_K_deriv),
+                   color = "green", size = 3) +
+        #Add point for pseudo K2
+        # geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+        #            aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
+        #            color = "dark green", size = 2) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = percap_deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        #Add point for max growth rate
+        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
+                   aes(x = max_percap_gr_time, y = max_percap_gr_rate),
+                   color = "green", size = 3) +
+        NULL,
+      ncol = 1, align = "v"))
+  }
+}
+
+#After looking at all the wells where max percap index is
+# 3 or less, I've decided to drop the ones where the index
+# is 1 or 2 for data quality
+#There are only four entries that meet those criteria,
+# and all four isolates have another replicate well that didn't have the same
+# issue, so that value will simply be used alone and it shouldn't
+# throw off the results
+
+gc_summarized <- gc_summarized[-which(gc_summarized$max_percap_index <= 2), ]
 
 #Isolate growth curves: summarize & reorganize, view variable data & distributions ----
 
@@ -857,6 +906,8 @@ if (F) {
             )) {
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
+    tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
+         width = 5, height = 5, units = "in", res = 300)
     print(ggplot(data = gc_sum_isols,
                  aes(x = Treat, y = get(var), group = Pop)) +
             geom_point(position = position_dodge(0.6)) +
@@ -868,6 +919,7 @@ if (F) {
                           position = position_dodge(0.6),
                           width = 0.2)
     )
+    dev.off()
   }
 }
 
@@ -895,31 +947,96 @@ if (F) {
 # or where the data itself is strangely different
 # between the wells
 
+#Also Noted a weird pattern in 7x Rich C max percap rate
+# let's take a look
+temp_rows <- which(gc_sum_isols$Proj == "7x" & 
+                     gc_sum_isols$Treat == "C" & 
+                     gc_sum_isols$Media == "Rich" & 
+                     gc_sum_isols$max_percap_gr_rate_avg < 1)
+#Looking at the plots, there's nothing I can see that's wrong
+# with those curves. It might be a media batch effect
+
+#Let's normalize by same-plate ancestor
+ancestors <- gc_sum_isols[gc_sum_isols$Isol == "Anc", ]
+for (var in c("first_min_avg",
+              "max_percap_gr_rate_avg",
+              "max_percap_gr_dens_avg",
+              "max_percap_gr_timesincemin_avg",
+              "pseudo_K_avg",
+              "pseudo_K_timesincemin_avg")) {
+  new_var <- paste(var, "_rel", sep = "")
+  gc_sum_isols[, new_var] <- gc_sum_isols[, var]/
+    ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
+                    paste(ancestors$Date, ancestors$Media)), var]
+}
+
+#Now view the relative variables
+if (F) {
+  for (var_root in c("first_min_", 
+#                     "first_min_time_", 
+                     "max_percap_gr_rate_", 
+#                     "max_percap_gr_time_", 
+                     "max_percap_gr_dens_", 
+                     "max_percap_gr_timesincemin_",
+                     "pseudo_K_", 
+#                     "pseudo_K_time_", 
+                     "pseudo_K_timesincemin_" 
+#                     "pseudo_K_timesince_maxpercap_"
+  )) {
+    var <- paste(var_root, "avg_rel", sep = "")
+    #Note: if you want to view the sd's between wells of
+    # Ancestor-normalized values, you'll have to go back to
+    # gc_summarized and calculate the relative values there
+    # then re-calculate sd. Have not implemented this
+    #var_sd <- paste(var_root, "sd_rel", sep = "")
+    tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
+         width = 5, height = 5, units = "in", res = 300)
+    print(ggplot(data = gc_sum_isols,
+                 aes(x = Treat, y = get(var), group = Pop)) +
+            geom_point(position = position_dodge(0.6)) +
+            facet_grid(Proj ~ Media, scales = "free_y") +
+            scale_x_discrete(limits = c("Anc", "C", "L", "G")) +
+            ggtitle(var) +
+            # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+            #                   ymax = get(var)+get(var_sd)),
+            #               position = position_dodge(0.6),
+            #               width = 0.2)
+            NULL
+    )
+    dev.off()
+  }
+}
+
+#After looking at those, it definitely improves some of the
+# points to normalize by ancestor
+# and it doesn't make any others do anything weird
+#So we should move forward only with relative variables
+
 #Summarize isols into pops
 gc_sum_isols <- group_by(gc_sum_isols,
                          Proj, Pop, Treat, Media)
 gc_sum_pops <- summarize_at(gc_sum_isols,
                               .funs = c(avg = mean, sd = sd),
                             .vars = c(
-                              "first_min_avg",
-                              "max_percap_gr_rate_avg",
-                              "max_percap_gr_dens_avg",
-                              "max_percap_gr_timesincemin_avg",
-                              "pseudo_K_avg",
-                            "pseudo_K_timesincemin_avg"))
+                              "first_min_avg_rel",
+                              "max_percap_gr_rate_avg_rel",
+                              "max_percap_gr_dens_avg_rel",
+                              "max_percap_gr_timesincemin_avg_rel",
+                              "pseudo_K_avg_rel",
+                            "pseudo_K_timesincemin_avg_rel"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized data
 if (F) {
-  for (var_root in c("first_min_avg", 
+  for (var_root in c("first_min_avg_rel", 
                      # "first_min_time_avg", 
-                     "max_percap_gr_rate_avg", 
+                     "max_percap_gr_rate_avg_rel", 
                      # "max_percap_gr_time_avg", 
-                     "max_percap_gr_dens_avg", 
-                     "max_percap_gr_timesincemin_avg",
-                     "pseudo_K_avg", 
+                     "max_percap_gr_dens_avg_rel", 
+                     "max_percap_gr_timesincemin_avg_rel",
+                     "pseudo_K_avg_rel", 
                      # "pseudo_K_time_avg", 
-                     "pseudo_K_timesincemin_avg" 
+                     "pseudo_K_timesincemin_avg_rel" 
                      # "pseudo_K_timesince_maxpercap_avg"
   )) {
     var <- paste(var_root, "_avg", sep = "")
@@ -941,33 +1058,37 @@ if (F) {
 gc_sum_pops <- as.data.table(gc_sum_pops)
 gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
                            Proj+Pop+Treat ~ Media,
-                           value.var = c("first_min_avg_avg", 
-                                         "max_percap_gr_rate_avg_avg", 
-                                         "max_percap_gr_dens_avg_avg", 
-                                         "max_percap_gr_timesincemin_avg_avg", 
-                                         "pseudo_K_avg_avg", 
-                                         "pseudo_K_timesincemin_avg_avg"))
+                           value.var = c("first_min_avg_rel_avg", 
+                                         "max_percap_gr_rate_avg_rel_avg", 
+                                         "max_percap_gr_dens_avg_rel_avg", 
+                                         "max_percap_gr_timesincemin_avg_rel_avg", 
+                                         "pseudo_K_avg_rel_avg", 
+                                         "pseudo_K_timesincemin_avg_rel_avg"))
 gc_sum_pops_wide <- as.data.frame(gc_sum_pops_wide)
 
 ##Isolate growth curves: Check for normality ----
 
 #Check for univariate normality
 if (F) {
-  for (var_root in c("first_min_avg_avg_", 
-                     "max_percap_gr_rate_avg_avg_",
-                     "max_percap_gr_dens_avg_avg_",
-                     "max_percap_gr_timesincemin_avg_avg_",
-                     "pseudo_K_avg_avg_",
-                     "pseudo_K_timesincemin_avg_avg_"
+  for (var_root in c("first_min_avg_rel_avg_", 
+                     "max_percap_gr_rate_avg_rel_avg_",
+                     "max_percap_gr_dens_avg_rel_avg_",
+                     "max_percap_gr_timesincemin_avg_rel_avg_",
+                     "pseudo_K_avg_rel_avg_",
+                     "pseudo_K_timesincemin_avg_rel_avg_"
   )) {
     for (media in c("Orig", "Rich")) {
       for (proj in unique(gc_sum_pops_wide$Proj)) {
         var <- paste(var_root, media, sep = "")
         # hist(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]), 
         #      main = paste(proj, var))
-        qqnorm(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]), 
+        qqnorm(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
+                                             gc_sum_pops_wide$Pop != "Anc", 
+                                           var]), 
                main = paste(proj, var))
-        qqline(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]))
+        qqline(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
+                                             gc_sum_pops_wide$Pop != "Anc", 
+                                           var]))
       }
     }
   }
@@ -1010,12 +1131,13 @@ for (proj in unique(gc_sum_pops_wide$Proj)) {
 #Note that 125 is nearly multivariate normal
 # while 7x is so far from multivariate normal no transformations
 # will save it
+
+#So we'll have to use non-parametric methods for
+# MANOVA/ANOVA
+
 #Luckily, discriminant analysis is not strongly dependent on
 # multivariate normality, as long as we're not planning on using
 # it to classify future observations
-#But we'll have to use non-parametric methods for
-# MANOVA
-
 
 ##Isolate growth curves: Discriminant Analysis ----
 
@@ -1075,7 +1197,7 @@ gc_lda_125
 #125
 # 
 
-##Isolate growth curves: statistical tests
+##Isolate growth curves: statistical tests ----
 
 #7x
 nonpartest(LD1|LD2~Treat, 
