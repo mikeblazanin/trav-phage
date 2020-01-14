@@ -2,6 +2,8 @@
 ##      migration stats
 ##      resistance stats
 ##      growth curve stats
+##      figure out how to both time-normalize and log transform
+##        the migration data
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -29,17 +31,78 @@ exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 #Calculate total area
 exper_evol_migr$area_cm2 <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
 
+#Let's assume that area increases exponentially
+# (e.g. what we might naively expect pop size to do)
+# then A(t) = C e^(kt)
+#So ln(A/C)/t = k (the growth constant of area
+#Well C is just the starting area, which we know has a diameter
+# of 2-3mm (see 2017-01-21 in lab notebook)
+# (even if the density is lower, since all points are being
+#  normalized the same way changes in C would simply move
+#  all points up/down proportional to t)
+# which equals an area of 0.01*pi cm^2 = 0.0314 cm^2
+#So k = ln(A/0.0314)/t
+
+#Calculate k
+exper_evol_migr$area_k <- log(exper_evol_migr$area_cm2/(0.01*pi))/
+  exper_evol_migr$time_since_inoc
+
+#Make plot of all pops
+ggplot(data = exper_evol_migr,
+       aes(x = Timepoint, y = area_k,
+           group = paste(Pop, Treat), color = Treat)) +
+  geom_line() +
+  facet_grid(~Proj)
+
+# #Take log of area
+# exper_evol_migr$area_cm2_log10 <- log(exper_evol_migr$area_cm2)
+# 
+# #Normalize log(area) by time
+# exper_evol_migr$area_cm2_log10_hr <- exper_evol_migr$area_cm2_log10/
+#   exper_evol_migr$time_since_inoc
+# 
+# #Calculate area/hr
+# exper_evol_migr$area_cm2_hr <- exper_evol_migr$area_cm2/
+# exper_evol_migr$time_since_inoc  
+# 
+# #This is what we want to actually plot, but we want the
+# # y-axis ticks to be in cm^2/hr
+# # since log(area)/time == 1/time log(area) == log(area^(1/time))
+# # We do area^(1/time) with the later log transformation done 
+# # by ggplot
+# exper_evol_migr$area_to_timeinv <- exper_evol_migr$area_cm2**
+#  (1/exper_evol_migr$time_since_inoc)
+# 
+# #Plot to prove that the math holds up
+# plot(log(exper_evol_migr$area_cm2**(1/exper_evol_migr$time_since_inoc)),
+#      exper_evol_migr$area_cm2_log10_hr)
+# 
+# #Make plots of all data to prove the approach works
+# ggplot(data = exper_evol_migr,
+#        aes(x = Timepoint, y = area_cm2_log10_hr,
+#            group = paste(Pop, Treat), color = Treat)) +
+#   geom_line() +
+#   facet_grid(~Proj)
+# ggplot(data = exper_evol_migr,
+#        aes(x = Timepoint, y = area_to_timeinv,
+#            group = paste(Pop, Treat), color = Treat)) +
+#   geom_line() +
+#   facet_grid(~Proj) +
+#   scale_y_continuous(trans = "log10")
+
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
                              area_mean = mean(area_cm2),
                              area_sd = sd(area_cm2),
-                             area_n = n())
+                             area_n = n(),
+                             area_k_mean = mean(area_k),
+                             area_k_sd = sd(area_k))
 
 #Make plot of summarized data
 my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
 
-ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
+ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_k_mean,
                                    color = Treat)) +
   geom_point(position = position_dodge(0.2)) + 
   geom_line(size = 1.2, position = position_dodge(0.2)) +
@@ -47,10 +110,11 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
   theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
         legend.text = element_text(size = 16)) +
   facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  geom_errorbar(aes(ymax = area_mean+area_sd, ymin = area_mean-area_sd),
+  geom_errorbar(aes(ymax = area_k_mean+area_k_sd, 
+                    ymin = area_k_mean-area_k_sd),
                 width=1, size = .7, position=position_dodge(0.2)) +
   labs(x = "Transfer", 
-       y = expression(paste("Mean Area of Growth ( ", cm^2, ")"))) + 
+       y = expression(paste("Mean Area of Growth per Hour ( ", cm^2, "/hr)"))) + 
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                   labels = c("Control", "Local", "Global"),
                   values = my_cols[c(8, 2, 6)]) +
@@ -61,14 +125,15 @@ ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_mean,
 tiff("./Output_figures/Exper_evol_migr.tiff",
      width = 7, height = 4, units = "in", res = 300)
 ggplot(data = exper_evol_migr,
-               aes(x = Timepoint, y = area_cm2, group = paste(Treat, Pop),
+               aes(x = Timepoint, y = area_k, 
+                   group = paste(Treat, Pop),
                    color = Treat)) +
 #  geom_point(size = 0.5, alpha = 0.5) +
          geom_line(alpha = 0.5, lwd = .4) +
          facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
   theme_bw() +
   geom_line(data = exper_evol_summ,
-            aes(x = Timepoint, y = area_mean, color = Treat,
+            aes(x = Timepoint, y = area_k_mean, color = Treat,
                 group = Treat),
             size = 1.3) +
   labs(x = "Transfer", 
@@ -117,7 +182,7 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
                                                 Treat = my_facet_labels)) +
   theme_bw() + 
-  labs(y = "T14 Isolate Area of Growth Relative to Ancestor",
+  labs(y = "Evolved Isolate Area of Growth Relative to Ancestor",
        x = "Population") +
   geom_hline(yintercept = 1, lty = 2) +
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
@@ -1139,11 +1204,13 @@ for (proj in unique(gc_sum_pops_wide$Proj)) {
 # multivariate normality, as long as we're not planning on using
 # it to classify future observations
 
-##Isolate growth curves: Discriminant Analysis ----
-
 #Split out data into two separate projects
 gc_sum_pops_wide_7x <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "7x", ]
 gc_sum_pops_wide_125 <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "125", ]
+
+##Isolate growth curves: Discriminant Analysis ----
+
+
 
 #Run linear discriminant analysis
 cols_to_use <- 6:15
@@ -1198,6 +1265,34 @@ gc_lda_125
 # 
 
 ##Isolate growth curves: statistical tests ----
+
+#With the original variables
+# Want to test: whether treats are dift from ea other in ea proj
+#               whether treats are dift from 1 (Anc value) in ea proj
+nonpartest(max_percap_gr_rate_avg_rel_avg_Orig|
+             max_percap_gr_rate_avg_rel_avg_Rich|
+             max_percap_gr_dens_avg_rel_avg_Orig|
+             max_percap_gr_dens_avg_rel_avg_Rich|
+             max_percap_gr_timesincemin_avg_rel_avg_Orig|
+             max_percap_gr_timesincemin_avg_rel_avg_Rich|
+             pseudo_K_avg_rel_avg_Orig|
+             pseudo_K_avg_rel_avg_Rich|
+             pseudo_K_timesincemin_avg_rel_avg_Orig|
+             pseudo_K_timesincemin_avg_rel_avg_Rich~Treat,
+           gc_sum_pops_wide_7x[gc_sum_pops_wide_7x$Treat != "Anc", ],
+           plots = F)
+nonpartest(max_percap_gr_rate_avg_rel_avg_Orig|
+             max_percap_gr_rate_avg_rel_avg_Rich|
+             max_percap_gr_dens_avg_rel_avg_Orig|
+             max_percap_gr_dens_avg_rel_avg_Rich|
+             max_percap_gr_timesincemin_avg_rel_avg_Orig|
+             max_percap_gr_timesincemin_avg_rel_avg_Rich|
+             pseudo_K_avg_rel_avg_Orig|
+             pseudo_K_avg_rel_avg_Rich|
+             pseudo_K_timesincemin_avg_rel_avg_Orig|
+             pseudo_K_timesincemin_avg_rel_avg_Rich~Treat,
+           gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
+           plots = F)
 
 #7x
 nonpartest(LD1|LD2~Treat, 
