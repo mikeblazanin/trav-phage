@@ -54,42 +54,6 @@ ggplot(data = exper_evol_migr,
   geom_line() +
   facet_grid(~Proj)
 
-# #Take log of area
-# exper_evol_migr$area_cm2_log10 <- log(exper_evol_migr$area_cm2)
-# 
-# #Normalize log(area) by time
-# exper_evol_migr$area_cm2_log10_hr <- exper_evol_migr$area_cm2_log10/
-#   exper_evol_migr$time_since_inoc
-# 
-# #Calculate area/hr
-# exper_evol_migr$area_cm2_hr <- exper_evol_migr$area_cm2/
-# exper_evol_migr$time_since_inoc  
-# 
-# #This is what we want to actually plot, but we want the
-# # y-axis ticks to be in cm^2/hr
-# # since log(area)/time == 1/time log(area) == log(area^(1/time))
-# # We do area^(1/time) with the later log transformation done 
-# # by ggplot
-# exper_evol_migr$area_to_timeinv <- exper_evol_migr$area_cm2**
-#  (1/exper_evol_migr$time_since_inoc)
-# 
-# #Plot to prove that the math holds up
-# plot(log(exper_evol_migr$area_cm2**(1/exper_evol_migr$time_since_inoc)),
-#      exper_evol_migr$area_cm2_log10_hr)
-# 
-# #Make plots of all data to prove the approach works
-# ggplot(data = exper_evol_migr,
-#        aes(x = Timepoint, y = area_cm2_log10_hr,
-#            group = paste(Pop, Treat), color = Treat)) +
-#   geom_line() +
-#   facet_grid(~Proj)
-# ggplot(data = exper_evol_migr,
-#        aes(x = Timepoint, y = area_to_timeinv,
-#            group = paste(Pop, Treat), color = Treat)) +
-#   geom_line() +
-#   facet_grid(~Proj) +
-#   scale_y_continuous(trans = "log10")
-
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
