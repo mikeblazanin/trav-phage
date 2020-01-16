@@ -95,17 +95,22 @@ ggplot(data = exper_evol_migr,
 #  geom_point(size = 0.5, alpha = 0.5) +
          geom_line(alpha = 0.5, lwd = .4) +
          facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  theme_bw() +
   geom_line(data = exper_evol_summ,
             aes(x = Timepoint, y = area_k_mean, color = Treat,
                 group = Treat),
             size = 1.3) +
-  labs(x = "Transfer", 
-       y = expression(paste("Area of Growth ( ", cm^2, ")"))) + 
+  labs(x = "Transfer", y = "Total Growth Parameter") + 
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                      labels = c("Control", "Local", "Global"),
                      values = my_cols[c(8, 2, 6)]) +
   scale_x_continuous(breaks = c(0, 7, 14)) +
+  theme_bw() +
+  theme(axis.text.y = element_text(size = 11), 
+        axis.text.x = element_text(size = 11),
+        axis.title = element_text(size = 14),
+        legend.text = element_text(size = 13), 
+        legend.title = element_text(size = 14),
+        strip.text = element_text(size = 14)) +
   NULL
 dev.off()
 
@@ -123,10 +128,22 @@ isol_migration$Treat <- factor(isol_migration$Treat,
 #Calculate total area
 isol_migration$area_cm2 <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
 
-#Calculate total area relative to same-day ancestor
+#Calculate k
+isol_migration$area_k <- log(isol_migration$area_cm2/(0.01*pi))/
+  isol_migration$time_since_inoc
+
+#Calculate relative values to same-day ancestor
 ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
+
+  #For total area
 isol_migration$relative_area <-
   isol_migration$area_cm2/ancestors$area_cm2[
+    match(as.Date(isol_migration$end_timestamp),
+          as.Date(ancestors$end_timestamp))]
+
+  #For k
+isol_migration$relative_k <-
+  isol_migration$area_k/ancestors$area_k[
     match(as.Date(isol_migration$end_timestamp),
           as.Date(ancestors$end_timestamp))]
 
@@ -136,8 +153,26 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
-tiff("./Output_figures/Isol_migration.tiff",
-     width = 6, height = 4, units = "in", res = 300)
+#Total area
+ggplot(isol_migration, 
+       aes(x = Pop, y = area_cm2, 
+           color = Treat, fill = Treat)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.6,
+             size = 2) +
+  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
+  theme_bw() + 
+  labs(y = "Area of Growth (cm^2)", x = "Population") +
+  # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+  #                    labels = c("Control", "Local", "Global"),
+  #                    values = my_cols[c(8, 2, 6)]) +
+  # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+  #                   labels = c("Control", "Local", "Global"),
+  #                   values = my_cols[c(8, 2, 6)]) +
+  theme(legend.position = "none") +
+  NULL
+
+#Relative area
 ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
        aes(x = Pop, y = relative_area, 
            color = Treat, fill = Treat)) +
@@ -146,7 +181,50 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
                                                 Treat = my_facet_labels)) +
   theme_bw() + 
-  labs(y = "Evolved Isolate Area of Growth Relative to Ancestor",
+  labs(y = "Total Area Relative to Ancestor",
+       x = "Population") +
+  geom_hline(yintercept = 1, lty = 2) +
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+  theme(legend.position = "none") +
+  NULL
+
+#K values
+ggplot(isol_migration, 
+       aes(x = Pop, y = area_k, 
+           color = Treat, fill = Treat)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.6,
+             size = 2) +
+  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
+  theme_bw() + 
+  labs(y = "Total Growth Parameter",
+       x = "Population") +
+  # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+  #                    labels = c("Control", "Local", "Global"),
+  #                    values = my_cols[c(8, 2, 6)]) +
+  # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+  #                   labels = c("Control", "Local", "Global"),
+  #                   values = my_cols[c(8, 2, 6)]) +
+  theme(legend.position = "none") +
+  NULL
+
+#Relative K
+tiff("./Output_figures/Isol_migration.tiff",
+     width = 6, height = 4, units = "in", res = 300)
+ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+       aes(x = Pop, y = relative_k, 
+           color = Treat, fill = Treat)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.6,
+             size = 2) +
+  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
+  theme_bw() + 
+  labs(y = "Total Growth Parameter Relative to Ancestor",
        x = "Population") +
   geom_hline(yintercept = 1, lty = 2) +
   scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
@@ -158,6 +236,7 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   theme(legend.position = "none") +
   NULL
 dev.off()
+
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
