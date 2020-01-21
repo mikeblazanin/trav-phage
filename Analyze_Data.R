@@ -337,6 +337,12 @@ gc_data$Media[gc_data$Media == "100"] <- "Rich"
 gc_data$Media[gc_data$Media == "25-50"] <- "Orig"
 gc_data$Media[gc_data$Media == "50-100"] <- "Rich"
 
+#Reorder projects
+gc_data$Proj <- factor(gc_data$Proj, levels = c("7x", "125"))
+
+#Reorder treatments
+gc_data$Treat <- factor(gc_data$Treat, levels = c("Anc", "C", "L", "G"))
+
 #Make unique well identifiers
 gc_data$uniq_well <- paste(gc_data$Date,
                            gc_data$Proj,
@@ -961,7 +967,8 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "max_percap_gr_dens",
                               "max_percap_gr_timesincemin",
                               "pseudo_K",
-                              "pseudo_K_timesincemin"))
+                              "pseudo_K_timesincemin",
+                              "pseudo_K_timesince_maxpercap"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
@@ -1071,7 +1078,8 @@ for (var in c("first_min_avg",
               "max_percap_gr_dens_avg",
               "max_percap_gr_timesincemin_avg",
               "pseudo_K_avg",
-              "pseudo_K_timesincemin_avg")) {
+              "pseudo_K_timesincemin_avg",
+              "pseudo_K_timesince_maxpercap_avg")) {
   new_var <- paste(var, "_rel", sep = "")
   gc_sum_isols[, new_var] <- gc_sum_isols[, var]/
     ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
@@ -1079,32 +1087,48 @@ for (var in c("first_min_avg",
 }
 
 #Now view the relative variables
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT",
+                     "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
-  for (var_root in c("first_min_", 
-#                     "first_min_time_", 
-                     "max_percap_gr_rate_", 
-#                     "max_percap_gr_time_", 
-                     "max_percap_gr_dens_", 
-                     "max_percap_gr_timesincemin_",
-                     "pseudo_K_", 
-#                     "pseudo_K_time_", 
-                     "pseudo_K_timesincemin_" 
-#                     "pseudo_K_timesince_maxpercap_"
-  )) {
+  for (i in 1:6) {
+    var_root <- c("first_min_", 
+                  "max_percap_gr_rate_", 
+                  "max_percap_gr_dens_", 
+                  "max_percap_gr_timesincemin_",
+                  "pseudo_K_", 
+#                  "pseudo_K_timesincemin_"
+                  "pseudo_K_timesince_maxpercap_")[i]
     var <- paste(var_root, "avg_rel", sep = "")
+    var_name <- c("Relative first minimum density",
+                  "Relative maximum per-capita growth rate",
+                  "Relative density at maximum per-capita growth rate",
+                  "Relative time until maximum per-capita growth rate",
+                  "Relative density at diauxic shift",
+                  "Relative time until diauxic shift")[i]
     #Note: if you want to view the sd's between wells of
     # Ancestor-normalized values, you'll have to go back to
     # gc_summarized and calculate the relative values there
     # then re-calculate sd. Have not implemented this
-    #var_sd <- paste(var_root, "sd_rel", sep = "")
-    tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
+    tiff(paste("./Growth_curve_variables_plots_relative/", var, ".tiff", sep = ""),
          width = 5, height = 5, units = "in", res = 300)
-    print(ggplot(data = gc_sum_isols,
-                 aes(x = Treat, y = get(var), group = Pop)) +
+    print(ggplot(data = gc_sum_isols[gc_sum_isols$Pop != "Anc", ],
+                 aes(x = Pop, y = get(var), group = Pop,
+                     color = Treat)) +
             geom_point(position = position_dodge(0.6)) +
-            facet_grid(Proj ~ Media, scales = "free_y") +
-            scale_x_discrete(limits = c("Anc", "C", "L", "G")) +
-            ggtitle(var) +
+            facet_nested(Proj ~ Media+Treat, scales = "free_y",
+                       labeller = labeller(Proj = my_facet_labels,
+                                           Treat = my_facet_labels,
+                                           Media = my_facet_labels)) +
+            scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                               labels = c("Control", "Local", "Global"),
+                               values = my_cols[c(8, 2, 6)]) +
+            geom_hline(yintercept = 1, lty = 2) +
+            labs(y = var_name, x = "Population") +
+            theme_bw() +
+            theme(legend.position = "none") +
             # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
             #                   ymax = get(var)+get(var_sd)),
             #               position = position_dodge(0.6),
@@ -1124,17 +1148,19 @@ if (F) {
 gc_sum_isols <- group_by(gc_sum_isols,
                          Proj, Pop, Treat, Media)
 gc_sum_pops <- summarize_at(gc_sum_isols,
-                              .funs = c(avg = mean, sd = sd),
+                              .funs = c(avg = mean, sd = sd,
+                                        med = median),
                             .vars = c(
                               "first_min_avg_rel",
                               "max_percap_gr_rate_avg_rel",
                               "max_percap_gr_dens_avg_rel",
                               "max_percap_gr_timesincemin_avg_rel",
                               "pseudo_K_avg_rel",
-                            "pseudo_K_timesincemin_avg_rel"))
+                            "pseudo_K_timesincemin_avg_rel",
+                            "pseudo_K_timesince_maxpercap_avg_rel"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
-#View population-summarized data
+#View population-summarized mean data (median below)
 if (F) {
   for (var_root in c("first_min_avg_rel", 
                      # "first_min_time_avg", 
@@ -1144,10 +1170,35 @@ if (F) {
                      "max_percap_gr_timesincemin_avg_rel",
                      "pseudo_K_avg_rel", 
                      # "pseudo_K_time_avg", 
-                     "pseudo_K_timesincemin_avg_rel" 
-                     # "pseudo_K_timesince_maxpercap_avg"
+#                     "pseudo_K_timesincemin_avg_rel",
+                     "pseudo_K_timesince_maxpercap_avg_rel"
   )) {
     var <- paste(var_root, "_avg", sep = "")
+    var_sd <- paste(var_root, "_sd", sep = "")
+    print(ggplot(data = gc_sum_pops,
+                 aes(x = Treat, y = get(var), group = Pop)) +
+            geom_point(position = position_dodge(0.3)) +
+            facet_grid(Proj ~ Media, scales = "free_y") +
+            ggtitle(var) +
+            # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+            #                   ymax = get(var)+get(var_sd)),
+            #               position = position_dodge(0.3),
+            #               width = 0.2)
+          NULL)
+  }
+}
+
+#View population-summarized median data
+if (F) {
+  for (var_root in c("first_min_avg_rel", 
+                     "max_percap_gr_rate_avg_rel", 
+                     "max_percap_gr_dens_avg_rel", 
+                     "max_percap_gr_timesincemin_avg_rel",
+                     "pseudo_K_avg_rel", 
+#                     "pseudo_K_timesincemin_avg_rel"
+                     "pseudo_K_timesince_maxpercap_avg_rel"
+                     )) {
+    var <- paste(var_root, "_med", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
     print(ggplot(data = gc_sum_pops,
                  aes(x = Treat, y = get(var), group = Pop)) +
@@ -1171,8 +1222,25 @@ gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
                                          "max_percap_gr_dens_avg_rel_avg", 
                                          "max_percap_gr_timesincemin_avg_rel_avg", 
                                          "pseudo_K_avg_rel_avg", 
-                                         "pseudo_K_timesincemin_avg_rel_avg"))
+                                         "pseudo_K_timesincemin_avg_rel_avg",
+                                         "pseudo_K_timesince_maxpercap_avg_rel_med"))
 gc_sum_pops_wide <- as.data.frame(gc_sum_pops_wide)
+
+#Check correlations between variables
+gc_var_cors_7x <- cor(gc_sum_pops_wide[gc_sum_pops_wide$Proj == "7x", 
+                                       c(4:13, 16, 17)])
+gc_var_cors_125 <- cor(gc_sum_pops_wide[gc_sum_pops_wide$Proj == "125", 
+                                        c(4:13, 16, 17)])
+gc_var_cors_7x[lower.tri(gc_var_cors_7x)] <- NA
+gc_var_cors_125[lower.tri(gc_var_cors_125)] <- NA
+write.csv(gc_var_cors_7x, "grow_curve_var_correlations_7x.csv")
+write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
+
+# all vars are positive w/ ea other
+# max percap rate neg w/ first min
+# max percap dens pos w/ first min
+# max percap dens pos w/ max percap timesincemin
+# 
 
 ##Isolate growth curves: Check for normality ----
 
