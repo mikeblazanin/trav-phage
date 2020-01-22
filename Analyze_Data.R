@@ -114,6 +114,34 @@ ggplot(data = exper_evol_migr,
   NULL
 dev.off()
 
+tiff("./Output_figures/Exper_evol_migr_tall.tiff",
+     width = 7, height = 4, units = "in", res = 300)
+ggplot(data = exper_evol_migr,
+       aes(x = Timepoint, y = area_k, 
+           group = paste(Treat, Pop),
+           color = Treat)) +
+  #  geom_point(size = 0.5, alpha = 0.5) +
+  geom_line(alpha = 0.5, lwd = .4) +
+  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+  geom_line(data = exper_evol_summ,
+            aes(x = Timepoint, y = area_k_mean, color = Treat,
+                group = Treat),
+            size = 1.3) +
+  labs(x = "Transfer", y = "Total Growth Parameter") + 
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_x_continuous(breaks = c(0, 7, 14)) +
+  theme_bw() +
+  theme(axis.text.y = element_text(size = 11), 
+        axis.text.x = element_text(size = 11),
+        axis.title = element_text(size = 14),
+        legend.text = element_text(size = 13), 
+        legend.title = element_text(size = 14),
+        strip.text = element_text(size = 14)) +
+  NULL
+dev.off()
+
 ##Isolate migration ----
 isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
 
@@ -237,6 +265,30 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   NULL
 dev.off()
 
+tiff("./Output_figures/Isol_migration_tall.tiff",
+     width = 5, height = 4, units = "in", res = 300)
+ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+       aes(x = Pop, y = relative_k, 
+           color = Treat, fill = Treat)) +
+  geom_point(position = position_dodge(0.5), alpha = 0.6,
+             size = 2) +
+  facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels),
+             scales = "free_y") +
+  theme_bw() + 
+  labs(y = "Total Growth Parameter Relative to Ancestor",
+       x = "Population") +
+  geom_hline(yintercept = 1, lty = 2) +
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+  theme(legend.position = "none") +
+  NULL
+dev.off()
+
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -299,6 +351,37 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
            color = Treat, fill = Treat,
            shape = bd)) +
   facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                Treat = my_facet_labels)) +
+  geom_point(aes(size = bd, alpha = bd)) +
+  scale_size_manual(values = c(2, 2.5)) +
+  scale_alpha_manual(values = c(0.6, 1)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**(c(0, -2, -4, -6)),
+                     labels = c(1, expression(10^-2), expression(10^-4),
+                                expression(10^-6))) +
+  theme_bw() +
+  geom_hline(yintercept = 1, lty = 2) +
+  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
+  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global"),
+                     values = my_cols[c(8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+  scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+  labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
+  theme(legend.position = "none") +
+  NULL
+dev.off()
+
+tiff("./Output_figures/Isol_resis_tall.tiff", width = 5, height = 4,
+     units = "in", res = 300)
+ggplot(resis_data[resis_data$Treat != "Anc" &
+                    resis_data$approach == "new", ],
+       aes(x = Pop, y = EOP, 
+           color = Treat, fill = Treat,
+           shape = bd)) +
+  facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
                                                 Treat = my_facet_labels)) +
   geom_point(aes(size = bd, alpha = bd)) +
   scale_size_manual(values = c(2, 2.5)) +
