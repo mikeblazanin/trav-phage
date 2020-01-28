@@ -289,6 +289,12 @@ ggplot(isol_migration[isol_migration$Isol != "Anc", ],
   NULL
 dev.off()
 
+#Summarize for later inclusion w/ gc data
+isol_migration_temp <- isol_migration[!is.na(isol_migration$relative_k), ]
+isol_migration_temp <- group_by(isol_migration_temp,
+                           Proj, Pop, Treat)
+isol_migr_sum <- summarize(isol_migration_temp,
+                           relative_k_avg = mean(relative_k))
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -404,6 +410,14 @@ ggplot(resis_data[resis_data$Treat != "Anc" &
   theme(legend.position = "none") +
   NULL
 dev.off()
+
+#Summarize for later inclusion w/ gc data
+resis_data_temp <- resis_data[resis_data$approach == "new", ]
+resis_data_temp <- group_by(resis_data_temp,
+                            Proj, Pop, Treat)
+resis_data_sum <- summarize(resis_data_temp,
+                            EOP_avg = mean(EOP),
+                            EOP_bd = any(bd))
 
 ##Isolate growth curves: read & find peaks ----
 
@@ -1309,13 +1323,29 @@ gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
                                          "pseudo_K_timesince_maxpercap_avg_rel_med"))
 gc_sum_pops_wide <- as.data.frame(gc_sum_pops_wide)
 
+#Add in resistance & migration data
+isol_data <- full_join(gc_sum_pops_wide, 
+                              resis_data_sum)
+isol_data <- full_join(isol_data, isol_migr_sum)
+
+isol_data$EOP_avg <- log10(isol_data$EOP_avg)
+
+#Rename for brevity
+isol_data <- isol_data[, c(1:13, 16:20)]
+colnames(isol_data)[4:18] <- c(
+  "min_Orig", "min_Rich",
+  "pc_rate_Orig", "pc_rate_Rich",
+  "pc_dens_Orig", "pc_dens_Rich",
+  "pc_time_Orig", "pc_time_Rich",
+  "K_Orig", "K_Rich",
+  "K_time_Orig", "K_time_Rich",
+  "log(EOP)", "EOP_bd", "Agar_grow")
+
 #Check correlations between variables
-gc_var_cors_7x <- cor(gc_sum_pops_wide[gc_sum_pops_wide$Proj == "7x", 
-                                       c(4:13, 16, 17)])
-gc_var_cors_125 <- cor(gc_sum_pops_wide[gc_sum_pops_wide$Proj == "125", 
-                                        c(4:13, 16, 17)])
-gc_var_cors_7x[lower.tri(gc_var_cors_7x)] <- NA
-gc_var_cors_125[lower.tri(gc_var_cors_125)] <- NA
+gc_var_cors_7x <- cor(isol_data[isol_data$Proj == "7x", 
+                                       c(4:16, 18)])
+gc_var_cors_125 <- cor(isol_data[isol_data$Proj == "125", 
+                                        c(4:16, 18)])
 write.csv(gc_var_cors_7x, "grow_curve_var_correlations_7x.csv")
 write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
 
@@ -1323,7 +1353,71 @@ write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
 # max percap rate neg w/ first min
 # max percap dens pos w/ first min
 # max percap dens pos w/ max percap timesincemin
-# 
+
+
+tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
+#Make base figure
+p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
+                                     isol_data$Proj == "7x", ],
+                columns = c(4:16, 18),
+                lower = list(continuous = "smooth"),
+                upper = list(continuous = "smooth"),
+                ggplot2::aes(color = Treat, group = Proj),
+                title = "Weak Phage") +
+  theme(strip.text = element_text(size = 7),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+#Change colors
+for (i in 1:p$nrow) {
+  for (j in 1:p$ncol) {
+    p[i, j] <- p[i, j] +
+      scale_color_manual(breaks = c("C", "L", "G"),
+                           values = my_cols[c(8, 2, 6)])
+  }
+}
+print(p)
+dev.off()
+
+
+tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
+#Make base figure
+p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
+                                 isol_data$Proj == "125", ],
+                     columns = c(4:16, 18),
+                     lower = list(continuous = "smooth"),
+                     upper = list(continuous = "smooth"),
+                     ggplot2::aes(color = Treat, group = Proj),
+                     title = "Strong Phage") +
+  theme(strip.text = element_text(size = 7),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+#Change colors
+for (i in 1:p$nrow) {
+  for (j in 1:p$ncol) {
+    p[i, j] <- p[i, j] +
+      scale_color_manual(breaks = c("C", "L", "G"),
+                         values = my_cols[c(8, 2, 6)])
+  }
+}
+print(p)
+dev.off()
+
+tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
+GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
+                           isol_data$Proj == "7x", c(4:16, 18)],
+               nbreaks = 5,
+               hjust = 0.8,
+               layout.exp = 1.5) +
+  ggplot2::labs(title = "Weak Phage")
+dev.off()
+
+tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
+GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
+                           isol_data$Proj == "125", c(4:16, 18)],
+               nbreaks = 5,
+               hjust = 0.8,
+               layout.exp = 1.5) +
+                 ggplot2::labs(title = "Strong Phage")
+dev.off()
+
 
 ##Isolate growth curves: Check for normality ----
 
