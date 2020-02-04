@@ -809,8 +809,7 @@ gc_summarized <- summarize(gc_data,
    first_min = sm_loess[first_min_index],
    first_min_time = Time_s[first_min_index],
   #find peaks in per capita growth rate
-  # but for one well we need a different criteria (see end)
-  max_percap_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_Orig"),
+  max_percap_index = 
     #first find all peaks
    find_local_extrema(percap_deriv_sm_loess,
                                         return_minima = FALSE,
@@ -825,50 +824,19 @@ gc_summarized <- summarize(gc_data,
                                                      (Time_s[2]-Time_s[1])) + 1,
                                     na.rm = T,
                                     remove_endpoints = F) >= first_min_index)],
-   #if we're in that one well, use the second peak
-  find_local_extrema(percap_deriv_sm_loess,
-                                        return_minima = FALSE,
-                                        width_limit = (max_percap_time/
-                                                         (Time_s[2]-Time_s[1])) + 1,
-                                        na.rm = T,
-                                        remove_endpoints = F)[2]),
   max_percap_gr_rate = percap_deriv_sm_loess[max_percap_index],
   max_percap_gr_time = Time_s[max_percap_index],
   max_percap_gr_dens = sm_loess[max_percap_index],
   max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
-  #find the first peak in total growth rate (slope of total density)
-  max_grow_rate_index = find_local_extrema(deriv_sm_loess,
-                                           return_minima = FALSE,
-                                           width_limit = (max_gr_rate_time/
-                                                            (Time_s[2]-Time_s[1])) + 1,
-                                           na.rm = T,
-                                           remove_endpoints = F)[1],
+
   #find the local minimas in total grow rate (slope of total density)
-  # (which is the point when the diauxic shift occurs
-  # but for one well we need a different criteria (see end)
-  pseudo_K_index = ifelse(all(uniq_well != "2017-E_7x_B_C_E_1_Orig"),
-    find_local_extrema(deriv_sm_loess,
+  # (which is the point when the diauxic shift occurs)
+  pseudo_K_index = find_local_extrema(deriv_sm_loess,
                                       return_maxima = FALSE,
                                       width_limit = (pseudo_K_time/
                                                        (Time_s[2]-Time_s[1])) + 1,
                                       na.rm = T,
-                       remove_endpoints = F)[
-      #use the first one that follows the first peak in total gr rate
-      # (note endpoints will be included, so when no local minima exists
-      # the endpoint will simply be used
-    match(TRUE, find_local_extrema(deriv_sm_loess,
-                                      return_maxima = FALSE,
-                                      width_limit = (pseudo_K_time/
-                                                       (Time_s[2]-Time_s[1])) + 1,
-                                      na.rm = T,
-                                   remove_endpoints = F) > max_grow_rate_index)],
-    #if we're in that one well, use the third minima
-    find_local_extrema(deriv_sm_loess,
-                       return_maxima = FALSE,
-                       width_limit = (pseudo_K_time/
-                                        (Time_s[2]-Time_s[1])) + 1,
-                       na.rm = T,
-                       remove_endpoints = F)[3]),
+                                      remove_endpoints = T)[1],
   pseudo_K = sm_loess[pseudo_K_index],
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess[pseudo_K_index],
@@ -881,7 +849,7 @@ gc_summarized <- as.data.frame(gc_summarized)
 
 #Make output plots for problematic wells
 if (F) {
-  wells_check <- c("2017-B_7x_C_L_B_1_Orig", #isn't working
+  wells_check <- c("2017-B_7x_C_L_B_1_Orig",
                    "2017-A_7x_Anc_Anc_Anc_1_Orig",
                    "2017-A_7x_B_L_A_1_Rich",
                    "2017-B_7x_C_L_B_1_Orig",
@@ -991,7 +959,10 @@ if (FALSE) {
   }
 }
 
-#Look at wells where percap growth rate is very early
+#Note that orig media has strong diauxic shift
+# while rich media has little to none
+
+##Look at wells where percap growth rate is very early
 temp_rows <- which(gc_summarized$max_percap_index <= 3)
 
 #Noting here wells where there is no rise to max percap
@@ -1044,14 +1015,37 @@ if (F) {
 #After looking at all the wells where max percap index is
 # 3 or less, I've decided to drop the ones where the index
 # is 1 or 2 for data quality
-#There are only four entries that meet those criteria,
+#There are only five entries that meet those criteria,
 # and all four isolates have another replicate well that didn't have the same
 # issue, so that value will simply be used alone and it shouldn't
 # throw off the results
 
 gc_summarized <- gc_summarized[-which(gc_summarized$max_percap_index <= 2), ]
 
-#Isolate growth curves: summarize & reorganize, view variable data & distributions ----
+#Looked through all the plots, some of them no diauxic shift is detected
+#But that's okay because for most of them the other tech rep had one
+#2017 C 7x clc 2 rich (7x clc 1 rich is good)
+#7x dgc 2 orig (7x dgc 1 orig is good)
+#125 bce 1 rich (125 bce 2 rich is good)
+#125 cce 1 rich (125 cce 2 rich is good)
+
+#One isolate (7x dgc 1&2 rich) both replicate wells had no diauxic shift 
+#detected
+#Look at plots of 7x dgc 1&2 rich
+if(F) {
+  test <- gc_data[gc_data$uniq_well == "2017-C_7x_D_G_C_2_Rich", ]
+  test$deriv <- c(test$OD600[2:nrow(test)]-test$OD600[1:(nrow(test)-1)], NA)
+  test$deriv_pc <- test$deriv/test$OD600
+  ggplot(test, aes(x = Time_s, y = OD600)) + geom_point()
+  ggplot(test, aes(x = Time_s, y = deriv)) + geom_point()
+  ggplot(test, aes(x = Time_s, y = deriv_pc)) + geom_point()
+}
+#Unfortunately 7x dgc 1 & 2 rich diauxic shifts we'll have to leave tossed
+# (other isols from that pop will have to suffice, since we fail to detect 
+# any diauxic shift in those curves, and looking at the curves shows pretty 
+# clearly no sensitivity changes will be sufficient
+
+#Isolate growth curves: summarize reps into isols, view variable data & distributions ----
 
 #Summarize replicate wells
 gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
@@ -1104,51 +1098,63 @@ if (F) {
 #Generally, sd's between reps are small relative to the values themselves
 
 #View all the isols by variable
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "Anc" = "Ancstr",
+                     "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
-  for (var_root in c("first_min_", 
+  for (i in 1:7) {
+    var_root <- c("first_min_", 
 #                     "first_min_time_", 
-                     "max_percap_gr_rate_", 
+                  "max_percap_gr_rate_", 
 #                     "max_percap_gr_time_", 
-                     "max_percap_gr_dens_", 
-                     "max_percap_gr_timesincemin_",
-                     "pseudo_K_", 
+                  "max_percap_gr_dens_", 
+                  "max_percap_gr_timesincemin_",
+                  "pseudo_K_", 
 #                     "pseudo_K_time_", 
-                     "pseudo_K_timesincemin_" 
-#                     "pseudo_K_timesince_maxpercap_"
-            )) {
+                  "pseudo_K_timesincemin_",
+                  "pseudo_K_timesince_maxpercap_")[i]
+    var_name <- c("First minimum density (cfu/mL)",
+                  "Maximum per-capita growth rate",
+                  "Density at maximum per-capita growth rate",
+                  "Time until maximum per-capita growth rate",
+                  "Density at diauxic shift (cfu/mL)",
+                  "Time until diauxic shift (from min)",
+                  "Time until diauxic shift (from max percap)")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
          width = 5, height = 5, units = "in", res = 300)
     print(ggplot(data = gc_sum_isols,
-                 aes(x = Treat, y = get(var), group = Pop)) +
+                 aes(x = Pop, y = get(var), group = Pop, color = Treat)) +
             geom_point(position = position_dodge(0.6)) +
-            facet_grid(Proj ~ Media, scales = "free_y") +
-            scale_x_discrete(limits = c("Anc", "C", "L", "G")) +
-            ggtitle(var) +
-            geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
-                          ymax = get(var)+get(var_sd)),
+            facet_nested(Proj ~ Media+Treat, scales = "free_y",
+                         labeller = labeller(Proj = my_facet_labels,
+                                             Treat = my_facet_labels,
+                                             Media = my_facet_labels)) +
+            scale_x_discrete(limits = c("Anc", LETTERS[1:5])) +
+            scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                               labels = c("Ancestor", "Control", "Local", "Global"),
+                               values = my_cols[c(3, 8, 2, 6)]) +
+            geom_errorbar(aes(x = Pop, ymin = get(var)-get(var_sd),
+                              ymax = get(var)+get(var_sd)),
                           position = position_dodge(0.6),
-                          width = 0.2)
+                          width = 0.2) +
+            labs(y = var_name, x = "Population") +
+            theme_bw() +
+            theme(legend.position = "none")
     )
     dev.off()
   }
 }
 
-#First min - no pattern
-#First min time - 125 Ctrl is lower, 7x G is lower in Orig
-#percap rate - 125 Ctrl is lower in both media
-#percap dens - 125 ctrl in Rich is lower
-#percap timesincemin - 125 Treats are higher than Anc in Orig
-#pseudo k - no pattern
-#pseodu k timesincemin - 125 ctrl is highest
-#pseudo k timesincemax - 125 ctrl is higher in Rich
-
 #Note however how some curves have super high sds between
 # rep wells
+#Particularly in vars: first min, percap dens, percap time, K time
 
-# which.max(gc_sum_isols$first_min_sd)
-# which.max(gc_sum_isols$max_percap_gr_rate_sd)
+#gc_sum_isols[which.max(gc_sum_isols$first_min_sd), ]
+#gc_sum_isols[which.max(gc_sum_isols$max_percap_gr_rate_sd), ]
 # which.max(gc_sum_isols$pseudo_K_sd)
 
 #After checking out the above cases (and having already
@@ -1159,12 +1165,8 @@ if (F) {
 # or where the data itself is strangely different
 # between the wells
 
-#Also Noted a weird pattern in 7x Rich C max percap rate
-# let's take a look
-temp_rows <- which(gc_sum_isols$Proj == "7x" & 
-                     gc_sum_isols$Treat == "C" & 
-                     gc_sum_isols$Media == "Rich" & 
-                     gc_sum_isols$max_percap_gr_rate_avg < 1)
+#Also Noted a weird clustering in 7x Rich C of low max percap rates
+
 #Looking at the plots, there's nothing I can see that's wrong
 # with those curves. It might be a media batch effect
 
@@ -1183,6 +1185,8 @@ for (var in c("first_min_avg",
                     paste(ancestors$Date, ancestors$Media)), var]
 }
 
+#Should density measures be relative too?
+
 #Now view the relative variables
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
@@ -1190,13 +1194,13 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
-  for (i in 1:6) {
+  for (i in 1:7) {
     var_root <- c("first_min_", 
                   "max_percap_gr_rate_", 
                   "max_percap_gr_dens_", 
                   "max_percap_gr_timesincemin_",
                   "pseudo_K_", 
-#                  "pseudo_K_timesincemin_"
+                  "pseudo_K_timesincemin_",
                   "pseudo_K_timesince_maxpercap_")[i]
     var <- paste(var_root, "avg_rel", sep = "")
     var_name <- c("Relative first minimum density",
@@ -1204,7 +1208,8 @@ if (F) {
                   "Relative density at maximum per-capita growth rate",
                   "Relative time until maximum per-capita growth rate",
                   "Relative density at diauxic shift",
-                  "Relative time until diauxic shift")[i]
+                  "Relative time until diauxic shift (from min)",
+                  "Relative time until diauxic shift (from max percap)")[i]
     #Note: if you want to view the sd's between wells of
     # Ancestor-normalized values, you'll have to go back to
     # gc_summarized and calculate the relative values there
@@ -1241,12 +1246,15 @@ if (F) {
 # and it doesn't make any others do anything weird
 #So we should move forward only with relative variables
 
+##Isolate growth curves: summarize isols into pops, add resis & migr data ----
+
 #Summarize isols into pops
 gc_sum_isols <- group_by(gc_sum_isols,
                          Proj, Pop, Treat, Media)
 gc_sum_pops <- summarize_at(gc_sum_isols,
                               .funs = c(avg = mean, sd = sd,
                                         med = median),
+                            na.rm = TRUE,
                             .vars = c(
                               "first_min_avg_rel",
                               "max_percap_gr_rate_avg_rel",
@@ -1258,6 +1266,11 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized mean data (median below)
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT",
+                     "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
   for (var_root in c("first_min_avg_rel", 
                      # "first_min_time_avg", 
@@ -1267,21 +1280,33 @@ if (F) {
                      "max_percap_gr_timesincemin_avg_rel",
                      "pseudo_K_avg_rel", 
                      # "pseudo_K_time_avg", 
-#                     "pseudo_K_timesincemin_avg_rel",
+                     "pseudo_K_timesincemin_avg_rel",
                      "pseudo_K_timesince_maxpercap_avg_rel"
   )) {
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
-    print(ggplot(data = gc_sum_pops,
-                 aes(x = Treat, y = get(var), group = Pop)) +
-            geom_point(position = position_dodge(0.3)) +
-            facet_grid(Proj ~ Media, scales = "free_y") +
+    tiff(paste("./Growth_curve_variables_plots_pops/", var, ".tiff", sep = ""),
+         width = 10, height = 10, units = "in", res = 300)
+    print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+                 aes(x = Treat, y = get(var), group = Pop,
+                     color = Treat)) +
+            geom_point(position = position_dodge(0.1),
+                       size = 5, alpha = 0.8) +
+            scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                               labels = c("Control", "Local", "Global"),
+                               values = my_cols[c(8, 2, 6)]) +
+            facet_grid(Proj ~ Media, scales = "free_y",
+                       labeller = labeller(Proj = my_facet_labels,
+                                           Media = my_facet_labels)) +
+            geom_hline(yintercept = 1, lty = 2) +
             ggtitle(var) +
+            theme_bw() +
             # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
             #                   ymax = get(var)+get(var_sd)),
             #               position = position_dodge(0.3),
             #               width = 0.2)
           NULL)
+    dev.off()
   }
 }
 
@@ -1297,20 +1322,33 @@ if (F) {
                      )) {
     var <- paste(var_root, "_med", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
-    print(ggplot(data = gc_sum_pops,
-                 aes(x = Treat, y = get(var), group = Pop)) +
-            geom_point(position = position_dodge(0.3)) +
-            facet_grid(Proj ~ Media, scales = "free_y") +
+    tiff(paste("./Growth_curve_variables_plots_pops/", var, ".tiff", sep = ""),
+         width = 10, height = 10, units = "in", res = 300)
+    print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+                 aes(x = Treat, y = get(var), group = Pop,
+                     color = Treat)) +
+            geom_point(position = position_dodge(0.1),
+                       size = 5, alpha = 0.8) +
+            geom_hline(yintercept = 1, lty = 2) +
+            scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                               labels = c("Control", "Local", "Global"),
+                               values = my_cols[c(8, 2, 6)]) +
+            facet_grid(Proj ~ Media, scales = "free_y",
+                       labeller = labeller(Proj = my_facet_labels,
+                                           Media = my_facet_labels)) +
             ggtitle(var) +
-            geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
-                              ymax = get(var)+get(var_sd)),
-                          position = position_dodge(0.3),
-                          width = 0.2))
+            theme_bw() +
+            # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+            #                   ymax = get(var)+get(var_sd)),
+            #               position = position_dodge(0.3),
+            #               width = 0.2)
+            NULL)
+    dev.off()
   }
 }
 
-#Cast measurements in different medias
-# into different columns
+#Cast measurements in different medias into different columns
+# (using population mean data)
 gc_sum_pops <- as.data.table(gc_sum_pops)
 gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
                            Proj+Pop+Treat ~ Media,
@@ -1320,7 +1358,7 @@ gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
                                          "max_percap_gr_timesincemin_avg_rel_avg", 
                                          "pseudo_K_avg_rel_avg", 
                                          "pseudo_K_timesincemin_avg_rel_avg",
-                                         "pseudo_K_timesince_maxpercap_avg_rel_med"))
+                                         "pseudo_K_timesince_maxpercap_avg_rel_avg"))
 gc_sum_pops_wide <- as.data.frame(gc_sum_pops_wide)
 
 #Add in resistance & migration data
@@ -1354,70 +1392,117 @@ write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
 # max percap dens pos w/ first min
 # max percap dens pos w/ max percap timesincemin
 
-
-tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
-#Make base figure
-p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
-                                     isol_data$Proj == "7x", ],
-                columns = c(4:16, 18),
-                lower = list(continuous = "smooth"),
-                upper = list(continuous = "smooth"),
-                ggplot2::aes(color = Treat, group = Proj),
-                title = "Weak Phage") +
-  theme(strip.text = element_text(size = 7),
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-#Change colors
-for (i in 1:p$nrow) {
-  for (j in 1:p$ncol) {
-    p[i, j] <- p[i, j] +
-      scale_color_manual(breaks = c("C", "L", "G"),
+#Make correlation figures
+if (F) {
+  tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
+  #Make base figure
+  p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
+                                       isol_data$Proj == "7x", ],
+                  columns = c(4:16, 18),
+                  lower = list(continuous = "smooth"),
+                  upper = list(continuous = "smooth"),
+                  ggplot2::aes(color = Treat, group = Proj),
+                  title = "Weak Phage") +
+    theme(strip.text = element_text(size = 7),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  #Change colors
+  for (i in 1:p$nrow) {
+    for (j in 1:p$ncol) {
+      p[i, j] <- p[i, j] +
+        scale_color_manual(breaks = c("C", "L", "G"),
+                             values = my_cols[c(8, 2, 6)])
+    }
+  }
+  print(p)
+  dev.off()
+  
+  tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
+  #Make base figure
+  p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
+                                   isol_data$Proj == "125", ],
+                       columns = c(4:16, 18),
+                       lower = list(continuous = "smooth"),
+                       upper = list(continuous = "smooth"),
+                       ggplot2::aes(color = Treat, group = Proj),
+                       title = "Strong Phage") +
+    theme(strip.text = element_text(size = 7),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  #Change colors
+  for (i in 1:p$nrow) {
+    for (j in 1:p$ncol) {
+      p[i, j] <- p[i, j] +
+        scale_color_manual(breaks = c("C", "L", "G"),
                            values = my_cols[c(8, 2, 6)])
+    }
   }
+  print(p)
+  dev.off()
+  
+  tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
+  GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
+                             isol_data$Proj == "7x", c(4:16, 18)],
+                 nbreaks = 5,
+                 hjust = 0.8,
+                 layout.exp = 1.5) +
+    ggplot2::labs(title = "Weak Phage")
+  dev.off()
+  
+  tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
+  GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
+                             isol_data$Proj == "125", c(4:16, 18)],
+                 nbreaks = 5,
+                 hjust = 0.8,
+                 layout.exp = 1.5) +
+                   ggplot2::labs(title = "Strong Phage")
+  dev.off()
 }
-print(p)
-dev.off()
 
+##Isolate growth curves: run PCA (naively) ----
+isol_data_pca_7x <- isol_data[isol_data$Proj == "7x", ]
+isol_data_pca_125 <- isol_data[isol_data$Proj == "125", ]
+#Don't need to scale because all values are relative to ancestor already
+# isol_data_pca_7x[, 4:14] <- scale(isol_data_pca_7x[, 4:14])
+# isol_data_pca_125[, 4:14] <- scale(isol_data_pca_125[, 4:14])
+isol_princomp_7x <- princomp(isol_data_pca_7x[, c(4:16, 18)], cor = T, scores = T)
+isol_princomp_125 <- princomp(isol_data_pca_125[, c(4:16, 18)], cor = T, scores = T)
 
-tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
-#Make base figure
-p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
-                                 isol_data$Proj == "125", ],
-                     columns = c(4:16, 18),
-                     lower = list(continuous = "smooth"),
-                     upper = list(continuous = "smooth"),
-                     ggplot2::aes(color = Treat, group = Proj),
-                     title = "Strong Phage") +
-  theme(strip.text = element_text(size = 7),
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-#Change colors
-for (i in 1:p$nrow) {
-  for (j in 1:p$ncol) {
-    p[i, j] <- p[i, j] +
-      scale_color_manual(breaks = c("C", "L", "G"),
-                         values = my_cols[c(8, 2, 6)])
-  }
-}
-print(p)
-dev.off()
+isol_data_pca_7x <- cbind(isol_data_pca_7x, isol_princomp_7x$scores)
+isol_data_pca_125 <- cbind(isol_data_pca_125, isol_princomp_125$scores)
 
-tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
-GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                           isol_data$Proj == "7x", c(4:16, 18)],
-               nbreaks = 5,
-               hjust = 0.8,
-               layout.exp = 1.5) +
-  ggplot2::labs(title = "Weak Phage")
-dev.off()
+loadings_7x <- 5*as.data.frame(isol_princomp_7x$loadings[])
+loadings_125 <- 5*as.data.frame(isol_princomp_125$loadings[])
+loadings_7x$varnames <- rownames(loadings_7x)
+loadings_125$varnames <- rownames(loadings_125)
 
-tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
-GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                           isol_data$Proj == "125", c(4:16, 18)],
-               nbreaks = 5,
-               hjust = 0.8,
-               layout.exp = 1.5) +
-                 ggplot2::labs(title = "Strong Phage")
-dev.off()
+ggplot(isol_data_pca_7x,
+       aes(x = Comp.1, y = Comp.2)) +
+  geom_point(aes(color = Treat), size = 3) +
+  ggtitle("Weak Phage") +
+  geom_segment(data = loadings_7x,
+               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+               arrow = arrow(length = unit(0.03, "npc")),
+               alpha = 0.3) +
+  ggrepel::geom_text_repel(data = loadings_7x,
+                           aes(x = Comp.1, y = Comp.2, label = varnames),
+            size = 3, alpha = 0.5) +
+  theme_bw()
 
+ggplot(isol_data_pca_125,
+       aes(x = Comp.1, y = Comp.2)) +
+  geom_point(aes(color = Treat), size = 3) +
+  ggtitle("Strong Phage") +
+  geom_segment(data = loadings_125,
+               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+               arrow = arrow(length = unit(0.03, "npc")),
+               alpha = 0.3) +
+  ggrepel::geom_text_repel(data = loadings_125,
+                           aes(x = Comp.1, y = Comp.2, label = varnames),
+                           size = 3, alpha = 0.5) +
+  theme_bw()
+
+#print(summary(isol_princomp), digits = 2)
+print(isol_princomp_7x$loadings, cutoff = 0)
+print(isol_princomp_125$loadings, cutoff = 0)
 
 ##Isolate growth curves: Check for normality ----
 
