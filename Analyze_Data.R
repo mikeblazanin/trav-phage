@@ -1045,6 +1045,138 @@ if(F) {
 # any diauxic shift in those curves, and looking at the curves shows pretty 
 # clearly no sensitivity changes will be sufficient
 
+#Isolate growth curves: Make example plots (eg for talks) ----
+if (F) {
+  temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
+  
+  tiff("./Example_curve_plots/gc_plot1.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_line(color = "red", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot2.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_line(color = "red", lwd = 3, alpha = 0.6) +
+    geom_line(aes(y = sm_loess), color = "blue", lwd = 3, alpha = 0.6) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot3.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot4.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  #Now add the points
+  temp2 <- gc_summarized[gc_summarized$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
+  
+  tiff("./Example_curve_plots/gc_plot5.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot6.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K_deriv),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot7.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot8.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
+                                 y = max_percap_gr_rate),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot9.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
+               color = "black", size = 10) +
+    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
+                                 y = max_percap_gr_dens),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot10.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
+               color = "black", size = 10)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot11.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
+               color = "black", size = 10) +
+    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
+                                 y = max_percap_gr_dens),
+               color = "black", size = 7, alpha = 0.7) +
+    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
+               color = "black", size = 7, alpha = 0.7)
+  dev.off()
+  
+}
+
 #Isolate growth curves: summarize reps into isols, view variable data & distributions ----
 
 #Summarize replicate wells
