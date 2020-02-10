@@ -1601,36 +1601,54 @@ isol_princomp_125 <- princomp(isol_data_pca_125[, c(4:16, 18)], cor = T, scores 
 isol_data_pca_7x <- cbind(isol_data_pca_7x, isol_princomp_7x$scores)
 isol_data_pca_125 <- cbind(isol_data_pca_125, isol_princomp_125$scores)
 
-loadings_7x <- 5*as.data.frame(isol_princomp_7x$loadings[])
-loadings_125 <- 5*as.data.frame(isol_princomp_125$loadings[])
+loadings_7x <- 6*as.data.frame(isol_princomp_7x$loadings[])
+loadings_125 <- 6*as.data.frame(isol_princomp_125$loadings[])
 loadings_7x$varnames <- rownames(loadings_7x)
 loadings_125$varnames <- rownames(loadings_125)
 
+summary(isol_princomp_7x)
+summary(isol_princomp_125)
+
+tiff("./Output_figures/weakphage_PCA.tiff", 
+     width = 12, height = 10, units = "in", res = 300)
 ggplot(isol_data_pca_7x,
        aes(x = Comp.1, y = Comp.2)) +
-  geom_point(aes(color = Treat), size = 3) +
   ggtitle("Weak Phage") +
   geom_segment(data = loadings_7x,
                aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
-               arrow = arrow(length = unit(0.03, "npc")),
-               alpha = 0.3) +
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .8, lwd = 1, color = "gray50") +
   ggrepel::geom_text_repel(data = loadings_7x,
                            aes(x = Comp.1, y = Comp.2, label = varnames),
-            size = 3, alpha = 0.5) +
-  theme_bw()
+            size = 7, alpha = .8, color = "gray50") +
+  geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+  theme_bw() +
+  labs(x = "PC1", y = "PC2") +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 24),
+        legend.text = element_text(size = 20))
+dev.off()
 
+tiff("./Output_figures/strongphage_PCA.tiff", 
+     width = 12, height = 10, units = "in", res = 300)
 ggplot(isol_data_pca_125,
        aes(x = Comp.1, y = Comp.2)) +
-  geom_point(aes(color = Treat), size = 3) +
   ggtitle("Strong Phage") +
   geom_segment(data = loadings_125,
                aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
-               arrow = arrow(length = unit(0.03, "npc")),
-               alpha = 0.3) +
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .8, lwd = 1, color = "gray50") +
   ggrepel::geom_text_repel(data = loadings_125,
                            aes(x = Comp.1, y = Comp.2, label = varnames),
-                           size = 3, alpha = 0.5) +
-  theme_bw()
+                           size = 7, alpha = .8, color = "gray50") +
+  geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+  theme_bw() +
+  labs(x = "PC1", y = "PC2") +
+  theme(axis.title = element_text(size = 20),
+        legend.title = element_text(size = 24),
+        legend.text = element_text(size = 20))
+dev.off()
+
 
 #print(summary(isol_princomp), digits = 2)
 print(isol_princomp_7x$loadings, cutoff = 0)
