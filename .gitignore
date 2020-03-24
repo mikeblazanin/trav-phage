@@ -4,3 +4,5 @@
 .Ruserdata
 *.png
 *.tiff
+grow_curve_var_correlations_*.csv
+grow_curve_var_correlations.xlsx
