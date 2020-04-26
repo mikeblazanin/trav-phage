@@ -4,6 +4,14 @@
 ##      growth curve stats
 ##      figure out how to both time-normalize and log transform
 ##        the migration data
+##      downsample so all time series have same time-interval
+##      Use approaches from Ram et al 2019 PNAS
+##        (e.g. fitting entire curve, finding lag time from their approach)
+##        Entire curve fitting might give more reliable results since we're
+##          using more data to find the parameters than a single point
+##      Re-consider fitting a diauxic-mindful curve
+##        Van Dedem, G., and Mfl75 Moo‐Young. "A model for diauxic growth."
+##         Biotechnology and bioengineering 17.9 (1975): 1301-1312.
 
 ## Load packages and color scale ----
 library("ggplot2")
