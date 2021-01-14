@@ -12,6 +12,8 @@
 ##      Re-consider fitting a diauxic-mindful curve
 ##        Van Dedem, G., and Mfl75 Moo‐Young. "A model for diauxic growth."
 ##         Biotechnology and bioengineering 17.9 (1975): 1301-1312.
+##      Use general additive model instead of loess
+##        (loess is polynomial-like and forces an early minima)
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -19,7 +21,7 @@ library("scales")
 library("dplyr")
 library("data.table")
 library("MASS")
-library("ggnomics")
+library("ggh4x")
 library("npmv")
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
@@ -849,7 +851,32 @@ gc_summarized <- summarize(gc_data,
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess[pseudo_K_index],
   pseudo_K_timesincemin = pseudo_K_time - first_min_time,
-  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
+  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time,
+  #fit logistic curve to data
+  # fit <- list(optim(par = c("k" = pseudo_K, "d_0" = 0,
+  #                        "r" = max_percap_gr_rate),
+  #                fn = logis_fit_err,
+  #                dens_vals = sm_loess[1:pseudo_K_index],
+  #                t_vals = Time_s[1:pseudo_K_index],
+  #                method = "BFGS"))
+  # fit_k <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
+  #                        "r" = max_percap_gr_rate, "delta" = first_min),
+  #                fn = logis_fit_err, 
+  #                dens_vals = sm_loess[1:pseudo_K_index],
+  #                t_vals = Time_s[1:pseudo_K_index],
+  #                method = "BFGS")$par["k"],
+  # fit_first_min <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
+  #                        "r" = max_percap_gr_rate, "delta" = first_min),
+  #                fn = logis_fit_err, 
+  #                dens_vals = sm_loess[1:pseudo_K_index],
+  #                t_vals = Time_s[1:pseudo_K_index],
+  #                method = "BFGS")$par["d_0"],
+  # fit_err <- fit_r <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
+  #                                   "r" = max_percap_gr_rate, "delta" = first_min),
+  #                           fn = logis_fit_err, 
+  #                           dens_vals = sm_loess[1:pseudo_K_index],
+  #                           t_vals = Time_s[1:pseudo_K_index],
+  #                           method = "BFGS")$value
 )
 
 #Change to data frame for cleanliness
@@ -1052,6 +1079,79 @@ if(F) {
 # (other isols from that pop will have to suffice, since we fail to detect 
 # any diauxic shift in those curves, and looking at the curves shows pretty 
 # clearly no sensitivity changes will be sufficient
+
+##Fit logistic curve to data
+#define error for logistic fit (for use with optim())
+logis_fit_err <- function(params, t_vals, dens_vals) {
+  #params <- c("k" = ..., "d_0" = ..., "r" = ...)
+  pred_vals <- with(as.list(params),
+                    k/(1+(((k-d_0)/d_0)*exp(-r*t_vals))))
+  err <- sum((log10(pred_vals) - log10(dens_vals))**2)
+  if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
+}
+
+#Do fitting
+gc_summarized <- cbind(gc_summarized,
+                       data.frame("fit_r" = as.numeric(NA), "fit_k" = as.numeric(NA),
+                                  "fit_d0" = as.numeric(NA), "fit_err" = as.numeric(NA)))
+for (sum_row in 1:nrow(gc_summarized)) {
+  if (!is.na(gc_summarized$pseudo_K[sum_row])) {
+    my_well <- gc_summarized$uniq_well[sum_row]
+    myrows <- which(gc_data$uniq_well == my_well &
+                      gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row])
+    temp <- optim(par = c("k" = gc_summarized$pseudo_K[sum_row],
+                          "d_0" = gc_summarized$first_min[sum_row],
+                          "r" = gc_summarized$max_percap_gr_rate[sum_row]),
+                  fn = logis_fit_err,
+                  dens_vals = gc_data$sm_loess[myrows],
+                  t_vals = gc_data$Time_s[myrows],
+                  method = "BFGS")
+    gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_err")] <-
+      data.frame("fit_r" = temp$par["r"], "fit_k" = temp$par["k"],
+                 "fit_d0" = temp$par["d_0"], "fit_err" = temp$value)
+  }
+}
+
+#Check results
+if (F) {
+  ggplot(data = gc_summarized,
+         aes(x = max_percap_gr_rate, y = fit_r)) +
+    geom_point() +
+    scale_x_continuous(trans = "log10") +
+    scale_y_continuous(trans = "log10")
+  ggplot(data = gc_summarized,
+         aes(x = pseudo_K, y = fit_k)) +
+    geom_point() +
+    scale_x_continuous(trans = "log10") +
+    scale_y_continuous(trans = "log10")
+  ggplot(data = gc_summarized,
+         aes(x = fit_d0, y = first_min)) +
+    geom_point() +
+    scale_y_continuous(trans = "log10") +
+    scale_x_continuous(trans = "log10")
+  hist(gc_summarized$fit_err)
+}
+
+#Make plots of fits
+dir.create("./Growth_curve_plots_fits", showWarnings = F)
+if (F) {
+  for (sum_row in 1:nrow(gc_summarized)) {
+    my_well <- gc_summarized$uniq_well[sum_row]
+    t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+    pred_vals <- with(as.list(
+      gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_err")]),
+                      fit_k/(1+(((fit_k-fit_d0)/fit_d0)*exp(-fit_r*t_vals))))
+    #png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
+        #width = 4, height = 4, units = "in", res = 300)
+    print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
+           aes(x = Time_s, y = cfu_ml)) +
+      geom_point() +
+      geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+                mapping = aes(x = Time_s, y = pred_vals)))
+    dev.off()
+  }
+}
+      
 
 #Isolate growth curves: Make example plots (eg for talks) ----
 if (F) {
