@@ -851,32 +851,7 @@ gc_summarized <- summarize(gc_data,
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess[pseudo_K_index],
   pseudo_K_timesincemin = pseudo_K_time - first_min_time,
-  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time,
-  #fit logistic curve to data
-  # fit <- list(optim(par = c("k" = pseudo_K, "d_0" = 0,
-  #                        "r" = max_percap_gr_rate),
-  #                fn = logis_fit_err,
-  #                dens_vals = sm_loess[1:pseudo_K_index],
-  #                t_vals = Time_s[1:pseudo_K_index],
-  #                method = "BFGS"))
-  # fit_k <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
-  #                        "r" = max_percap_gr_rate, "delta" = first_min),
-  #                fn = logis_fit_err, 
-  #                dens_vals = sm_loess[1:pseudo_K_index],
-  #                t_vals = Time_s[1:pseudo_K_index],
-  #                method = "BFGS")$par["k"],
-  # fit_first_min <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
-  #                        "r" = max_percap_gr_rate, "delta" = first_min),
-  #                fn = logis_fit_err, 
-  #                dens_vals = sm_loess[1:pseudo_K_index],
-  #                t_vals = Time_s[1:pseudo_K_index],
-  #                method = "BFGS")$par["d_0"],
-  # fit_err <- fit_r <- optim(par = c("k" = pseudo_K, "d_0" = 0, 
-  #                                   "r" = max_percap_gr_rate, "delta" = first_min),
-  #                           fn = logis_fit_err, 
-  #                           dens_vals = sm_loess[1:pseudo_K_index],
-  #                           t_vals = Time_s[1:pseudo_K_index],
-  #                           method = "BFGS")$value
+  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
 )
 
 #Change to data frame for cleanliness
@@ -972,6 +947,7 @@ if (FALSE) {
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = first_min_time, y = first_min),
                    color = "green", size = 3) +
+        scale_y_continuous(trans = "log10") +
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = deriv_sm_loess)) +
@@ -1082,10 +1058,12 @@ if(F) {
 
 ##Fit logistic curve to data
 #define error for logistic fit (for use with optim())
-logis_fit_err <- function(params, t_vals, dens_vals) {
-  #params <- c("k" = ..., "d_0" = ..., "r" = ...)
+logis_fit_err <- function(params, t_vals, dens_vals, t_offset) {
+  #params <- c("k" = ..., "d_0" = ..., "r" = ..., "delta" = ...)
+  t_vals_hrs <- t_vals/3600
+  t_offset_hrs <- t_offset/3600
   pred_vals <- with(as.list(params),
-                    k/(1+(((k-d_0)/d_0)*exp(-r*t_vals))))
+                    k/(1+(((k-d_0)/d_0)*exp(-r*(t_vals_hrs-t_offset_hrs)))))
   err <- sum((log10(pred_vals) - log10(dens_vals))**2)
   if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
 }
@@ -1093,22 +1071,29 @@ logis_fit_err <- function(params, t_vals, dens_vals) {
 #Do fitting
 gc_summarized <- cbind(gc_summarized,
                        data.frame("fit_r" = as.numeric(NA), "fit_k" = as.numeric(NA),
-                                  "fit_d0" = as.numeric(NA), "fit_err" = as.numeric(NA)))
+                                  "fit_d0" = as.numeric(NA), 
+                                  "fit_delta" = as.numeric(NA),
+                                  "fit_err" = as.numeric(NA)))
 for (sum_row in 1:nrow(gc_summarized)) {
   if (!is.na(gc_summarized$pseudo_K[sum_row])) {
     my_well <- gc_summarized$uniq_well[sum_row]
     myrows <- which(gc_data$uniq_well == my_well &
-                      gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row])
+                      gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row] &
+                      gc_data$Time_s >= gc_summarized$max_percap_gr_time[sum_row])
     temp <- optim(par = c("k" = gc_summarized$pseudo_K[sum_row],
-                          "d_0" = gc_summarized$first_min[sum_row],
-                          "r" = gc_summarized$max_percap_gr_rate[sum_row]),
+                          "d_0" = gc_summarized$max_percap_gr_dens[sum_row],
+                          "r" = gc_summarized$max_percap_gr_rate[sum_row],
+                          "delta" = 0),
                   fn = logis_fit_err,
                   dens_vals = gc_data$sm_loess[myrows],
                   t_vals = gc_data$Time_s[myrows],
+                  t_offset = gc_summarized$max_percap_gr_time[sum_row],
                   method = "BFGS")
-    gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_err")] <-
+    gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")] <-
       data.frame("fit_r" = temp$par["r"], "fit_k" = temp$par["k"],
-                 "fit_d0" = temp$par["d_0"], "fit_err" = temp$value)
+                 "fit_d0" = temp$par["d_0"], 
+                 "fit_delta" = temp$par["delta"],
+                 "fit_err" = temp$value)
   }
 }
 
@@ -1138,16 +1123,25 @@ if (F) {
   for (sum_row in 1:nrow(gc_summarized)) {
     my_well <- gc_summarized$uniq_well[sum_row]
     t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+    t_vals_hrs <- gc_data$Time_s[gc_data$uniq_well == my_well]/3600
+    offset_hrs <- gc_summarized$max_percap_gr_time[sum_row]/3600
     pred_vals <- with(as.list(
-      gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_err")]),
-                      fit_k/(1+(((fit_k-fit_d0)/fit_d0)*exp(-fit_r*t_vals))))
-    #png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
-        #width = 4, height = 4, units = "in", res = 300)
+      gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
+                      fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
+                                  exp(-fit_r*(t_vals_hrs-offset_hrs)))))
+    png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
+        width = 4, height = 4, units = "in", res = 300)
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
            aes(x = Time_s, y = cfu_ml)) +
       geom_point() +
       geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
-                mapping = aes(x = Time_s, y = pred_vals)))
+                mapping = aes(x = Time_s, y = pred_vals)) +
+        scale_y_continuous(trans = "log10") +
+        geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
+          gc_summarized$uniq_well == my_well]), lty = 2) +
+        geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
+          gc_summarized$uniq_well == my_well]), lty = 2) +
+        NULL)
     dev.off()
   }
 }
