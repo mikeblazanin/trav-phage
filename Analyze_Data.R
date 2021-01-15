@@ -1059,9 +1059,10 @@ if(F) {
 ##Fit logistic curve to data
 #define error for logistic fit (for use with optim())
 logis_fit_err <- function(params, t_vals, dens_vals, t_offset) {
-  #params <- c("k" = ..., "d_0" = ..., "r" = ..., "delta" = ...)
+  #params <- c("logk" = ..., "d_0" = ..., "r" = ..., "delta" = ...)
   t_vals_hrs <- t_vals/3600
   t_offset_hrs <- t_offset/3600
+  k <- 10**params["logk"]
   pred_vals <- with(as.list(params),
                     k/(1+(((k-d_0)/d_0)*exp(-r*(t_vals_hrs-t_offset_hrs)))))
   err <- sum((log10(pred_vals) - log10(dens_vals))**2)
@@ -1080,7 +1081,7 @@ for (sum_row in 1:nrow(gc_summarized)) {
     myrows <- which(gc_data$uniq_well == my_well &
                       gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row] &
                       gc_data$Time_s >= gc_summarized$max_percap_gr_time[sum_row])
-    temp <- optim(par = c("k" = gc_summarized$pseudo_K[sum_row],
+    temp <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
                           "d_0" = gc_summarized$max_percap_gr_dens[sum_row],
                           "r" = gc_summarized$max_percap_gr_rate[sum_row],
                           "delta" = 0),
@@ -1090,31 +1091,11 @@ for (sum_row in 1:nrow(gc_summarized)) {
                   t_offset = gc_summarized$max_percap_gr_time[sum_row],
                   method = "BFGS")
     gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")] <-
-      data.frame("fit_r" = temp$par["r"], "fit_k" = temp$par["k"],
+      data.frame("fit_r" = temp$par["r"], "fit_k" = 10**temp$par["logk"],
                  "fit_d0" = temp$par["d_0"], 
                  "fit_delta" = temp$par["delta"],
                  "fit_err" = temp$value)
   }
-}
-
-#Check results
-if (F) {
-  ggplot(data = gc_summarized,
-         aes(x = max_percap_gr_rate, y = fit_r)) +
-    geom_point() +
-    scale_x_continuous(trans = "log10") +
-    scale_y_continuous(trans = "log10")
-  ggplot(data = gc_summarized,
-         aes(x = pseudo_K, y = fit_k)) +
-    geom_point() +
-    scale_x_continuous(trans = "log10") +
-    scale_y_continuous(trans = "log10")
-  ggplot(data = gc_summarized,
-         aes(x = fit_d0, y = first_min)) +
-    geom_point() +
-    scale_y_continuous(trans = "log10") +
-    scale_x_continuous(trans = "log10")
-  hist(gc_summarized$fit_err)
 }
 
 #Make plots of fits
@@ -1132,20 +1113,41 @@ if (F) {
     png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
         width = 4, height = 4, units = "in", res = 300)
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
-           aes(x = Time_s, y = cfu_ml)) +
-      geom_point() +
-      geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
-                mapping = aes(x = Time_s, y = pred_vals)) +
-        scale_y_continuous(trans = "log10") +
-        geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
-          gc_summarized$uniq_well == my_well]), lty = 2) +
-        geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
-          gc_summarized$uniq_well == my_well]), lty = 2) +
-        NULL)
+                 aes(x = Time_s, y = sm_loess)) +
+            geom_line(lwd = 1.5) +
+            geom_point(size = 0.5, aes(y = cfu_ml)) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+                      mapping = aes(x = Time_s, y = pred_vals),
+                      color = "red") +
+            scale_y_continuous(trans = "log10") +
+            geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
+            geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
+            NULL)
     dev.off()
   }
 }
-      
+
+#Check how fit results compare to local extrema results
+if (F) {
+  ggplot(data = gc_summarized,
+         aes(x = max_percap_gr_rate, y = fit_r)) +
+    geom_point() +
+    scale_x_continuous(trans = "log10") +
+    scale_y_continuous(trans = "log10")
+  ggplot(data = gc_summarized,
+         aes(x = pseudo_K, y = fit_k, color = Proj)) +
+    geom_point() +
+    scale_x_continuous(trans = "log10") +
+    scale_y_continuous(trans = "log10")
+  ggplot(data = gc_summarized,
+         aes(x = fit_d0, y = first_min)) +
+    geom_point() +
+    scale_y_continuous(trans = "log10") +
+    scale_x_continuous(trans = "log10")
+  hist(gc_summarized$fit_err)
+}     
 
 #Isolate growth curves: Make example plots (eg for talks) ----
 if (F) {
@@ -1293,7 +1295,10 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "max_percap_gr_timesincemin",
                               "pseudo_K",
                               "pseudo_K_timesincemin",
-                              "pseudo_K_timesince_maxpercap"))
+                              "pseudo_K_timesince_maxpercap",
+                              "fit_r",
+                              "fit_k",
+                              "fit_d0"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
@@ -1338,7 +1343,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
-  for (i in 1:7) {
+  for (i in 1:10) {
     var_root <- c("first_min_", 
 #                     "first_min_time_", 
                   "max_percap_gr_rate_", 
@@ -1348,14 +1353,16 @@ if (F) {
                   "pseudo_K_", 
 #                     "pseudo_K_time_", 
                   "pseudo_K_timesincemin_",
-                  "pseudo_K_timesince_maxpercap_")[i]
+                  "pseudo_K_timesince_maxpercap_",
+                  "fit_r_", "fit_k_", "fit_d0_")[i]
     var_name <- c("First minimum density (cfu/mL)",
                   "Maximum per-capita growth rate",
                   "Density at maximum per-capita growth rate",
                   "Time until maximum per-capita growth rate",
                   "Density at diauxic shift (cfu/mL)",
                   "Time until diauxic shift (from min)",
-                  "Time until diauxic shift (from max percap)")[i]
+                  "Time until diauxic shift (from max percap)",
+                  "Fit r", "Fit carrying capacity", "Fit init density")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
@@ -1412,9 +1419,10 @@ for (var in c("first_min_avg",
               "max_percap_gr_timesincemin_avg",
               "pseudo_K_avg",
               "pseudo_K_timesincemin_avg",
-              "pseudo_K_timesince_maxpercap_avg")) {
+              "pseudo_K_timesince_maxpercap_avg",
+              "fit_r_avg", "fit_k_avg", "fit_d0_avg")) {
   new_var <- paste(var, "_rel", sep = "")
-  gc_sum_isols[, new_var] <- gc_sum_isols[, var]/
+  gc_sum_isols[, new_var] <- gc_sum_isols[, var] -
     ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
                     paste(ancestors$Date, ancestors$Media)), var]
 }
@@ -1428,14 +1436,15 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (F) {
-  for (i in 1:7) {
+  for (i in 1:10) {
     var_root <- c("first_min_", 
                   "max_percap_gr_rate_", 
                   "max_percap_gr_dens_", 
                   "max_percap_gr_timesincemin_",
                   "pseudo_K_", 
                   "pseudo_K_timesincemin_",
-                  "pseudo_K_timesince_maxpercap_")[i]
+                  "pseudo_K_timesince_maxpercap_",
+                  "fit_r_", "fit_k_", "fit_d0_")[i]
     var <- paste(var_root, "avg_rel", sep = "")
     var_name <- c("Relative first minimum density",
                   "Relative maximum per-capita growth rate",
@@ -1443,7 +1452,9 @@ if (F) {
                   "Relative time until maximum per-capita growth rate",
                   "Relative density at diauxic shift",
                   "Relative time until diauxic shift (from min)",
-                  "Relative time until diauxic shift (from max percap)")[i]
+                  "Relative time until diauxic shift (from max percap)",
+                  "Relative Fit r", "Relative Fit carrying capacity", 
+                  "Relative Fit init density")[i]
     #Note: if you want to view the sd's between wells of
     # Ancestor-normalized values, you'll have to go back to
     # gc_summarized and calculate the relative values there
@@ -1461,7 +1472,7 @@ if (F) {
             scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                                labels = c("Control", "Local", "Global"),
                                values = my_cols[c(8, 2, 6)]) +
-            geom_hline(yintercept = 1, lty = 2) +
+            geom_hline(yintercept = 0, lty = 2) +
             labs(y = var_name, x = "Population") +
             theme_bw() +
             theme(legend.position = "none") +
@@ -1496,7 +1507,8 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
                               "max_percap_gr_timesincemin_avg_rel",
                               "pseudo_K_avg_rel",
                             "pseudo_K_timesincemin_avg_rel",
-                            "pseudo_K_timesince_maxpercap_avg_rel"))
+                            "pseudo_K_timesince_maxpercap_avg_rel",
+                            "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized mean data (median below)
@@ -1543,6 +1555,31 @@ if (F) {
     dev.off()
   }
 }
+
+#View population mean data r vs k
+tiff("./Growth_curve_variables_plots_pops/fitr_fitk.tiff",
+     width = 10.5, height = 10, units = "in", res = 300)
+print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+             aes(x = fit_r_avg_rel_avg, y = fit_k_avg_rel_avg, 
+                 fill = Treat, shape = Pop)) +
+        geom_point(size = 8, alpha = 0.8) +
+        scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                           labels = c("Control", "Local", "Global"),
+                           values = my_cols[c(8, 2, 6)]) +
+        scale_shape_manual(values = 21:26) +
+        facet_grid(Proj ~ Media, scales = "free",
+                   labeller = labeller(Proj = my_facet_labels,
+                                       Media = my_facet_labels)) +
+        geom_hline(yintercept = 0, lty = 2) +
+        geom_vline(xintercept = 0, lty = 2) +
+        theme_bw() +
+        guides(fill=guide_legend(override.aes=list(shape=21))) +
+        # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+        #                   ymax = get(var)+get(var_sd)),
+        #               position = position_dodge(0.3),
+        #               width = 0.2)
+        NULL)
+dev.off()
 
 #View population-summarized median data
 if (F) {
