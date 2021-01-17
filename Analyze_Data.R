@@ -28,6 +28,10 @@ library("npmv")
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 
+#Global options
+make_curveplots <- FALSE
+make_statplots <- TRUE
+
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
 
@@ -58,12 +62,14 @@ exper_evol_migr$area_k <- log(exper_evol_migr$area_cm2/(0.01*pi))/
   exper_evol_migr$time_since_inoc
 
 #Make plot of all pops
-ggplot(data = exper_evol_migr,
-       aes(x = Timepoint, y = area_k,
-           group = paste(Pop, Treat), color = Treat)) +
-  geom_line() +
-  facet_grid(~Proj)
-
+if (make_statplots) {
+  ggplot(data = exper_evol_migr,
+         aes(x = Timepoint, y = area_k,
+             group = paste(Pop, Treat), color = Treat)) +
+    geom_line() +
+    facet_grid(~Proj)
+}
+  
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
@@ -74,83 +80,85 @@ exper_evol_summ <- summarize(exper_evol_migr,
                              area_k_sd = sd(area_k))
 
 #Make plot of summarized data
-my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
+if (make_statplots) {
+  my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
+  
+  ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_k_mean,
+                                     color = Treat)) +
+    geom_point(position = position_dodge(0.2)) + 
+    geom_line(size = 1.2, position = position_dodge(0.2)) +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
+          legend.text = element_text(size = 16)) +
+    facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+    geom_errorbar(aes(ymax = area_k_mean+area_k_sd, 
+                      ymin = area_k_mean-area_k_sd),
+                  width=1, size = .7, position=position_dodge(0.2)) +
+    labs(x = "Transfer", 
+         y = expression(paste("Mean Area of Growth per Hour ( ", cm^2, "/hr)"))) + 
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                    labels = c("Control", "Local", "Global"),
+                    values = my_cols[c(8, 2, 6)]) +
+    scale_x_continuous(breaks = c(0, 7, 14)) +
+    NULL
 
-ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_k_mean,
-                                   color = Treat)) +
-  geom_point(position = position_dodge(0.2)) + 
-  geom_line(size = 1.2, position = position_dodge(0.2)) +
-  theme_bw() +
-  theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
-        legend.text = element_text(size = 16)) +
-  facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  geom_errorbar(aes(ymax = area_k_mean+area_k_sd, 
-                    ymin = area_k_mean-area_k_sd),
-                width=1, size = .7, position=position_dodge(0.2)) +
-  labs(x = "Transfer", 
-       y = expression(paste("Mean Area of Growth per Hour ( ", cm^2, "/hr)"))) + 
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                  labels = c("Control", "Local", "Global"),
-                  values = my_cols[c(8, 2, 6)]) +
-  scale_x_continuous(breaks = c(0, 7, 14)) +
-  NULL
-
-#Make plot with both summarized and non-summarized data
-tiff("./Output_figures/Exper_evol_migr.tiff",
-     width = 7, height = 4, units = "in", res = 300)
-ggplot(data = exper_evol_migr,
-               aes(x = Timepoint, y = area_k, 
-                   group = paste(Treat, Pop),
-                   color = Treat)) +
-#  geom_point(size = 0.5, alpha = 0.5) +
-         geom_line(alpha = 0.5, lwd = .4) +
-         facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-  geom_line(data = exper_evol_summ,
-            aes(x = Timepoint, y = area_k_mean, color = Treat,
-                group = Treat),
-            size = 1.3) +
-  labs(x = "Transfer", y = "Total Growth Parameter") + 
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_x_continuous(breaks = c(0, 7, 14)) +
-  theme_bw() +
-  theme(axis.text.y = element_text(size = 11), 
-        axis.text.x = element_text(size = 11),
-        axis.title = element_text(size = 14),
-        legend.text = element_text(size = 13), 
-        legend.title = element_text(size = 14),
-        strip.text = element_text(size = 14)) +
-  NULL
-dev.off()
-
-tiff("./Output_figures/Exper_evol_migr_tall.tiff",
-     width = 7, height = 4, units = "in", res = 300)
-ggplot(data = exper_evol_migr,
-       aes(x = Timepoint, y = area_k, 
-           group = paste(Treat, Pop),
-           color = Treat)) +
+  #Make plot with both summarized and non-summarized data
+  tiff("./Output_figures/Exper_evol_migr.tiff",
+       width = 7, height = 4, units = "in", res = 300)
+  ggplot(data = exper_evol_migr,
+                 aes(x = Timepoint, y = area_k, 
+                     group = paste(Treat, Pop),
+                     color = Treat)) +
   #  geom_point(size = 0.5, alpha = 0.5) +
-  geom_line(alpha = 0.5, lwd = .4) +
-  facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-  geom_line(data = exper_evol_summ,
-            aes(x = Timepoint, y = area_k_mean, color = Treat,
-                group = Treat),
-            size = 1.3) +
-  labs(x = "Transfer", y = "Total Growth Parameter") + 
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_x_continuous(breaks = c(0, 7, 14)) +
-  theme_bw() +
-  theme(axis.text.y = element_text(size = 11), 
-        axis.text.x = element_text(size = 11),
-        axis.title = element_text(size = 14),
-        legend.text = element_text(size = 13), 
-        legend.title = element_text(size = 14),
-        strip.text = element_text(size = 14)) +
-  NULL
-dev.off()
+           geom_line(alpha = 0.5, lwd = .4) +
+           facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
+    geom_line(data = exper_evol_summ,
+              aes(x = Timepoint, y = area_k_mean, color = Treat,
+                  group = Treat),
+              size = 1.3) +
+    labs(x = "Transfer", y = "Total Growth Parameter") + 
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_continuous(breaks = c(0, 7, 14)) +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 11), 
+          axis.text.x = element_text(size = 11),
+          axis.title = element_text(size = 14),
+          legend.text = element_text(size = 13), 
+          legend.title = element_text(size = 14),
+          strip.text = element_text(size = 14)) +
+    NULL
+  dev.off()
+  
+  tiff("./Output_figures/Exper_evol_migr_tall.tiff",
+       width = 7, height = 4, units = "in", res = 300)
+  ggplot(data = exper_evol_migr,
+         aes(x = Timepoint, y = area_k, 
+             group = paste(Treat, Pop),
+             color = Treat)) +
+    #  geom_point(size = 0.5, alpha = 0.5) +
+    geom_line(alpha = 0.5, lwd = .4) +
+    facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+    geom_line(data = exper_evol_summ,
+              aes(x = Timepoint, y = area_k_mean, color = Treat,
+                  group = Treat),
+              size = 1.3) +
+    labs(x = "Transfer", y = "Total Growth Parameter") + 
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_continuous(breaks = c(0, 7, 14)) +
+    theme_bw() +
+    theme(axis.text.y = element_text(size = 11), 
+          axis.text.x = element_text(size = 11),
+          axis.title = element_text(size = 14),
+          legend.text = element_text(size = 13), 
+          legend.title = element_text(size = 14),
+          strip.text = element_text(size = 14)) +
+    NULL
+  dev.off()
+}
 
 ##Isolate migration ----
 isol_migration <- read.csv("./Clean_Data/Isolate_migration.csv")
@@ -191,113 +199,115 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
-#Total area
-ggplot(isol_migration, 
-       aes(x = Pop, y = area_cm2, 
-           color = Treat, fill = Treat)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.6,
-             size = 2) +
-  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  theme_bw() + 
-  labs(y = "Area of Growth (cm^2)", x = "Population") +
-  # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-  #                    labels = c("Control", "Local", "Global"),
-  #                    values = my_cols[c(8, 2, 6)]) +
-  # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-  #                   labels = c("Control", "Local", "Global"),
-  #                   values = my_cols[c(8, 2, 6)]) +
-  theme(legend.position = "none") +
-  NULL
-
-#Relative area
-ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Pop, y = relative_area, 
-           color = Treat, fill = Treat)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.6,
-             size = 2) +
-  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  theme_bw() + 
-  labs(y = "Total Area Relative to Ancestor",
-       x = "Population") +
-  geom_hline(yintercept = 1, lty = 2) +
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-  theme(legend.position = "none") +
-  NULL
-
-#K values
-ggplot(isol_migration, 
-       aes(x = Pop, y = area_k, 
-           color = Treat, fill = Treat)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.6,
-             size = 2) +
-  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  theme_bw() + 
-  labs(y = "Total Growth Parameter",
-       x = "Population") +
-  # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-  #                    labels = c("Control", "Local", "Global"),
-  #                    values = my_cols[c(8, 2, 6)]) +
-  # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-  #                   labels = c("Control", "Local", "Global"),
-  #                   values = my_cols[c(8, 2, 6)]) +
-  theme(legend.position = "none") +
-  NULL
-
-#Relative K
-tiff("./Output_figures/Isol_migration.tiff",
-     width = 6, height = 4, units = "in", res = 300)
-ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Pop, y = relative_k, 
-           color = Treat, fill = Treat)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.6,
-             size = 2) +
-  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  theme_bw() + 
-  labs(y = "Total Growth Parameter Relative to Ancestor",
-       x = "Population") +
-  geom_hline(yintercept = 1, lty = 2) +
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-  theme(legend.position = "none") +
-  NULL
-dev.off()
-
-tiff("./Output_figures/Isol_migration_tall.tiff",
-     width = 5, height = 4, units = "in", res = 300)
-ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-       aes(x = Pop, y = relative_k, 
-           color = Treat, fill = Treat)) +
-  geom_point(position = position_dodge(0.5), alpha = 0.6,
-             size = 2) +
-  facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels),
-             scales = "free_y") +
-  theme_bw() + 
-  labs(y = "Total Growth Parameter Relative to Ancestor",
-       x = "Population") +
-  geom_hline(yintercept = 1, lty = 2) +
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-  theme(legend.position = "none") +
-  NULL
-dev.off()
+if (make_statplots) {
+  #Total area
+  ggplot(isol_migration, 
+         aes(x = Pop, y = area_cm2, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    theme_bw() + 
+    labs(y = "Area of Growth (cm^2)", x = "Population") +
+    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                    labels = c("Control", "Local", "Global"),
+    #                    values = my_cols[c(8, 2, 6)]) +
+    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                   labels = c("Control", "Local", "Global"),
+    #                   values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL
+  
+  #Relative area
+  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+         aes(x = Pop, y = relative_area, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    theme_bw() + 
+    labs(y = "Total Area Relative to Ancestor",
+         x = "Population") +
+    geom_hline(yintercept = 1, lty = 2) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                      labels = c("Control", "Local", "Global"),
+                      values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL
+  
+  #K values
+  ggplot(isol_migration, 
+         aes(x = Pop, y = area_k, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    theme_bw() + 
+    labs(y = "Total Growth Parameter",
+         x = "Population") +
+    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                    labels = c("Control", "Local", "Global"),
+    #                    values = my_cols[c(8, 2, 6)]) +
+    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                   labels = c("Control", "Local", "Global"),
+    #                   values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL
+  
+  #Relative K
+  tiff("./Output_figures/Isol_migration.tiff",
+       width = 6, height = 4, units = "in", res = 300)
+  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+         aes(x = Pop, y = relative_k, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    theme_bw() + 
+    labs(y = "Total Growth Parameter Relative to Ancestor",
+         x = "Population") +
+    geom_hline(yintercept = 1, lty = 2) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                      labels = c("Control", "Local", "Global"),
+                      values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL
+  dev.off()
+  
+  tiff("./Output_figures/Isol_migration_tall.tiff",
+       width = 5, height = 4, units = "in", res = 300)
+  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+         aes(x = Pop, y = relative_k, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels),
+               scales = "free_y") +
+    theme_bw() + 
+    labs(y = "Total Growth Parameter Relative to Ancestor",
+         x = "Population") +
+    geom_hline(yintercept = 1, lty = 2) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                      labels = c("Control", "Local", "Global"),
+                      values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL
+  dev.off()
+}
 
 #Summarize for later inclusion w/ gc data
 isol_migration_temp <- isol_migration[!is.na(isol_migration$relative_k), ]
@@ -337,15 +347,17 @@ resis_data$approach <- NA
 resis_data$approach[1:70] <- "old"
 resis_data$approach[71:nrow(resis_data)] <- "new"
 
-#Make plot with both old and new approach
-ggplot(resis_data[resis_data$Treat != "Anc", ], 
-       aes(x = Treat, y = EOP, color = Pop,
-           shape = bd, group = Pop)) +
-  facet_grid(Proj~approach) +
-  geom_point(position = position_dodge(width = 0.5),
-             alpha = 0.7) +
-  scale_y_continuous(trans = "log10") +
-  theme_bw()
+if (make_statplots) {
+  #Make plot with both old and new approach
+  ggplot(resis_data[resis_data$Treat != "Anc", ], 
+         aes(x = Treat, y = EOP, color = Pop,
+             shape = bd, group = Pop)) +
+    facet_grid(Proj~approach) +
+    geom_point(position = position_dodge(width = 0.5),
+               alpha = 0.7) +
+    scale_y_continuous(trans = "log10") +
+    theme_bw()
+}
 
 #Calculate EOP limit & adjust values below limit
 eop_limit <- max(resis_data$EOP[resis_data$bd &
@@ -358,68 +370,70 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
-#Nice plot
-tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
-     units = "in", res = 300)
-ggplot(resis_data[resis_data$Treat != "Anc" &
-                    resis_data$approach == "new", ],
-       aes(x = Pop, y = EOP, 
-           color = Treat, fill = Treat,
-           shape = bd)) +
-  facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  geom_point(aes(size = bd, alpha = bd)) +
-  scale_size_manual(values = c(2, 2.5)) +
-  scale_alpha_manual(values = c(0.6, 1)) +
-  scale_y_continuous(trans = "log10",
-                     breaks = 10**(c(0, -2, -4, -6)),
-                     labels = c(1, expression(10^-2), expression(10^-4),
-                                expression(10^-6))) +
-  theme_bw() +
-  geom_hline(yintercept = 1, lty = 2) +
-  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-  scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
-  labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
-  theme(legend.position = "none") +
-  NULL
-dev.off()
-
-tiff("./Output_figures/Isol_resis_tall.tiff", width = 5, height = 4,
-     units = "in", res = 300)
-ggplot(resis_data[resis_data$Treat != "Anc" &
-                    resis_data$approach == "new", ],
-       aes(x = Pop, y = EOP, 
-           color = Treat, fill = Treat,
-           shape = bd)) +
-  facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                Treat = my_facet_labels)) +
-  geom_point(aes(size = bd, alpha = bd)) +
-  scale_size_manual(values = c(2, 2.5)) +
-  scale_alpha_manual(values = c(0.6, 1)) +
-  scale_y_continuous(trans = "log10",
-                     breaks = 10**(c(0, -2, -4, -6)),
-                     labels = c(1, expression(10^-2), expression(10^-4),
-                                expression(10^-6))) +
-  theme_bw() +
-  geom_hline(yintercept = 1, lty = 2) +
-  geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
-  scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                     labels = c("Control", "Local", "Global"),
-                     values = my_cols[c(8, 2, 6)]) +
-  scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-  scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
-  labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
-  theme(legend.position = "none") +
-  NULL
-dev.off()
+if (make_statplots) {
+  #Nice plot
+  tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
+       units = "in", res = 300)
+  ggplot(resis_data[resis_data$Treat != "Anc" &
+                      resis_data$approach == "new", ],
+         aes(x = Pop, y = EOP, 
+             color = Treat, fill = Treat,
+             shape = bd)) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    geom_point(aes(size = bd, alpha = bd)) +
+    scale_size_manual(values = c(2, 2.5)) +
+    scale_alpha_manual(values = c(0.6, 1)) +
+    scale_y_continuous(trans = "log10",
+                       breaks = 10**(c(0, -2, -4, -6)),
+                       labels = c(1, expression(10^-2), expression(10^-4),
+                                  expression(10^-6))) +
+    theme_bw() +
+    geom_hline(yintercept = 1, lty = 2) +
+    geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                      labels = c("Control", "Local", "Global"),
+                      values = my_cols[c(8, 2, 6)]) +
+    scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+    labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
+    theme(legend.position = "none") +
+    NULL
+  dev.off()
+  
+  tiff("./Output_figures/Isol_resis_tall.tiff", width = 5, height = 4,
+       units = "in", res = 300)
+  ggplot(resis_data[resis_data$Treat != "Anc" &
+                      resis_data$approach == "new", ],
+         aes(x = Pop, y = EOP, 
+             color = Treat, fill = Treat,
+             shape = bd)) +
+    facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    geom_point(aes(size = bd, alpha = bd)) +
+    scale_size_manual(values = c(2, 2.5)) +
+    scale_alpha_manual(values = c(0.6, 1)) +
+    scale_y_continuous(trans = "log10",
+                       breaks = 10**(c(0, -2, -4, -6)),
+                       labels = c(1, expression(10^-2), expression(10^-4),
+                                  expression(10^-6))) +
+    theme_bw() +
+    geom_hline(yintercept = 1, lty = 2) +
+    geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                      labels = c("Control", "Local", "Global"),
+                      values = my_cols[c(8, 2, 6)]) +
+    scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+    labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
+    theme(legend.position = "none") +
+    NULL
+  dev.off()
+}
 
 #Summarize for later inclusion w/ gc data
 resis_data_temp <- resis_data[resis_data$approach == "new", ]
@@ -541,31 +555,33 @@ gc_data$percap_deriv_sm_loess <- calc_deriv(gc_data$sm_loess,
 #                                        time = gc_data$Time_s,
 #                                        time_normalize = 3600)
 
-#View samples of original & smoothed curves
-# as well as derivatives (per cap & not) of both orig and smoothed curves
-for (my_well in sample(unique(gc_data$uniq_well), 1)) {
-  my_rows <- which(gc_data$uniq_well == my_well)
-  
-  print(cowplot::plot_grid(
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = cfu_ml)) +
-      geom_line(color = "red", lwd = 1, alpha = 0.5) +
-      geom_line(aes(x = Time_s, y = sm_loess),
-                color = "blue", lwd = 1, alpha = 0.5) +
-      ggtitle(gc_data[my_rows[1], "uniq_well"]) +
-      #geom_hline(yintercept = 383404890) +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      NULL,
-    ggplot(data = gc_data[my_rows, ],
-           aes(x = Time_s, y = percap_deriv_sm_loess)) +
-      geom_line(color = "blue") +
-      # geom_line(aes(x = Time_s, y = percap_deriv_cfu),
-      #           color = "red") +
-      NULL,
-    ncol = 1, align = "v"))
+if (make_curveplots) {
+  #View samples of original & smoothed curves
+  # as well as derivatives (per cap & not) of both orig and smoothed curves
+  for (my_well in sample(unique(gc_data$uniq_well), 1)) {
+    my_rows <- which(gc_data$uniq_well == my_well)
+    
+    print(cowplot::plot_grid(
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = cfu_ml)) +
+        geom_line(color = "red", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess),
+                  color = "blue", lwd = 1, alpha = 0.5) +
+        ggtitle(gc_data[my_rows[1], "uniq_well"]) +
+        #geom_hline(yintercept = 383404890) +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        NULL,
+      ggplot(data = gc_data[my_rows, ],
+             aes(x = Time_s, y = percap_deriv_sm_loess)) +
+        geom_line(color = "blue") +
+        # geom_line(aes(x = Time_s, y = percap_deriv_cfu),
+        #           color = "red") +
+        NULL,
+      ncol = 1, align = "v"))
+  }
 }
 
 find_local_extrema <- function(values, 
@@ -858,7 +874,7 @@ gc_summarized <- summarize(gc_data,
 gc_summarized <- as.data.frame(gc_summarized)
 
 #Make output plots for problematic wells
-if (F) {
+if (make_curveplots) {
   wells_check <- c("2017-B_7x_C_L_B_1_Orig",
                    "2017-A_7x_Anc_Anc_Anc_1_Orig",
                    "2017-A_7x_B_L_A_1_Rich",
@@ -931,7 +947,7 @@ if (F) {
 }
 
 #Make output plots for all wells
-if (FALSE) {
+if (make_curveplots) {
   for (my_well in unique(gc_data$uniq_well)) {
     tiff(filename = paste("./Growth_curve_plots/", my_well, ".tiff", sep = ""),
          width = 5, height = 10, units = "in", res = 300)
@@ -984,7 +1000,7 @@ temp_rows <- which(gc_summarized$max_percap_index <= 3)
 #2017 B 7x ELB 1 50
 
 #Make plots of these early-max percap wells
-if (F) {
+if (make_curveplots) {
   for (my_well in gc_summarized$uniq_well[temp_rows]) {
     my_rows <- which(gc_data$uniq_well == my_well)
     print(cowplot::plot_grid(
@@ -1043,7 +1059,7 @@ gc_summarized <- gc_summarized[-which(gc_summarized$max_percap_index <= 2), ]
 #One isolate (7x dgc 1&2 rich) both replicate wells had no diauxic shift 
 #detected
 #Look at plots of 7x dgc 1&2 rich
-if(F) {
+if(make_curveplots) {
   test <- gc_data[gc_data$uniq_well == "2017-C_7x_D_G_C_2_Rich", ]
   test$deriv <- c(test$OD600[2:nrow(test)]-test$OD600[1:(nrow(test)-1)], NA)
   test$deriv_pc <- test$deriv/test$OD600
@@ -1098,39 +1114,41 @@ for (sum_row in 1:nrow(gc_summarized)) {
   }
 }
 
-#Make plots of fits
-dir.create("./Growth_curve_plots_fits", showWarnings = F)
-if (F) {
-  for (sum_row in 1:nrow(gc_summarized)) {
-    my_well <- gc_summarized$uniq_well[sum_row]
-    t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
-    t_vals_hrs <- gc_data$Time_s[gc_data$uniq_well == my_well]/3600
-    offset_hrs <- gc_summarized$max_percap_gr_time[sum_row]/3600
-    pred_vals <- with(as.list(
-      gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
-                      fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
-                                  exp(-fit_r*(t_vals_hrs-offset_hrs)))))
-    png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
-        width = 4, height = 4, units = "in", res = 300)
-    print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
-                 aes(x = Time_s, y = sm_loess)) +
-            geom_line(lwd = 1.5) +
-            geom_point(size = 0.5, aes(y = cfu_ml)) +
-            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
-                      mapping = aes(x = Time_s, y = pred_vals),
-                      color = "red") +
-            scale_y_continuous(trans = "log10") +
-            geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
-              gc_summarized$uniq_well == my_well]), lty = 2) +
-            geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
-              gc_summarized$uniq_well == my_well]), lty = 2) +
-            NULL)
-    dev.off()
+if(make_curveplots) {
+  #Make plots of fits
+  dir.create("./Growth_curve_plots_fits", showWarnings = F)
+  if (F) {
+    for (sum_row in 1:nrow(gc_summarized)) {
+      my_well <- gc_summarized$uniq_well[sum_row]
+      t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+      t_vals_hrs <- gc_data$Time_s[gc_data$uniq_well == my_well]/3600
+      offset_hrs <- gc_summarized$max_percap_gr_time[sum_row]/3600
+      pred_vals <- with(as.list(
+        gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
+                        fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
+                                    exp(-fit_r*(t_vals_hrs-offset_hrs)))))
+      png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
+          width = 4, height = 4, units = "in", res = 300)
+      print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
+                   aes(x = Time_s, y = sm_loess)) +
+              geom_line(lwd = 1.5) +
+              geom_point(size = 0.5, aes(y = cfu_ml)) +
+              geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+                        mapping = aes(x = Time_s, y = pred_vals),
+                        color = "red") +
+              scale_y_continuous(trans = "log10") +
+              geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
+                gc_summarized$uniq_well == my_well]), lty = 2) +
+              geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
+                gc_summarized$uniq_well == my_well]), lty = 2) +
+              NULL)
+      dev.off()
+    }
   }
 }
 
 #Check how fit results compare to local extrema results
-if (F) {
+if (make_statplots) {
   ggplot(data = gc_summarized,
          aes(x = max_percap_gr_rate, y = fit_r)) +
     geom_point() +
@@ -1150,7 +1168,7 @@ if (F) {
 }     
 
 #Isolate growth curves: Make example plots (eg for talks) ----
-if (F) {
+if (make_curveplots) {
   temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
   
   tiff("./Example_curve_plots/gc_plot1.tiff", width = 10, height = 10, units = "in", res = 300)
@@ -1303,7 +1321,7 @@ gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
 # Just raw sd vals (w/ red line for mean avg value)
-if (F) {
+if (make_statplots) {
   for (var in c("first_min_", "first_min_time_", 
                 "max_percap_gr_rate_", "max_percap_gr_time_", 
                 "max_percap_gr_dens_", 
@@ -1319,7 +1337,7 @@ if (F) {
   }
 }
 # Sd vals divided by matching avg value (so 1 is the reference)
-if (F) {
+if (make_statplots) {
   for (var in c("first_min_", "first_min_time_", 
                 "max_percap_gr_rate_", "max_percap_gr_time_", 
                 "max_percap_gr_dens_", 
@@ -1342,7 +1360,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
-if (F) {
+if (make_statplots) {
   for (i in 1:10) {
     var_root <- c("first_min_", 
 #                     "first_min_time_", 
@@ -1435,7 +1453,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
-if (F) {
+if (make_statplots) {
   for (i in 1:10) {
     var_root <- c("first_min_", 
                   "max_percap_gr_rate_", 
@@ -1517,7 +1535,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
-if (F) {
+if (make_statplots) {
   for (var_root in c("first_min_avg_rel", 
                      # "first_min_time_avg", 
                      "max_percap_gr_rate_avg_rel", 
@@ -1557,32 +1575,34 @@ if (F) {
 }
 
 #View population mean data r vs k
-tiff("./Growth_curve_variables_plots_pops/fitr_fitk.tiff",
-     width = 10.5, height = 10, units = "in", res = 300)
-print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
-             aes(x = fit_r_avg_rel_avg, y = fit_k_avg_rel_avg, 
-                 fill = Treat, shape = Pop)) +
-        geom_point(size = 8, alpha = 0.8) +
-        scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                           labels = c("Control", "Local", "Global"),
-                           values = my_cols[c(8, 2, 6)]) +
-        scale_shape_manual(values = 21:26) +
-        facet_grid(Proj ~ Media, scales = "free",
-                   labeller = labeller(Proj = my_facet_labels,
-                                       Media = my_facet_labels)) +
-        geom_hline(yintercept = 0, lty = 2) +
-        geom_vline(xintercept = 0, lty = 2) +
-        theme_bw() +
-        guides(fill=guide_legend(override.aes=list(shape=21))) +
-        # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
-        #                   ymax = get(var)+get(var_sd)),
-        #               position = position_dodge(0.3),
-        #               width = 0.2)
-        NULL)
-dev.off()
+if (make_statplots) {
+  tiff("./Growth_curve_variables_plots_pops/fitr_fitk.tiff",
+       width = 10.5, height = 10, units = "in", res = 300)
+  print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+               aes(x = fit_r_avg_rel_avg, y = fit_k_avg_rel_avg, 
+                   fill = Treat, shape = Pop)) +
+          geom_point(size = 8, alpha = 0.8) +
+          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_shape_manual(values = 21:26) +
+          facet_grid(Proj ~ Media, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Media = my_facet_labels)) +
+          geom_hline(yintercept = 0, lty = 2) +
+          geom_vline(xintercept = 0, lty = 2) +
+          theme_bw() +
+          guides(fill=guide_legend(override.aes=list(shape=21))) +
+          # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+          #                   ymax = get(var)+get(var_sd)),
+          #               position = position_dodge(0.3),
+          #               width = 0.2)
+          NULL)
+  dev.off()
+}
 
 #View population-summarized median data
-if (F) {
+if (make_statplots) {
   for (var_root in c("first_min_avg_rel", 
                      "max_percap_gr_rate_avg_rel", 
                      "max_percap_gr_dens_avg_rel", 
@@ -1664,7 +1684,7 @@ write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
 # max percap dens pos w/ max percap timesincemin
 
 #Make correlation figures
-if (F) {
+if (make_statplots) {
   tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
   #Make base figure
   p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
@@ -1748,45 +1768,47 @@ loadings_125$varnames <- rownames(loadings_125)
 summary(isol_princomp_7x)
 summary(isol_princomp_125)
 
-tiff("./Output_figures/weakphage_PCA.tiff", 
-     width = 12, height = 10, units = "in", res = 300)
-ggplot(isol_data_pca_7x,
-       aes(x = Comp.1, y = Comp.2)) +
-  ggtitle("Weak Phage") +
-  geom_segment(data = loadings_7x,
-               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
-               arrow = arrow(length = unit(0.02, "npc")),
-               alpha = .8, lwd = 1, color = "gray50") +
-  ggrepel::geom_text_repel(data = loadings_7x,
-                           aes(x = Comp.1, y = Comp.2, label = varnames),
-            size = 7, alpha = .8, color = "gray50") +
-  geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-  theme_bw() +
-  labs(x = "PC1", y = "PC2") +
-  theme(axis.title = element_text(size = 20),
-        legend.title = element_text(size = 24),
-        legend.text = element_text(size = 20))
-dev.off()
+if(make_statplots) {
+  tiff("./Output_figures/weakphage_PCA.tiff", 
+       width = 12, height = 10, units = "in", res = 300)
+  ggplot(isol_data_pca_7x,
+         aes(x = Comp.1, y = Comp.2)) +
+    ggtitle("Weak Phage") +
+    geom_segment(data = loadings_7x,
+                 aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+                 arrow = arrow(length = unit(0.02, "npc")),
+                 alpha = .8, lwd = 1, color = "gray50") +
+    ggrepel::geom_text_repel(data = loadings_7x,
+                             aes(x = Comp.1, y = Comp.2, label = varnames),
+              size = 7, alpha = .8, color = "gray50") +
+    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+    theme_bw() +
+    labs(x = "PC1", y = "PC2") +
+    theme(axis.title = element_text(size = 20),
+          legend.title = element_text(size = 24),
+          legend.text = element_text(size = 20))
+  dev.off()
 
-tiff("./Output_figures/strongphage_PCA.tiff", 
-     width = 12, height = 10, units = "in", res = 300)
-ggplot(isol_data_pca_125,
-       aes(x = Comp.1, y = Comp.2)) +
-  ggtitle("Strong Phage") +
-  geom_segment(data = loadings_125,
-               aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
-               arrow = arrow(length = unit(0.02, "npc")),
-               alpha = .8, lwd = 1, color = "gray50") +
-  ggrepel::geom_text_repel(data = loadings_125,
-                           aes(x = Comp.1, y = Comp.2, label = varnames),
-                           size = 7, alpha = .8, color = "gray50") +
-  geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-  theme_bw() +
-  labs(x = "PC1", y = "PC2") +
-  theme(axis.title = element_text(size = 20),
-        legend.title = element_text(size = 24),
-        legend.text = element_text(size = 20))
-dev.off()
+  tiff("./Output_figures/strongphage_PCA.tiff", 
+       width = 12, height = 10, units = "in", res = 300)
+  ggplot(isol_data_pca_125,
+         aes(x = Comp.1, y = Comp.2)) +
+    ggtitle("Strong Phage") +
+    geom_segment(data = loadings_125,
+                 aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+                 arrow = arrow(length = unit(0.02, "npc")),
+                 alpha = .8, lwd = 1, color = "gray50") +
+    ggrepel::geom_text_repel(data = loadings_125,
+                             aes(x = Comp.1, y = Comp.2, label = varnames),
+                             size = 7, alpha = .8, color = "gray50") +
+    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+    theme_bw() +
+    labs(x = "PC1", y = "PC2") +
+    theme(axis.title = element_text(size = 20),
+          legend.title = element_text(size = 24),
+          legend.text = element_text(size = 20))
+  dev.off()
+}
 
 
 #print(summary(isol_princomp), digits = 2)
@@ -1796,7 +1818,7 @@ print(isol_princomp_125$loadings, cutoff = 0)
 ##Isolate growth curves: Check for normality ----
 
 #Check for univariate normality
-if (F) {
+if (make_statplots) {
   for (var_root in c("first_min_avg_rel_avg_", 
                      "max_percap_gr_rate_avg_rel_avg_",
                      "max_percap_gr_dens_avg_rel_avg_",
@@ -1890,26 +1912,28 @@ gc_sum_pops_wide_125 <- cbind(gc_sum_pops_wide_125,
                               scale(gc_sum_pops_wide_125[, cols_to_use])%*%
                                 gc_lda_125$scaling)
 
-#Make plots of LD1 and LD2
-ggplot(data = gc_sum_pops_wide_7x,
-       aes(x = LD1, y = LD2, color = Treat)) +
-  geom_point(size = 3) +
-  ggtitle("7x") +
-  theme_bw()
-ggplot(data = gc_sum_pops_wide_125,
-       aes(x = LD1, y = LD2, color = Treat)) +
-  geom_point(size = 3)  +
-  ggtitle("125") +
-  theme_bw()
-
-ggplot(data = gc_sum_pops_wide_7x,
-       aes(x = Treat, y = LD1)) +
-  geom_boxplot() +
-  ggtitle("7x")
-ggplot(data = gc_sum_pops_wide_125,
-       aes(x = Treat, y = LD1)) +
-  geom_boxplot() +
-  ggtitle("125")
+if(make_statplots) {
+  #Make plots of LD1 and LD2
+  ggplot(data = gc_sum_pops_wide_7x,
+         aes(x = LD1, y = LD2, color = Treat)) +
+    geom_point(size = 3) +
+    ggtitle("7x") +
+    theme_bw()
+  ggplot(data = gc_sum_pops_wide_125,
+         aes(x = LD1, y = LD2, color = Treat)) +
+    geom_point(size = 3)  +
+    ggtitle("125") +
+    theme_bw()
+  
+  ggplot(data = gc_sum_pops_wide_7x,
+         aes(x = Treat, y = LD1)) +
+    geom_boxplot() +
+    ggtitle("7x")
+  ggplot(data = gc_sum_pops_wide_125,
+         aes(x = Treat, y = LD1)) +
+    geom_boxplot() +
+    ggtitle("125")
+}
 
 #View loadings
 gc_lda_7x
