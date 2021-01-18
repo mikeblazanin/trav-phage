@@ -1072,95 +1072,243 @@ if(make_curveplots) {
 # any diauxic shift in those curves, and looking at the curves shows pretty 
 # clearly no sensitivity changes will be sufficient
 
-##Fit logistic curve to data
+##Isolate growth curves: Fit logistic curve to data ----
 #define error for logistic fit (for use with optim())
 logis_fit_err <- function(params, t_vals, dens_vals, t_offset) {
-  #params <- c("logk" = ..., "d_0" = ..., "r" = ..., "delta" = ...)
+  #params <- c("logk" = ..., "d0" = ..., "r" = ..., "delta" = ...)
   t_vals_hrs <- t_vals/3600
   t_offset_hrs <- t_offset/3600
   k <- 10**params["logk"]
   pred_vals <- with(as.list(params),
-                    k/(1+(((k-d_0)/d_0)*exp(-r*(t_vals_hrs-t_offset_hrs)))))
+                    k/(1+(((k-d0)/d0)*exp(-r*(t_vals_hrs-t_offset_hrs)))))
+  err <- sum((log10(pred_vals) - log10(dens_vals))**2)
+  if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
+}
+
+baranyi_func <- function(r, k, v, q0, m, d0, t_vals) {
+  #Copied from Ram et al 2019
+  if (anyNA(c(r, k, v, q0, m, d0, t_vals))) {return(NA)}
+  if (q0 < 0) {q0 <- 0}
+  t_vals_hrs <- t_vals/3600
+  a <- t_vals_hrs + 1/m*log((exp(-m*t_vals_hrs)+q0)/(1+q0))
+  d <- k/(1-(1-((k/d0)**v))*exp(-r*v*a))**(1/v)
+  return(d)
+}
+
+#Sampling the effects of each param
+temp_t <- seq(from = 0, to = 100000, by = 1)
+temp_d <- baranyi_func(r = 1.5, k = 10**10, v = 1, q0 = 0.25, m = 2,
+                       d0 = 10**7, t_vals = temp_t)
+ggplot(data = data.frame(time = temp_t, dens = temp_d), aes(x = time, y = dens)) +
+  geom_line() + scale_y_continuous(trans = "log10")
+
+baranyi_fit_err <- function(params, t_vals, dens_vals) {
+  #params <- c("logk" = ..., "logd0" = ..., "r" = ..., "v" = ...,
+  #            "m" = ..., "q0" = ...)
+  pred_vals <- baranyi_func(r = params["r"],
+                            k = 10**params["logk"],
+                            v = params["v"],
+                            q0 = params["q0"],
+                            m = params["m"],
+                            d0 = 10**params["logd0"],
+                            t_vals = t_vals)
   err <- sum((log10(pred_vals) - log10(dens_vals))**2)
   if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
 }
 
 #Do fitting
 gc_summarized <- cbind(gc_summarized,
-                       data.frame("fit_r" = as.numeric(NA), "fit_k" = as.numeric(NA),
+                       data.frame("fit_r" = as.numeric(NA), 
+                                  "fit_k" = as.numeric(NA),
                                   "fit_d0" = as.numeric(NA), 
                                   "fit_delta" = as.numeric(NA),
-                                  "fit_err" = as.numeric(NA)))
+                                  "fit_err" = as.numeric(NA),
+                                  "fit2_r" = as.numeric(NA), 
+                                  "fit2_k" = as.numeric(NA),
+                                  "fit2_v" = as.numeric(NA), 
+                                  "fit2_q0" = as.numeric(NA),
+                                  "fit2_m" = as.numeric(NA),
+                                  "fit2_d0" = as.numeric(NA),
+                                  "fit2_err" = as.numeric(NA)))
 for (sum_row in 1:nrow(gc_summarized)) {
   if (!is.na(gc_summarized$pseudo_K[sum_row])) {
     my_well <- gc_summarized$uniq_well[sum_row]
-    myrows <- which(gc_data$uniq_well == my_well &
+    myrows1 <- which(gc_data$uniq_well == my_well &
                       gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row] &
                       gc_data$Time_s >= gc_summarized$max_percap_gr_time[sum_row])
-    temp <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
-                          "d_0" = gc_summarized$max_percap_gr_dens[sum_row],
+    myrows2 <- which(gc_data$uniq_well == my_well &
+                       gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row] &
+                       gc_data$Time_s > 0)
+    temp1 <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
+                          "d0" = gc_summarized$max_percap_gr_dens[sum_row],
                           "r" = gc_summarized$max_percap_gr_rate[sum_row],
                           "delta" = 0),
                   fn = logis_fit_err,
-                  dens_vals = gc_data$sm_loess[myrows],
-                  t_vals = gc_data$Time_s[myrows],
+                  dens_vals = gc_data$sm_loess[myrows1],
+                  t_vals = gc_data$Time_s[myrows1],
                   t_offset = gc_summarized$max_percap_gr_time[sum_row],
                   method = "BFGS")
-    gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")] <-
-      data.frame("fit_r" = temp$par["r"], "fit_k" = 10**temp$par["logk"],
-                 "fit_d0" = temp$par["d_0"], 
-                 "fit_delta" = temp$par["delta"],
-                 "fit_err" = temp$value)
+    temp2 <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
+                           "logd0" = log10(gc_data$cfu_ml[myrows2[2]]),
+                           "r" = gc_summarized$max_percap_gr_rate[sum_row],
+                           "v" = 1, 
+                           "m" = gc_summarized$max_percap_gr_rate[sum_row],
+                           "q0" = 0.05),
+                           #We're estimating that q0 ~ f/(1-f) * e^(-mt)
+                           # where f is the fraction of cells that are
+                           # metabolically active when max percap is achieved
+                           # (which I'm just guessing arbitrarily to be 0.9)
+                           # (and m is the rate of metabolic activation)
+                             # "q0" = 0.5/(1-0.5)*
+                             # exp(-gc_summarized$max_percap_gr_rate[sum_row]*
+                             #       gc_summarized$max_percap_gr_time[sum_row]/
+                             #       3600)),
+                   fn = baranyi_fit_err,
+                   dens_vals = gc_data$cfu_ml[myrows2],
+                   t_vals = gc_data$Time_s[myrows2],
+                   method = "CG")
+    gc_summarized[sum_row, 
+                  c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err",
+                    "fit2_r", "fit2_k", "fit2_v", "fit2_q0",
+                    "fit2_m", "fit2_d0", "fit2_err")] <-
+      data.frame("fit_r" = temp1$par["r"], 
+                 "fit_k" = 10**temp1$par["logk"],
+                 "fit_d0" = temp1$par["d0"], 
+                 "fit_delta" = temp1$par["delta"],
+                 "fit_err" = temp1$value,
+                 "fit2_r" = temp2$par["r"], 
+                 "fit2_k" = 10**temp2$par["logk"],
+                 "fit2_v" = temp2$par["v"], 
+                 "fit2_q0" = temp2$par["q0"],
+                 "fit2_m" = temp2$par["m"],
+                 "fit2_d0" = 10**temp2$par["logd0"],
+                 "fit2_err" = temp2$value)
   }
 }
 
+dir.create("./Growth_curve_plots_fits", showWarnings = F)
 if(make_curveplots) {
   #Make plots of fits
-  dir.create("./Growth_curve_plots_fits", showWarnings = F)
-  if (F) {
-    for (sum_row in 1:nrow(gc_summarized)) {
-      my_well <- gc_summarized$uniq_well[sum_row]
-      t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
-      t_vals_hrs <- gc_data$Time_s[gc_data$uniq_well == my_well]/3600
-      offset_hrs <- gc_summarized$max_percap_gr_time[sum_row]/3600
-      pred_vals <- with(as.list(
-        gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
-                        fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
-                                    exp(-fit_r*(t_vals_hrs-offset_hrs)))))
-      png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
-          width = 4, height = 4, units = "in", res = 300)
-      print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
-                   aes(x = Time_s, y = sm_loess)) +
-              geom_line(lwd = 1.5) +
-              geom_point(size = 0.5, aes(y = cfu_ml)) +
-              geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
-                        mapping = aes(x = Time_s, y = pred_vals),
-                        color = "red") +
-              scale_y_continuous(trans = "log10") +
-              geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
-                gc_summarized$uniq_well == my_well]), lty = 2) +
-              geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
-                gc_summarized$uniq_well == my_well]), lty = 2) +
-              NULL)
-      dev.off()
-    }
+  for (sum_row in 1:nrow(gc_summarized)) {
+    my_well <- gc_summarized$uniq_well[sum_row]
+    t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+    t_vals_hrs <- gc_data$Time_s[gc_data$uniq_well == my_well]/3600
+    offset_hrs <- gc_summarized$max_percap_gr_time[sum_row]/3600
+    pred_vals <- with(as.list(
+      gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
+      fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
+                  exp(-fit_r*(t_vals_hrs-offset_hrs)))))
+    
+    png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
+        width = 4, height = 4, units = "in", res = 300)
+    print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
+                 aes(x = Time_s, y = sm_loess)) +
+            geom_line(lwd = 1.5) +
+            geom_point(size = 0.5, aes(y = cfu_ml)) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "red") +
+            scale_y_continuous(trans = "log10") +
+            geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
+            geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
+            NULL)
+    dev.off()
   }
 }
+
+dir.create("./Growth_curve_plots_fits2", showWarnings = F)
+if(make_curveplots) {
+  #Make plots of fits
+  for (sum_row in 1:nrow(gc_summarized)) {
+    my_well <- gc_summarized$uniq_well[sum_row]
+    t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+    pred_vals2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+                               k = gc_summarized[sum_row, "fit2_k"],
+                               v = gc_summarized[sum_row, "fit2_v"],
+                               q0 = gc_summarized[sum_row, "fit2_q0"],
+                               m = gc_summarized[sum_row, "fit2_m"],
+                               d0 = gc_summarized[sum_row, "fit2_d0"],
+                               t_vals = t_vals)
+    start_vals <- baranyi_func("k" = gc_summarized$pseudo_K[sum_row],
+                                "d0" = gc_data$cfu_ml[which(gc_data$uniq_well == my_well)[2]],
+                                "r" = gc_summarized$max_percap_gr_rate[sum_row],
+                                "v" = 1, 
+                                "m" = gc_summarized$max_percap_gr_rate[sum_row],
+                                #We're estimating that q0 ~ f/(1-f) * e^(-mt)
+                                # where f is the fraction of cells that are
+                                # metabolically active when max percap is achieved
+                                # (which I'm just guessing arbitrarily to be 0.9)
+                                # (and m is the rate of metabolic activation)
+                                "q0" = .05,
+                                 # 0.9/(1-0.9)*
+                                 #  exp(-gc_summarized$max_percap_gr_rate[sum_row]*
+                                 #        gc_summarized$max_percap_gr_time[sum_row]),
+                               t_vals = t_vals)
+    
+    png(paste("./Growth_curve_plots_fits2/", my_well, ".png", sep = ""),
+        width = 4, height = 4, units = "in", res = 300)
+    print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
+                 aes(x = Time_s, y = cfu_ml)) +
+            geom_point(size = 0.5) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals2),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "red") +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "blue") +
+            scale_y_continuous(trans = "log10") +
+            geom_vline(aes(xintercept = min(gc_data$Time_s[gc_data$Time_s > 0])), lty = 2) +
+            geom_vline(aes(xintercept = gc_summarized$pseudo_K_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
+            NULL)
+    dev.off()
+  }
+}
+
+#Bad fits (one # is meh, usually k too high; two ## is really bad)
+#2019-09-10-125-b-g-a-2-orig
+#2019-09-10-125-c-g-a-1-orig
+#2019-09-10-125-c-g-a-2-orig
+#2019-09-10-125-e-l-a-1-orig
+#2019-09-11-125-c-g-b-1-orig
+#2019-09-11-125-c-g-b-2-orig
+#2019-09-12-125-a-c-d-1-orig
+#2019-09-12-125-a-c-d-2-orig
+#2019-09-12-125-anc-anc-anc-3-orig
+#2019-09-12-125-b-g-d-1-orig
+#2019-09-12-125-b-g-d-2-orig
+#2019-09-12-125-c-g-d-1-orig
+##2019-09-12-125-d-l-d-1-rich
+##2019-09-12-125-d-l-d-2-rich
+#2019-09-12-125-anc-anc-anc-1-orig
+#2019-09-12-125-anc-anc-anc-2-orig
+#2019-09-12-125-anc-anc-anc-3-orig
+#2019-09-13-125-c-g-e-1-orig
+#2019-09-13-125-c-g-e-2-orig
+#2019-09-13-125-c-l-e-1-orig
+#2019-09-13-125-c-l-e-2-orig
+#2019-09-13-125-D-g-e-2-rich
+##2019-09-13-125-d-l-e-1-rich
+##2019-09-13-125-d-l-e-2-rich
+#2019-09-13-125-e-l-e-1-orig
+
 
 #Check how fit results compare to local extrema results
 if (make_statplots) {
   ggplot(data = gc_summarized,
-         aes(x = max_percap_gr_rate, y = fit_r)) +
+         aes(x = max_percap_gr_rate, y = fit2_r)) +
     geom_point() +
     scale_x_continuous(trans = "log10") +
     scale_y_continuous(trans = "log10")
   ggplot(data = gc_summarized,
-         aes(x = pseudo_K, y = fit_k, color = Proj)) +
+         aes(x = pseudo_K, y = fit2_k, color = Proj, shape = Media)) +
     geom_point() +
     scale_x_continuous(trans = "log10") +
     scale_y_continuous(trans = "log10")
   ggplot(data = gc_summarized,
-         aes(x = fit_d0, y = first_min)) +
+         aes(x = fit2_d0, y = first_min)) +
     geom_point() +
     scale_y_continuous(trans = "log10") +
     scale_x_continuous(trans = "log10")
@@ -1316,7 +1464,9 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "pseudo_K_timesince_maxpercap",
                               "fit_r",
                               "fit_k",
-                              "fit_d0"))
+                              "fit_d0",
+                              "fit2_r", "fit2_k", "fit2_v", 
+                              "fit2_q0", "fit2_m", "fit2_d0"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
@@ -1361,18 +1511,21 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (make_statplots) {
-  for (i in 1:10) {
-    var_root <- c("first_min_", 
-#                     "first_min_time_", 
-                  "max_percap_gr_rate_", 
-#                     "max_percap_gr_time_", 
-                  "max_percap_gr_dens_", 
-                  "max_percap_gr_timesincemin_",
-                  "pseudo_K_", 
-#                     "pseudo_K_time_", 
-                  "pseudo_K_timesincemin_",
-                  "pseudo_K_timesince_maxpercap_",
-                  "fit_r_", "fit_k_", "fit_d0_")[i]
+  my_vars <- c("first_min_", 
+               #"first_min_time_", 
+               "max_percap_gr_rate_", 
+               #"max_percap_gr_time_", 
+               "max_percap_gr_dens_", 
+               "max_percap_gr_timesincemin_",
+               "pseudo_K_", 
+               #"pseudo_K_time_", 
+               "pseudo_K_timesincemin_",
+               "pseudo_K_timesince_maxpercap_",
+               "fit_r_", "fit_k_", "fit_d0_",
+               "fit2_r_", "fit2_k_", "fit2_v_", 
+               "fit2_q0_", "fit2_m_", "fit2_d0_")
+  for (var_root in my_vars) {
+    i <- which(var_root == my_vars)
     var_name <- c("First minimum density (cfu/mL)",
                   "Maximum per-capita growth rate",
                   "Density at maximum per-capita growth rate",
@@ -1380,7 +1533,9 @@ if (make_statplots) {
                   "Density at diauxic shift (cfu/mL)",
                   "Time until diauxic shift (from min)",
                   "Time until diauxic shift (from max percap)",
-                  "Fit r", "Fit carrying capacity", "Fit init density")[i]
+                  "Fit r", "Fit carrying capacity", "Fit init density",
+                  "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 q0",
+                  "Fit 2 m", "fit 2 d0")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
