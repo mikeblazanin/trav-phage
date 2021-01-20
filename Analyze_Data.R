@@ -1011,68 +1011,6 @@ if (make_curveplots) {
 #Note that orig media has strong diauxic shift
 # while rich media has little to none
 
-##Look at wells where percap growth rate is very early
-temp_rows <- which(gc_summarized$max_percap_index <= 3)
-
-#Noting here wells where there is no rise to max percap
-# because it's in the first two points
-#2017 B 7x CLB 1 50
-#2017 B 7x DGB 1 50
-#2017 B 7x EGB 1 100
-#2017 B 7x ELB 1 50
-
-#Make plots of these early-max percap wells
-if (make_curveplots) {
-  for (my_well in gc_summarized$uniq_well[temp_rows]) {
-    my_rows <- which(gc_data$uniq_well == my_well)
-    print(cowplot::plot_grid(
-      ggplot(data = gc_data[my_rows, ],
-             aes(x = Time_s, y = cfu_ml)) +
-        geom_line(color = "red", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_25k),
-                  color = "blue", lwd = 1, alpha = 0.5) +
-        ggtitle(gc_data[my_rows[1], "uniq_well"]) +
-        #Add point for first minima
-        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                   aes(x = first_min_time, y = first_min),
-                   color = "green", size = 3) +
-        NULL,
-      ggplot(data = gc_data[my_rows, ],
-             aes(x = Time_s, y = deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
-        #Add point for pseudo K
-        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                   aes(x = pseudo_K_time, y = pseudo_K_deriv),
-                   color = "green", size = 3) +
-        #Add point for pseudo K2
-        # geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-        #            aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
-        #            color = "dark green", size = 2) +
-        NULL,
-      ggplot(data = gc_data[my_rows, ],
-             aes(x = Time_s, y = percap_deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
-        #Add point for max growth rate
-        geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-                   aes(x = max_percap_gr_time, y = max_percap_gr_rate),
-                   color = "green", size = 3) +
-        NULL,
-      ncol = 1, align = "v"))
-  }
-}
-
-#After looking at all the wells where max percap index is
-# 3 or less, I've decided to drop the ones where the index
-# is 1 or 2 for data quality
-#There are only five entries that meet those criteria,
-# and all four isolates have another replicate well that didn't have the same
-# issue, so that value will simply be used alone and it shouldn't
-# throw off the results
-
-#Note: this is no-longer necessary since we're using the fit-informed vals
-#       for our results
-#gc_summarized <- gc_summarized[-which(gc_summarized$max_percap_index <= 2), ]
-
 #Looked through all the plots, some of them no diauxic shift is detected
 #But that's okay because for most of them the other tech rep had one
 #2017 C 7x clc 2 rich (7x clc 1 rich is good)
