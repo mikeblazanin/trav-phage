@@ -645,7 +645,6 @@ find_local_extrema <- function(values,
   if (na.rm == TRUE & sum(is.na(values)) > 0) {
     if (!all(is.na(values[(1+length(values)-sum(is.na(values))):length(values)]))) {
       warning("Removing NAs found within values vector, returned indices will refer to non-NA values")
-      print(values)
     }
     values <- values[!is.na(values)]
   } else if(any(is.na(values))) {
@@ -853,7 +852,7 @@ gc_summarized <- dplyr::summarize(gc_data,
    first_min = sm_loess_3600[first_min_index],
    first_min_time = Time_s[first_min_index],
   #find peaks in per capita growth rate
-  max_percap_index = 
+  max_percap_index =
     #first find all peaks
    (find_local_extrema(percap_deriv_sm_loess_25k,
                                         return_minima = FALSE,
@@ -874,7 +873,7 @@ gc_summarized <- dplyr::summarize(gc_data,
   max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
 
   #find the local minimas in total grow rate (slope of total density)
-  # (which is the point when the diauxic shift occurs)
+  #(which is the point when the diauxic shift occurs)
   pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
                                       return_maxima = FALSE,
                                       width_limit = (pseudo_K_time_window/
