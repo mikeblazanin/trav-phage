@@ -1,19 +1,12 @@
 ##TODO: 
-##      migration stats
-##      resistance stats
-##      growth curve stats
-##      figure out how to both time-normalize and log transform
-##        the migration data
-##      downsample so all time series have same time-interval
-##      Use approaches from Ram et al 2019 PNAS
-##        (e.g. fitting entire curve, finding lag time from their approach)
-##        Entire curve fitting might give more reliable results since we're
-##          using more data to find the parameters than a single point
-##      Re-consider fitting a diauxic-mindful curve
-##        Van Dedem, G., and Mfl75 Moo‐Young. "A model for diauxic growth."
-##         Biotechnology and bioengineering 17.9 (1975): 1301-1312.
-##      Use general additive model instead of loess
-##        (loess is polynomial-like and forces an early minima)
+##      FIX gc summarize so it's not printing out deriv_sm_loess_25k for ea group
+##      Re-run fitting Baryani to data
+##      Check & fix bad fits
+##      Calculate lag time
+##      Plot lag time, r, k, v
+##      Make PCA: lag time, r, k, v, resistance, migration
+##      Stats
+##      normalization of migration data (for time, via log transform?)
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -531,7 +524,9 @@ calc_deriv <- function(density, percapita = FALSE,
 gc_data$sm_loess_25k <- NA
 gc_data$sm_loess_3600 <- NA
 for (my_well in unique(gc_data$uniq_well)) {
-  my_rows <- which(gc_data$uniq_well == my_well)
+  #(leaving out the first half hour of data)
+  my_rows <- which(gc_data$uniq_well == my_well &
+                     gc_data$Time_s > 1800)
   
   #Calculate the median timestep (timesteps actually vary slightly in
   # the number of seconds they were recorded as differing by)
@@ -584,10 +579,13 @@ if (make_curveplots) {
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = cfu_ml)) +
         geom_line(color = "red", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_25k),
+        geom_line(aes(x = Time_s, y = sm_loess_3600),
                   color = "blue", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess_25k),
+                  color = "green", lwd = 0.5, alpha = 0.5) +
         ggtitle(gc_data[my_rows[1], "uniq_well"]) +
         #geom_hline(yintercept = 383404890) +
+        scale_y_continuous(trans = "log10") +
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = deriv_sm_loess_25k)) +
@@ -844,19 +842,20 @@ pseudo_K_time_window <- 7200
 
 #Summarize data (note: message is for grouping of **output**)
 gc_summarized <- dplyr::summarize(gc_data,
+  num_nas = sum(is.na(sm_loess_3600)), #we know all the nas are at start
   #Find the first minima in total density
-   first_min_index = find_local_extrema(sm_loess_3600,
+   first_min_index = (find_local_extrema(sm_loess_3600,
                                         return_maxima = FALSE,
                                         width_limit = (first_min_time_window/
                                                          (Time_s[2]-Time_s[1])) + 1,
                                         na.rm = T,
-                                        remove_endpoints = FALSE)[1],
+                                        remove_endpoints = FALSE)[1]+num_nas),
    first_min = sm_loess_3600[first_min_index],
    first_min_time = Time_s[first_min_index],
   #find peaks in per capita growth rate
   max_percap_index = 
     #first find all peaks
-   find_local_extrema(percap_deriv_sm_loess_25k,
+   (find_local_extrema(percap_deriv_sm_loess_25k,
                                         return_minima = FALSE,
                                         width_limit = (max_percap_time_window/
                                                          (Time_s[2]-Time_s[1])) + 1,
@@ -868,7 +867,7 @@ gc_summarized <- dplyr::summarize(gc_data,
                                     width_limit = (max_percap_time_window/
                                                      (Time_s[2]-Time_s[1])) + 1,
                                     na.rm = T,
-                                    remove_endpoints = F) >= first_min_index)],
+                                    remove_endpoints = F) >= first_min_index)]+num_nas),
   max_percap_gr_rate = percap_deriv_sm_loess_25k[max_percap_index],
   max_percap_gr_time = Time_s[max_percap_index],
   max_percap_gr_dens = sm_loess_25k[max_percap_index],
@@ -876,12 +875,12 @@ gc_summarized <- dplyr::summarize(gc_data,
 
   #find the local minimas in total grow rate (slope of total density)
   # (which is the point when the diauxic shift occurs)
-  pseudo_K_index = find_local_extrema(deriv_sm_loess_25k,
+  pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
                                       return_maxima = FALSE,
                                       width_limit = (pseudo_K_time_window/
                                                        (Time_s[2]-Time_s[1])) + 1,
                                       na.rm = T,
-                                      remove_endpoints = T)[1],
+                                      remove_endpoints = T)[1]+num_nas),
   pseudo_K = sm_loess_25k[pseudo_K_index],
   pseudo_K_time = Time_s[pseudo_K_index],
   pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index],
