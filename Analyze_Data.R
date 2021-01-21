@@ -1,5 +1,4 @@
 ##TODO: 
-##      FIX gc summarize so it's not printing out deriv_sm_loess_25k for ea group
 ##      Re-run fitting Baryani to data
 ##      Check & fix bad fits
 ##      Calculate lag time
@@ -967,7 +966,11 @@ if (make_curveplots) {
 dir.create("./Growth_curve_plots/", showWarnings = FALSE)
 if (make_curveplots) {
   for (my_well in unique(gc_data$uniq_well)) {
-    tiff(filename = paste("./Growth_curve_plots/", my_well, ".tiff", sep = ""),
+    tiff(filename = 
+           paste("./Growth_curve_plots/", 
+                 formatC(gc_data$uniq_well_num[gc_data$uniq_well == my_well][1],
+                         width = 3, format = "d", flag = "0"),
+                 "_", my_well, ".tiff", sep = ""),
          width = 5, height = 10, units = "in", res = 300)
     my_rows <- which(gc_data$uniq_well == my_well)
     print(cowplot::plot_grid(
@@ -1006,31 +1009,13 @@ if (make_curveplots) {
   }
 }
 
-#Note that orig media has strong diauxic shift
-# while rich media has little to none
+#New run w/ better first min:
+#13 - first min too early
+#29 - no k
+#201 - first min too early
+#484- nok
+#496- nok
 
-#Looked through all the plots, some of them no diauxic shift is detected
-#But that's okay because for most of them the other tech rep had one
-#2017 C 7x clc 2 rich (7x clc 1 rich is good)
-#7x dgc 2 orig (7x dgc 1 orig is good)
-#125 bce 1 rich (125 bce 2 rich is good)
-#125 cce 1 rich (125 cce 2 rich is good)
-
-#One isolate (7x dgc 1&2 rich) both replicate wells had no diauxic shift 
-#detected
-#Look at plots of 7x dgc 1&2 rich
-if(make_curveplots) {
-  test <- gc_data[gc_data$uniq_well == "2017-C_7x_D_G_C_2_Rich", ]
-  test$deriv <- c(test$OD600[2:nrow(test)]-test$OD600[1:(nrow(test)-1)], NA)
-  test$deriv_pc <- test$deriv/test$OD600
-  ggplot(test, aes(x = Time_s, y = OD600)) + geom_point()
-  ggplot(test, aes(x = Time_s, y = deriv)) + geom_point()
-  ggplot(test, aes(x = Time_s, y = deriv_pc)) + geom_point()
-}
-#Unfortunately 7x dgc 1 & 2 rich diauxic shifts we'll have to leave tossed
-# (other isols from that pop will have to suffice, since we fail to detect 
-# any diauxic shift in those curves, and looking at the curves shows pretty 
-# clearly no sensitivity changes will be sufficient
 
 ##Isolate growth curves: Fit logistic curve to data ----
 #define error for logistic fit (for use with optim())
