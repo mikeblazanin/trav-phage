@@ -526,6 +526,15 @@ for (my_well in unique(gc_data$uniq_well)) {
   #(leaving out the first half hour of data)
   my_rows <- which(gc_data$uniq_well == my_well &
                      gc_data$Time_s > 1800)
+  #Based on later checking, wells 13 and 201 need slight curation
+  if (my_well == "2017-A_7x_Anc_Anc_Anc_1_Orig") {
+    my_rows <- which(gc_data$uniq_well == my_well &
+                       gc_data$Time_s > 10000)
+  }
+  if (my_well == "2017-E_7x_C_L_E_1_Orig") {
+    my_rows <- which(gc_data$uniq_well == my_well &
+                       gc_data$Time_s > 4000)
+  }
   
   #Calculate the median timestep (timesteps actually vary slightly in
   # the number of seconds they were recorded as differing by)
@@ -891,36 +900,45 @@ gc_summarized <- as.data.frame(gc_summarized)
 
 #Make output plots for problematic wells
 if (make_curveplots) {
-  wells_check <- c("2017-B_7x_C_L_B_1_Orig",
-                   "2017-A_7x_Anc_Anc_Anc_1_Orig",
-                   "2017-A_7x_B_L_A_1_Rich",
-                   "2017-B_7x_C_L_B_1_Orig",
-                   "2017-C_7x_B_C_C_1_Rich",
-                   "2017-C_7x_B_C_C_2_Rich",
-                   "2017-C_7x_C_C_C_1_Orig",
-                   "2017-C_7x_C_L_C_2_Rich",
-                   "2017-C_7x_D_G_C_1_Orig",
-                   "2017-C_7x_D_G_C_1_Rich",
-                   "2017-C_7x_D_G_C_2_Orig",
-                   "2017-C_7x_D_G_C_2_Rich",
-                   "2017-C_7x_E_G_C_1_Rich",
-                   "2017-C_7x_E_G_C_2_Rich",
-                   "2017-E_7x_B_C_E_1_Orig",
-                   "2017-E_7x_C_C_E_1_Rich",
-                   "2017-E_7x_C_C_E_2_Rich",
-                   "2019-09-10_125_B_C_A_1_Orig",
-                   "2019-09-10_125_B_C_A_2_Orig",
-                   "2019-09-10_125_B_G_A_1_Orig",
-                   "2019-09-12_125_B_C_D_1_Orig",
-                   "2019-09-12_125_B_C_D_2_Orig",
-                   "2019-09-12_125_B_G_D_1_Orig",
-                   "2019-09-12_125_D_L_D_1_Rich",
-                   "2019-09-12_125_D_L_D_2_Rich",
-                   "2019-09-13_125_B_C_E_1_Rich",
-                   "2019-09-13_125_B_C_E_2_Orig",
-                   "2019-09-13_125_C_C_E_1_Rich",
-                   "2019-09-13_125_D_L_E_1_Rich"
-  )
+  #New run w/ better first min:
+  #13 - first min too early, change to NA all points before 10000s
+  #29 - no k, drop it (other rep is good)
+  #201 - first min too early, change to NA all points before 4000s
+  #484- nok, drop it (other rep is good)
+  #496- nok, drop it (other rep is good)
+  
+  wells_check <- c("2017-A_7x_Anc_Anc_Anc_1_Orig", "2017-E_7x_C_L_E_1_Orig")
+  #This is the old bad wells:
+  # wells_check <- c("2017-B_7x_C_L_B_1_Orig",
+  #                  "2017-A_7x_Anc_Anc_Anc_1_Orig",
+  #                  "2017-A_7x_B_L_A_1_Rich",
+  #                  "2017-B_7x_C_L_B_1_Orig",
+  #                  "2017-C_7x_B_C_C_1_Rich",
+  #                  "2017-C_7x_B_C_C_2_Rich",
+  #                  "2017-C_7x_C_C_C_1_Orig",
+  #                  "2017-C_7x_C_L_C_2_Rich",
+  #                  "2017-C_7x_D_G_C_1_Orig",
+  #                  "2017-C_7x_D_G_C_1_Rich",
+  #                  "2017-C_7x_D_G_C_2_Orig",
+  #                  "2017-C_7x_D_G_C_2_Rich",
+  #                  "2017-C_7x_E_G_C_1_Rich",
+  #                  "2017-C_7x_E_G_C_2_Rich",
+  #                  "2017-E_7x_B_C_E_1_Orig",
+  #                  "2017-E_7x_C_C_E_1_Rich",
+  #                  "2017-E_7x_C_C_E_2_Rich",
+  #                  "2019-09-10_125_B_C_A_1_Orig",
+  #                  "2019-09-10_125_B_C_A_2_Orig",
+  #                  "2019-09-10_125_B_G_A_1_Orig",
+  #                  "2019-09-12_125_B_C_D_1_Orig",
+  #                  "2019-09-12_125_B_C_D_2_Orig",
+  #                  "2019-09-12_125_B_G_D_1_Orig",
+  #                  "2019-09-12_125_D_L_D_1_Rich",
+  #                  "2019-09-12_125_D_L_D_2_Rich",
+  #                  "2019-09-13_125_B_C_E_1_Rich",
+  #                  "2019-09-13_125_B_C_E_2_Orig",
+  #                  "2019-09-13_125_C_C_E_1_Rich",
+  #                  "2019-09-13_125_D_L_E_1_Rich"
+  # )
   for (my_well in wells_check) {
     tiff(filename = paste("./Challenging_growth_curve_plots/", my_well, ".tiff", sep = ""),
          width = 5, height = 10, units = "in", res = 300)
@@ -929,13 +947,16 @@ if (make_curveplots) {
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = cfu_ml)) +
         geom_line(color = "red", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_25k),
+        geom_line(aes(x = Time_s, y = sm_loess_3600),
                   color = "blue", lwd = 1, alpha = 0.5) +
+        geom_line(aes(x = Time_s, y = sm_loess_25k),
+                  color = "green", lwd = 0.5, alpha = 0.5) +
         ggtitle(gc_data[my_rows[1], "uniq_well"]) +
         #Add point for first minima
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = first_min_time, y = first_min),
                    color = "green", size = 3) +
+        scale_y_continuous(trans = "log10") +
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = deriv_sm_loess_25k)) +
@@ -1009,15 +1030,7 @@ if (make_curveplots) {
   }
 }
 
-#New run w/ better first min:
-#13 - first min too early
-#29 - no k
-#201 - first min too early
-#484- nok
-#496- nok
-
-
-##Isolate growth curves: Fit logistic curve to data ----
+##Isolate growth curves: Fit curves to data ----
 #define error for logistic fit (for use with optim())
 logis_fit_err <- function(params, t_vals, dens_vals, t_offset) {
   #params <- c("logk" = ..., "d0" = ..., "r" = ..., "delta" = ...)
