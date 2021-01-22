@@ -1203,9 +1203,16 @@ for (sum_row in 1:nrow(gc_summarized)) {
     # use average of all init estimates
     # (this fixes when the fit was a declining func bc init r estimate was
     # too small, and when fit had r that was too steep)
+    #Or if it's one of the wells that's high-ish (generally 
+    # max percap rate 1.65-2) and needs to start with a lower fit
     if(is.na(gc_summarized$max_percap_gr_rate[sum_row]) |
        gc_summarized$max_percap_gr_rate[sum_row] < 0.2 |
-       gc_summarized$max_percap_gr_rate[sum_row] > 2) {
+       gc_summarized$max_percap_gr_rate[sum_row] > 2 |
+       gc_summarized$uniq_well[sum_row] %in% 
+       c("2017-A_7x_A_C_A_1_Rich", "2017-A_7x_Anc_Anc_Anc_2_Rich", 
+         "2017-A_7x_B_L_A_2_Rich", "2017-A_7x_C_C_A_2_Orig", 
+         "2019-09-12_125_D_L_D_1_Rich", "2019-09-12_125_D_L_D_2_Rich", 
+         "2019-09-13_125_D_L_E_1_Rich")) {
       my_r <- mean(gc_summarized$max_percap_gr_rate, na.rm = T)
     } else {
       my_r <- gc_summarized$max_percap_gr_rate[sum_row]
@@ -1419,6 +1426,9 @@ if(make_curveplots) {
 #no fit (as expected bc no pseudo K): 29, 153, 154, 155, 156, 204, 398, 484, 496
 #meh: 30
 #     FIXED (by forcing init r estimates to be below 2)
+#After fixing the above, re-checked and saw problems in these curves:
+#     2, 16, 28, 31, 456 (too high r), 458 (too high r), 516 (too high r)
+#     FIXED (by forcing init r estimates for these runs only to be lower)
 
 if (F) {
   temp <- c(13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167,
@@ -1426,6 +1436,7 @@ if (F) {
             399)
   temp <- c(14, 26, 38, 40, 46, 180, 186)
   temp <- c(153, 154, 155, 156, 204, 398)
+  temp <- c(2, 16, 28, 31, 456, 458, 516)
   View(gc_summarized[gc_summarized$uniq_well_num %in% temp, ])
   summary(gc_summarized$max_percap_gr_rate[gc_summarized$uniq_well_num %in% temp])
 }
