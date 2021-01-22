@@ -1141,9 +1141,16 @@ for (sum_row in 1:nrow(gc_summarized)) {
     if(!is.na(gc_summarized$first_min[sum_row])) {
       my_d0 <- gc_summarized$first_min[sum_row]
     } else {my_d0 <- 10**mean(log10(gc_summarized$first_min), na.rm = T)}
-    if(!is.na(gc_summarized$max_percap_gr_rate[sum_row])) {
+    
+    #If init r estimate is NA or below 0.2, use average of all init estimates
+    # (this fixes when the fit was a declining func bc init r estimate was
+    # too small)
+    if(is.na(gc_summarized$max_percap_gr_rate[sum_row]) |
+       gc_summarized$max_percap_gr_rate[sum_row] < 0.2) {
+      my_r <- mean(gc_summarized$max_percap_gr_rate, na.rm = T)
+    } else {
       my_r <- gc_summarized$max_percap_gr_rate[sum_row]
-    } else {my_r <- mean(gc_summarized$max_percap_gr_rate, na.rm = T)}
+    }
       
     temp1 <- optim(par = c("logk" = log10(my_pseudo_K),
                           "d0" = my_d0,
@@ -1172,7 +1179,10 @@ for (sum_row in 1:nrow(gc_summarized)) {
                    fn = baranyi_fit_err,
                    dens_vals = gc_data$cfu_ml[myrows2],
                    t_vals = gc_data$Time_s[myrows2],
-                   method = "BFGS")
+                   method = "L-BFGS-B",
+                   #logk, logd0, r, v, m, q0
+                   lower = c(5, 4, 0, 0, 0, 0),
+                   upper = c(11, 10, 10, 50, 10, 100))
     temp3 <- optim(par = c("logk" = log10(my_pseudo_K),
                            "logd0" = log10(my_d0),
                            "r" = my_r,
@@ -1339,8 +1349,22 @@ if(make_curveplots) {
 
 #Red curve (full baranyi function, not where m = r) is better
 #New new new bad fits of that curve:
-#
-#
+#really bad (declining pred): 13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167
+#                             209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
+#                             399
+#     FIXED (by forcing init r estimates to be above 0.2)
+#other really bad: 185
+#high r bad: 14, 26, 38, 40, 46, 180, 186
+#no fit (as expected): 29, 484, 496
+#no fit (unexpected): 153, 154, 155, 156, 204, 398
+#meh: 30
+
+temp <- c(13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167,
+          209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
+          399)
+View(gc_summarized[gc_summarized$uniq_well_num %in% temp, ])
+summary(gc_summarized$max_percap_gr_rate[gc_summarized$uniq_well_num %in% temp])
+
 
 #New new bad fits (added 45 mins to endtime of data)
 # (quite a few need to be cut off at first min but not using loess)
