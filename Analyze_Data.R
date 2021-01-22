@@ -849,7 +849,9 @@ pseudo_K_time_window <- 7200
 
 #Summarize data (note: message is for grouping of **output**)
 gc_summarized <- dplyr::summarize(gc_data,
-  num_nas = sum(is.na(sm_loess_3600)), #we know all the nas are at start
+  #we know all the added nas are at start, derivs have extra na's at the end
+  # but those don't exist in the sm_loess itself
+  num_nas = sum(is.na(sm_loess_3600)),
   #Find the first minima in total density
    first_min_index = (find_local_extrema(sm_loess_3600,
                                         return_maxima = FALSE,
@@ -894,6 +896,61 @@ gc_summarized <- dplyr::summarize(gc_data,
   pseudo_K_timesincemin = pseudo_K_time - first_min_time,
   pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
 )
+
+#Fix 185
+temp <- gc_data[gc_data$uniq_well == "2017-E_7x_B_C_E_1_Orig", ]
+temp <- group_by(temp, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
+                    uniq_well, uniq_well_num)
+gc_summarized[which(gc_summarized$uniq_well == "2017-E_7x_B_C_E_1_Orig"), ] <- 
+  dplyr::summarize(
+    temp,
+    #we know all the added nas are at start, derivs have extra na's at the end
+    # but those don't exist in the sm_loess itself
+    num_nas = sum(is.na(sm_loess_3600)),
+    #Find the first minima in total density
+    first_min_index = (find_local_extrema(sm_loess_3600,
+                                          return_maxima = FALSE,
+                                          width_limit = (first_min_time_window/
+                                                           (Time_s[2]-Time_s[1])) + 1,
+                                          na.rm = T,
+                                          remove_endpoints = FALSE)[1]+num_nas),
+    first_min = sm_loess_3600[first_min_index],
+    first_min_time = Time_s[first_min_index],
+    #find peaks in per capita growth rate
+    max_percap_index =
+      #first find all peaks
+      (find_local_extrema(percap_deriv_sm_loess_25k,
+                          return_minima = FALSE,
+                          width_limit = (max_percap_time_window/
+                                           (Time_s[2]-Time_s[1])) + 1,
+                          na.rm = T,
+                          remove_endpoints = F)[
+                            #But save/use the first one that follows the minimum density
+                            match(TRUE, find_local_extrema(percap_deriv_sm_loess_25k,
+                                                           return_minima = FALSE,
+                                                           width_limit = (max_percap_time_window/
+                                                                            (Time_s[2]-Time_s[1])) + 1,
+                                                           na.rm = T,
+                                                           remove_endpoints = F) >= first_min_index)]+num_nas),
+    max_percap_gr_rate = percap_deriv_sm_loess_25k[max_percap_index],
+    max_percap_gr_time = Time_s[max_percap_index],
+    max_percap_gr_dens = sm_loess_25k[max_percap_index],
+    max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
+    
+    #find the local minimas in total grow rate (slope of total density)
+    #(which is the point when the diauxic shift occurs)
+    pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
+                                         return_maxima = FALSE,
+                                         width_limit = (pseudo_K_time_window/
+                                                          (Time_s[2]-Time_s[1])) + 1,
+                                         na.rm = T,
+                                         remove_endpoints = T)[2]+num_nas),
+    pseudo_K = sm_loess_25k[pseudo_K_index],
+    pseudo_K_time = Time_s[pseudo_K_index],
+    pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index],
+    pseudo_K_timesincemin = pseudo_K_time - first_min_time,
+    pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
+  )
 
 #Change to data frame for cleanliness
 gc_summarized <- as.data.frame(gc_summarized)
@@ -1356,6 +1413,7 @@ if(make_curveplots) {
 #                             399
 #     FIXED (by forcing init r estimates to be above 0.2)
 #other really bad: 185 (pseudo k lims are too close)
+#     FIXED (by manually using the 2nd minima for pseudo K)
 #high r bad: 14, 26, 38, 40, 46, 180, 186
 #     FIXED (by forcing init r estimates to be below 2)
 #no fit (as expected): 29, 484, 496
