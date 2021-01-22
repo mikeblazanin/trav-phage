@@ -1416,79 +1416,19 @@ if(make_curveplots) {
 #     FIXED (by manually using the 2nd minima for pseudo K)
 #high r bad: 14, 26, 38, 40, 46, 180, 186
 #     FIXED (by forcing init r estimates to be below 2)
-#no fit (as expected): 29, 484, 496
-#no fit (unexpected): 153, 154, 155, 156, 204, 398
+#no fit (as expected bc no pseudo K): 29, 153, 154, 155, 156, 204, 398, 484, 496
 #meh: 30
 #     FIXED (by forcing init r estimates to be below 2)
 
-temp <- c(13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167,
-          209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
-          399)
-temp <- c(14, 26, 38, 40, 46, 180, 186)
-View(gc_summarized[gc_summarized$uniq_well_num %in% temp, ])
-summary(gc_summarized$max_percap_gr_rate[gc_summarized$uniq_well_num %in% temp])
-
-
-#New new bad fits (added 45 mins to endtime of data)
-# (quite a few need to be cut off at first min but not using loess)
-# (because there's an initial drop in density)
-#13 (need to drop first 3 timepoints, not just first 1)
-#26
-#38
-#148 - nofit
-#154 nofit
-#155 nofit
-#156 nofit
-#185 really bad
-#456 really bad
-#458 really bad
-#484 no fit
-#496 nofit
-#516 really bad
-#518 really bad
-
-
-#New bad fits
-#13
-#25
-#26
-#38
-#148 - no fit
-#154, 155, 156 - no fit
-#157, 158
-#185 really bad
-#...
-#518
-#519
-#523
-
-#Bad fits (one # is meh, usually k too high; two ## is really bad)
-#2019-09-10-125-b-g-a-2-orig
-#2019-09-10-125-c-g-a-1-orig
-#2019-09-10-125-c-g-a-2-orig
-#2019-09-10-125-e-l-a-1-orig
-#2019-09-11-125-c-g-b-1-orig
-#2019-09-11-125-c-g-b-2-orig
-#2019-09-12-125-a-c-d-1-orig
-#2019-09-12-125-a-c-d-2-orig
-#2019-09-12-125-anc-anc-anc-3-orig
-#2019-09-12-125-b-g-d-1-orig
-#2019-09-12-125-b-g-d-2-orig
-#2019-09-12-125-c-g-d-1-orig
-##2019-09-12-125-d-l-d-1-rich
-##2019-09-12-125-d-l-d-2-rich
-#2019-09-12-125-anc-anc-anc-1-orig
-#2019-09-12-125-anc-anc-anc-2-orig
-#2019-09-12-125-anc-anc-anc-3-orig
-#2019-09-13-125-c-g-e-1-orig
-#2019-09-13-125-c-g-e-2-orig
-#2019-09-13-125-c-l-e-1-orig
-#2019-09-13-125-c-l-e-2-orig
-#2019-09-13-125-D-g-e-2-rich
-##2019-09-13-125-d-l-e-1-rich
-##2019-09-13-125-d-l-e-2-rich
-#2019-09-13-125-e-l-e-1-orig
-
+if (F) {
+  temp <- c(13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167,
+            209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
+            399)
+  temp <- c(14, 26, 38, 40, 46, 180, 186)
+  temp <- c(153, 154, 155, 156, 204, 398)
+  View(gc_summarized[gc_summarized$uniq_well_num %in% temp, ])
+  summary(gc_summarized$max_percap_gr_rate[gc_summarized$uniq_well_num %in% temp])
+}
 
 #Check how fit results compare to local extrema results
 if (make_statplots) {
