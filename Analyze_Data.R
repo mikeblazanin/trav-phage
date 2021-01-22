@@ -1142,11 +1142,13 @@ for (sum_row in 1:nrow(gc_summarized)) {
       my_d0 <- gc_summarized$first_min[sum_row]
     } else {my_d0 <- 10**mean(log10(gc_summarized$first_min), na.rm = T)}
     
-    #If init r estimate is NA or below 0.2, use average of all init estimates
+    #If init r estimate is NA or below 0.2 or above 2, 
+    # use average of all init estimates
     # (this fixes when the fit was a declining func bc init r estimate was
-    # too small)
+    # too small, and when fit had r that was too steep)
     if(is.na(gc_summarized$max_percap_gr_rate[sum_row]) |
-       gc_summarized$max_percap_gr_rate[sum_row] < 0.2) {
+       gc_summarized$max_percap_gr_rate[sum_row] < 0.2 |
+       gc_summarized$max_percap_gr_rate[sum_row] > 2) {
       my_r <- mean(gc_summarized$max_percap_gr_rate, na.rm = T)
     } else {
       my_r <- gc_summarized$max_percap_gr_rate[sum_row]
@@ -1353,15 +1355,18 @@ if(make_curveplots) {
 #                             209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
 #                             399
 #     FIXED (by forcing init r estimates to be above 0.2)
-#other really bad: 185
+#other really bad: 185 (pseudo k lims are too close)
 #high r bad: 14, 26, 38, 40, 46, 180, 186
+#     FIXED (by forcing init r estimates to be below 2)
 #no fit (as expected): 29, 484, 496
 #no fit (unexpected): 153, 154, 155, 156, 204, 398
 #meh: 30
+#     FIXED (by forcing init r estimates to be below 2)
 
 temp <- c(13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167,
           209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
           399)
+temp <- c(14, 26, 38, 40, 46, 180, 186)
 View(gc_summarized[gc_summarized$uniq_well_num %in% temp, ])
 summary(gc_summarized$max_percap_gr_rate[gc_summarized$uniq_well_num %in% temp])
 
