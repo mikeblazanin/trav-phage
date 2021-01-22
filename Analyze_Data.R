@@ -9,6 +9,7 @@
 ##      check rep wells that are very dift from ea other?
 ##        (does it matter since it gets averaged out anyway?)
 ##      Decide whether ancestor normalization is a good idea
+##      Try fitting v = 1 fixed?
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -571,18 +572,9 @@ gc_data$percap_deriv_sm_loess_25k <- calc_deriv(gc_data$sm_loess_25k,
                                             time = gc_data$Time_s,
                                             time_normalize = 3600)
   
-
-#Calculate per capita growth per hour from original curve
-# (for visual comparison)
-# gc_data$percap_deriv_cfu <- calc_deriv(gc_data$cfu_ml,
-#                                        percapita = TRUE,
-#                                        subset_by = gc_data$uniq_well,
-#                                        time = gc_data$Time_s,
-#                                        time_normalize = 3600)
-
+#View samples of original & smoothed curves
+# as well as derivatives (per cap & not) of both orig and smoothed curves
 if (make_curveplots) {
-  #View samples of original & smoothed curves
-  # as well as derivatives (per cap & not) of both orig and smoothed curves
   for (my_well in sample(unique(gc_data$uniq_well), 1)) {
     my_rows <- which(gc_data$uniq_well == my_well)
     
@@ -900,7 +892,7 @@ gc_summarized <- dplyr::summarize(gc_data,
   pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
 )
 
-#Fix 185
+#Fix run 185
 temp <- gc_data[gc_data$uniq_well == "2017-E_7x_B_C_E_1_Orig", ]
 temp <- group_by(temp, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
                     uniq_well, uniq_well_num)
@@ -1297,9 +1289,9 @@ for (sum_row in 1:nrow(gc_summarized)) {
   }
 }
 
+#Make plots of pure logistic fits
 dir.create("./Growth_curve_plots_fits", showWarnings = F)
 if(make_curveplots) {
-  #Make plots of fits
   for (sum_row in 1:nrow(gc_summarized)) {
     my_well <- gc_summarized$uniq_well[sum_row]
     t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
@@ -1329,9 +1321,9 @@ if(make_curveplots) {
   }
 }
 
+#Make plots of baranyi fits
 dir.create("./Growth_curve_plots_fits2", showWarnings = F)
 if(make_curveplots) {
-  #Make plots of fits
   for (sum_row in 1:nrow(gc_summarized)) {
     my_well <- gc_summarized$uniq_well[sum_row]
     t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
@@ -1417,7 +1409,7 @@ if(make_curveplots) {
 }
 
 #Red curve (full baranyi function, not where m = r) is better
-#New new new bad fits of that curve:
+#bad fits of that curve:
 #really bad (declining pred): 13, 61, 78, 89, 97, 98, 99, 109, 110, 111, 112, 167
 #                             209, 223, 245, 263, 265, 279, 349, 351, 383, 385,
 #                             399
@@ -1661,32 +1653,34 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
+dir.create("./Growth_curve_variables_plots/", showWarnings = FALSE)
 if (make_statplots) {
   my_vars <- c("first_min_", 
                #"first_min_time_", 
                "max_percap_gr_rate_", 
                #"max_percap_gr_time_", 
-               "max_percap_gr_dens_", 
-               "max_percap_gr_timesincemin_",
+               #"max_percap_gr_dens_", 
+               #"max_percap_gr_timesincemin_",
                "pseudo_K_", 
                #"pseudo_K_time_", 
-               "pseudo_K_timesincemin_",
-               "pseudo_K_timesince_maxpercap_",
-               "fit_r_", "fit_k_", "fit_d0_",
+               #"pseudo_K_timesincemin_",
+               #"pseudo_K_timesince_maxpercap_",
+               #"fit_r_", "fit_k_", "fit_d0_",
                "fit2_r_", "fit2_k_", "fit2_v_", 
-               "fit2_q0_", "fit2_m_", "fit2_d0_",
-               "fit3_r_", "fit3_k_", "fit3_v_", 
-               "fit3_q0_", "fit3_d0_")
-  for (var_root in my_vars) {
-    i <- which(var_root == my_vars)
-    var_name <- c("First minimum density (cfu/mL)",
+               "fit2_q0_", "fit2_m_", "fit2_d0_"
+               #"fit3_r_", "fit3_k_", "fit3_v_", 
+               #"fit3_q0_", "fit3_d0_"
+               )
+  for (i in 1:length(my_vars)) {
+    var_root <- my_vars[i]
+    var_name <- c("First minimum density (cfu/mL)", NA,
                   "Maximum per-capita growth rate",
-                  "Density at maximum per-capita growth rate",
-                  "Time until maximum per-capita growth rate",
+                  #"Density at maximum per-capita growth rate",
+                  #"Time until maximum per-capita growth rate",
                   "Density at diauxic shift (cfu/mL)",
-                  "Time until diauxic shift (from min)",
-                  "Time until diauxic shift (from max percap)",
-                  "Fit r", "Fit carrying capacity", "Fit init density",
+                  #"Time until diauxic shift (from min)",
+                  #"Time until diauxic shift (from max percap)",
+                  #"Fit r", "Fit carrying capacity", "Fit init density",
                   "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 q0",
                   "Fit 2 m", "fit 2 d0")[i]
     var <- paste(var_root, "avg", sep = "")
@@ -1747,15 +1741,16 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
+dir.create("./Growth_curve_variables_plots_relative/", showWarnings = F)
 if (make_statplots) {
   my_vars <- c("first_min_", 
                   "max_percap_gr_rate_", 
-                  "max_percap_gr_dens_", 
-                  "max_percap_gr_timesincemin_",
+                  #"max_percap_gr_dens_", 
+                  #"max_percap_gr_timesincemin_",
                   "pseudo_K_", 
-                  "pseudo_K_timesincemin_",
-                  "pseudo_K_timesince_maxpercap_",
-                  "fit_r_", "fit_k_", "fit_d0_",
+                  #"pseudo_K_timesincemin_",
+                  #"pseudo_K_timesince_maxpercap_",
+                  #"fit_r_", "fit_k_", "fit_d0_",
                   "fit2_r_", "fit2_k_", "fit2_v_", 
                   "fit2_q0_", "fit2_m_", "fit2_d0_")
   for (i in 1:length(my_vars)) {
@@ -1763,13 +1758,15 @@ if (make_statplots) {
     var <- paste(var_root, "avg_rel", sep = "")
     var_name <- c("Relative first minimum density",
                   "Relative maximum per-capita growth rate",
-                  "Relative density at maximum per-capita growth rate",
-                  "Relative time until maximum per-capita growth rate",
+                  #"Relative density at maximum per-capita growth rate",
+                  #"Relative time until maximum per-capita growth rate",
                   "Relative density at diauxic shift",
-                  "Relative time until diauxic shift (from min)",
-                  "Relative time until diauxic shift (from max percap)",
-                  "Relative Fit r", "Relative Fit carrying capacity", 
-                  "Relative Fit init density")[i]
+                  #"Relative time until diauxic shift (from min)",
+                  #"Relative time until diauxic shift (from max percap)",
+                  #"Relative Fit r", "Relative Fit carrying capacity", 
+                  #"Relative Fit init density",
+                  "Relative Fit 2 r", "Relative Fit 2 k", "Relative Fit 2 v", 
+                  "Relative Fit 2 q0", "Relative Fit 2 m", "Relative fit 2 d0")[i]
     #Note: if you want to view the sd's between wells of
     # Ancestor-normalized values, you'll have to go back to
     # gc_summarized and calculate the relative values there
