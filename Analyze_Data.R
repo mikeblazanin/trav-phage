@@ -6,6 +6,9 @@
 ##      Make PCA: lag time, r, k, v, resistance, migration
 ##      Stats
 ##      normalization of migration data (for time, via log transform?)
+##      check rep wells that are very dift from ea other?
+##        (does it matter since it gets averaged out anyway?)
+##      Decide whether ancestor normalization is a good idea
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -1612,7 +1615,9 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "fit_k",
                               "fit_d0",
                               "fit2_r", "fit2_k", "fit2_v", 
-                              "fit2_q0", "fit2_m", "fit2_d0"))
+                              "fit2_q0", "fit2_m", "fit2_d0",
+                              "fit3_r", "fit3_k", "fit3_v", 
+                              "fit3_q0", "fit3_d0"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
@@ -1669,7 +1674,9 @@ if (make_statplots) {
                "pseudo_K_timesince_maxpercap_",
                "fit_r_", "fit_k_", "fit_d0_",
                "fit2_r_", "fit2_k_", "fit2_v_", 
-               "fit2_q0_", "fit2_m_", "fit2_d0_")
+               "fit2_q0_", "fit2_m_", "fit2_d0_",
+               "fit3_r_", "fit3_k_", "fit3_v_", 
+               "fit3_q0_", "fit3_d0_")
   for (var_root in my_vars) {
     i <- which(var_root == my_vars)
     var_name <- c("First minimum density (cfu/mL)",
@@ -1711,22 +1718,8 @@ if (make_statplots) {
 
 #Note however how some curves have super high sds between
 # rep wells
-#Particularly in vars: first min, percap dens, percap time, K time
-
-#gc_sum_isols[which.max(gc_sum_isols$first_min_sd), ]
-#gc_sum_isols[which.max(gc_sum_isols$max_percap_gr_rate_sd), ]
-# which.max(gc_sum_isols$pseudo_K_sd)
-
-#After checking out the above cases (and having already
-# manually inspected all the curves)
-# I'm satisfied that the rare cases where repwells disagree
-# strongly are either cases where no algorithm could
-# assign differently because of the shape of the curves
-# or where the data itself is strangely different
-# between the wells
 
 #Also Noted a weird clustering in 7x Rich C of low max percap rates
-
 #Looking at the plots, there's nothing I can see that's wrong
 # with those curves. It might be a media batch effect
 
@@ -1739,14 +1732,14 @@ for (var in c("first_min_avg",
               "pseudo_K_avg",
               "pseudo_K_timesincemin_avg",
               "pseudo_K_timesince_maxpercap_avg",
-              "fit_r_avg", "fit_k_avg", "fit_d0_avg")) {
+              "fit_r_avg", "fit_k_avg", "fit_d0_avg",
+              "fit2_r_avg", "fit2_k_avg", "fit2_v_avg", 
+              "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg")) {
   new_var <- paste(var, "_rel", sep = "")
   gc_sum_isols[, new_var] <- gc_sum_isols[, var] -
     ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
                     paste(ancestors$Date, ancestors$Media)), var]
 }
-
-#Should density measures be relative too?
 
 #Now view the relative variables
 my_facet_labels <- c("7x" = "Weak Phage", 
@@ -1755,15 +1748,18 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (make_statplots) {
-  for (i in 1:10) {
-    var_root <- c("first_min_", 
+  my_vars <- c("first_min_", 
                   "max_percap_gr_rate_", 
                   "max_percap_gr_dens_", 
                   "max_percap_gr_timesincemin_",
                   "pseudo_K_", 
                   "pseudo_K_timesincemin_",
                   "pseudo_K_timesince_maxpercap_",
-                  "fit_r_", "fit_k_", "fit_d0_")[i]
+                  "fit_r_", "fit_k_", "fit_d0_",
+                  "fit2_r_", "fit2_k_", "fit2_v_", 
+                  "fit2_q0_", "fit2_m_", "fit2_d0_")
+  for (i in 1:length(my_vars)) {
+    var_root <- my_vars[i]
     var <- paste(var_root, "avg_rel", sep = "")
     var_name <- c("Relative first minimum density",
                   "Relative maximum per-capita growth rate",
@@ -1827,7 +1823,9 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
                               "pseudo_K_avg_rel",
                             "pseudo_K_timesincemin_avg_rel",
                             "pseudo_K_timesince_maxpercap_avg_rel",
-                            "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel"))
+                            "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel",
+                            "fit2_r_avg_rel", "fit2_k_avg_rel", "fit2_v_avg_rel",
+                            "fit2_q0_avg_rel", "fit2_m_avg_rel", "fit2_d0_avg_rel"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized mean data (median below)
@@ -1846,7 +1844,10 @@ if (make_statplots) {
                      "pseudo_K_avg_rel", 
                      # "pseudo_K_time_avg", 
                      "pseudo_K_timesincemin_avg_rel",
-                     "pseudo_K_timesince_maxpercap_avg_rel"
+                     "pseudo_K_timesince_maxpercap_avg_rel",
+                     "fit2_r_avg_rel", "fit2_k_avg_rel", 
+                     "fit2_v_avg_rel", "fit2_q0_avg_rel", 
+                     "fit2_m_avg_rel", "fit2_d0_avg_rel"
   )) {
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
