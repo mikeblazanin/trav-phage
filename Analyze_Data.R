@@ -1117,7 +1117,13 @@ gc_summarized <- cbind(gc_summarized,
                                   "fit2_q0" = as.numeric(NA),
                                   "fit2_m" = as.numeric(NA),
                                   "fit2_d0" = as.numeric(NA),
-                                  "fit2_err" = as.numeric(NA)))
+                                  "fit2_err" = as.numeric(NA),
+                                  "fit3_r" = as.numeric(NA), 
+                                  "fit3_k" = as.numeric(NA),
+                                  "fit3_v" = as.numeric(NA), 
+                                  "fit3_q0" = as.numeric(NA),
+                                  "fit3_d0" = as.numeric(NA),
+                                  "fit3_err" = as.numeric(NA)))
 for (sum_row in 1:nrow(gc_summarized)) {
   if (!is.na(gc_summarized$pseudo_K[sum_row])) {
     my_well <- gc_summarized$uniq_well[sum_row]
@@ -1126,21 +1132,33 @@ for (sum_row in 1:nrow(gc_summarized)) {
                       gc_data$Time_s >= gc_summarized$max_percap_gr_time[sum_row])
     myrows2 <- which(gc_data$uniq_well == my_well &
                        gc_data$Time_s <= (gc_summarized$pseudo_K_time[sum_row] + 45*60) &
-                       gc_data$Time_s > 0)
-    temp1 <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
-                          "d0" = gc_summarized$max_percap_gr_dens[sum_row],
-                          "r" = gc_summarized$max_percap_gr_rate[sum_row],
+                       gc_data$Time_s >= gc_summarized$first_min_time[sum_row])
+    
+    #Get initial values
+    if(!is.na(gc_summarized$pseudo_K[sum_row])) {
+      my_pseudo_K <- gc_summarized$pseudo_K[sum_row]
+    } else {my_pseudo_K <- 10**mean(log10(gc_summarized$pseudo_K), na.rm = T)}
+    if(!is.na(gc_summarized$first_min[sum_row])) {
+      my_d0 <- gc_summarized$first_min[sum_row]
+    } else {my_d0 <- 10**mean(log10(gc_summarized$first_min), na.rm = T)}
+    if(!is.na(gc_summarized$max_percap_gr_rate[sum_row])) {
+      my_r <- gc_summarized$max_percap_gr_rate[sum_row]
+    } else {my_r <- mean(gc_summarized$max_percap_gr_rate, na.rm = T)}
+      
+    temp1 <- optim(par = c("logk" = log10(my_pseudo_K),
+                          "d0" = my_d0,
+                          "r" = my_r,
                           "delta" = 0),
                   fn = logis_fit_err,
                   dens_vals = gc_data$sm_loess_25k[myrows1],
                   t_vals = gc_data$Time_s[myrows1],
                   t_offset = gc_summarized$max_percap_gr_time[sum_row],
                   method = "BFGS")
-    temp2 <- optim(par = c("logk" = log10(gc_summarized$pseudo_K[sum_row]),
-                           "logd0" = log10(gc_data$cfu_ml[myrows2[2]]),
-                           "r" = gc_summarized$max_percap_gr_rate[sum_row],
+    temp2 <- optim(par = c("logk" = log10(my_pseudo_K),
+                           "logd0" = log10(my_d0),
+                           "r" = my_r,
                            "v" = 1, 
-                           #"m" = gc_summarized$max_percap_gr_rate[sum_row],
+                           "m" = my_r,
                            "q0" = 0.05),
                            #We're estimating that q0 ~ f/(1-f) * e^(-mt)
                            # where f is the fraction of cells that are
@@ -1151,14 +1169,34 @@ for (sum_row in 1:nrow(gc_summarized)) {
                              # exp(-gc_summarized$max_percap_gr_rate[sum_row]*
                              #       gc_summarized$max_percap_gr_time[sum_row]/
                              #       3600)),
+                   fn = baranyi_fit_err,
+                   dens_vals = gc_data$cfu_ml[myrows2],
+                   t_vals = gc_data$Time_s[myrows2],
+                   method = "BFGS")
+    temp3 <- optim(par = c("logk" = log10(my_pseudo_K),
+                           "logd0" = log10(my_d0),
+                           "r" = my_r,
+                           "v" = 1, 
+                           "q0" = 0.05),
+                   #We're estimating that q0 ~ f/(1-f) * e^(-mt)
+                   # where f is the fraction of cells that are
+                   # metabolically active when max percap is achieved
+                   # (which I'm just guessing arbitrarily to be 0.9)
+                   # (and m is the rate of metabolic activation)
+                   # "q0" = 0.5/(1-0.5)*
+                   # exp(-gc_summarized$max_percap_gr_rate[sum_row]*
+                   #       gc_summarized$max_percap_gr_time[sum_row]/
+                   #       3600)),
                    fn = baranyi_fit2_err,
                    dens_vals = gc_data$cfu_ml[myrows2],
                    t_vals = gc_data$Time_s[myrows2],
-                   method = "CG")
+                   method = "BFGS")
     gc_summarized[sum_row, 
                   c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err",
                     "fit2_r", "fit2_k", "fit2_v", "fit2_q0",
-                    "fit2_m", "fit2_d0", "fit2_err")] <-
+                    "fit2_m", "fit2_d0", "fit2_err",
+                    "fit3_r", "fit3_k", "fit3_v", "fit3_q0",
+                    "fit3_d0", "fit3_err")] <-
       data.frame("fit_r" = temp1$par["r"], 
                  "fit_k" = 10**temp1$par["logk"],
                  "fit_d0" = temp1$par["d0"], 
@@ -1168,10 +1206,15 @@ for (sum_row in 1:nrow(gc_summarized)) {
                  "fit2_k" = 10**temp2$par["logk"],
                  "fit2_v" = temp2$par["v"], 
                  "fit2_q0" = temp2$par["q0"],
-                 #"fit2_m" = temp2$par["m"],
-                 "fit2_m" = NA,
+                 "fit2_m" = temp2$par["m"],
                  "fit2_d0" = 10**temp2$par["logd0"],
-                 "fit2_err" = temp2$value)
+                 "fit2_err" = temp2$value,
+                 "fit3_r" = temp2$par["r"], 
+                 "fit3_k" = 10**temp2$par["logk"],
+                 "fit3_v" = temp2$par["v"], 
+                 "fit3_q0" = temp2$par["q0"],
+                 "fit3_d0" = 10**temp2$par["logd0"],
+                 "fit3_err" = temp2$value)
   }
 }
 
@@ -1213,6 +1256,13 @@ if(make_curveplots) {
   for (sum_row in 1:nrow(gc_summarized)) {
     my_well <- gc_summarized$uniq_well[sum_row]
     t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
+    pred_vals1 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+                                k = gc_summarized[sum_row, "fit2_k"],
+                                v = gc_summarized[sum_row, "fit2_v"],
+                                q0 = gc_summarized[sum_row, "fit2_q0"],
+                                m = gc_summarized[sum_row, "fit2_m"],
+                                d0 = gc_summarized[sum_row, "fit2_d0"],
+                                t_vals = t_vals)
     pred_vals2 <- baranyi_func2(r = gc_summarized[sum_row, "fit2_r"],
                                k = gc_summarized[sum_row, "fit2_k"],
                                v = gc_summarized[sum_row, "fit2_v"],
@@ -1220,11 +1270,11 @@ if(make_curveplots) {
                                #m = gc_summarized[sum_row, "fit2_m"],
                                d0 = gc_summarized[sum_row, "fit2_d0"],
                                t_vals = t_vals)
-    start_vals <- baranyi_func2("k" = gc_summarized$pseudo_K[sum_row],
+    start_vals1 <- baranyi_func("k" = gc_summarized$pseudo_K[sum_row],
                                 "d0" = gc_data$cfu_ml[which(gc_data$uniq_well == my_well)[2]],
                                 "r" = gc_summarized$max_percap_gr_rate[sum_row],
                                 "v" = 1, 
-                                #"m" = gc_summarized$max_percap_gr_rate[sum_row],
+                                "m" = gc_summarized$max_percap_gr_rate[sum_row],
                                 #We're estimating that q0 ~ f/(1-f) * e^(-mt)
                                 # where f is the fraction of cells that are
                                 # metabolically active when max percap is achieved
@@ -1235,6 +1285,21 @@ if(make_curveplots) {
                                  #  exp(-gc_summarized$max_percap_gr_rate[sum_row]*
                                  #        gc_summarized$max_percap_gr_time[sum_row]),
                                t_vals = t_vals)
+    start_vals2 <- baranyi_func2("k" = gc_summarized$pseudo_K[sum_row],
+                                 "d0" = gc_data$cfu_ml[which(gc_data$uniq_well == my_well)[2]],
+                                 "r" = gc_summarized$max_percap_gr_rate[sum_row],
+                                 "v" = 1, 
+                                 #"m" = gc_summarized$max_percap_gr_rate[sum_row],
+                                 #We're estimating that q0 ~ f/(1-f) * e^(-mt)
+                                 # where f is the fraction of cells that are
+                                 # metabolically active when max percap is achieved
+                                 # (which I'm just guessing arbitrarily to be 0.9)
+                                 # (and m is the rate of metabolic activation)
+                                 "q0" = .05,
+                                 # 0.9/(1-0.9)*
+                                 #  exp(-gc_summarized$max_percap_gr_rate[sum_row]*
+                                 #        gc_summarized$max_percap_gr_time[sum_row]),
+                                 t_vals = t_vals)
     
     png(paste("./Growth_curve_plots_fits2/", 
               formatC(gc_summarized$uniq_well_num[sum_row], width = 3, 
@@ -1244,24 +1309,38 @@ if(make_curveplots) {
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
                  aes(x = Time_s, y = cfu_ml)) +
             geom_point(size = 0.5) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals1),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "red", alpha = 0.3, lty = 3) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals1),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "red", alpha = 0.7) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals2),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "blue", alpha = 0.3, lty = 3) +
             geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals2),
                       mapping = aes(x = Time_s, y = pred_dens),
-                      color = "red") +
-            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals),
-                      mapping = aes(x = Time_s, y = pred_dens),
-                      color = "blue", alpha = 0.2) +
+                      color = "blue", alpha = 0.5, lwd = 2) +
             scale_y_continuous(trans = "log10") +
-            geom_vline(aes(xintercept = min(gc_data$Time_s[gc_data$Time_s > 0])), 
-                       lty = 2) +
+            geom_vline(aes(xintercept = gc_summarized$first_min_time[
+              gc_summarized$uniq_well == my_well]), lty = 2) +
             geom_vline(aes(xintercept = (gc_summarized$pseudo_K_time[
               gc_summarized$uniq_well == my_well]+45*60)), lty = 2) +
             geom_vline(aes(xintercept = (gc_summarized$pseudo_K_time[
               gc_summarized$uniq_well == my_well])), lty = 3, alpha = 0.5) +
+            ggtitle(paste("err =",
+                          signif(gc_summarized$fit2_err[
+                            gc_summarized$uniq_well == my_well], 2))) +
             theme_bw() +
             NULL)
     dev.off()
   }
 }
+
+#Red curve (full baranyi function, not where m = r) is better
+#New new new bad fits of that curve:
+#
+#
 
 #New new bad fits (added 45 mins to endtime of data)
 # (quite a few need to be cut off at first min but not using loess)
