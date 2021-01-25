@@ -2052,7 +2052,7 @@ for (i in 1:length(isol_data_pca)) {
   #(don't need to center because all data are centered relative to
   # Anc = 0 already)
   isol_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
-                             center = FALSE, scale = TRUE, retx = TRUE)
+                             center = TRUE, scale = TRUE, retx = TRUE)
   isol_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
                               as.data.frame(isol_prcomp[[i]]$x))
   row.names(isol_prcomp[[i]]$rotation) <- 
@@ -2068,65 +2068,88 @@ summary(isol_prcomp[[1]])
 summary(isol_prcomp[[2]])
 
 if(make_statplots) {
+  arrow_len <- 2 #multiplier for arrow lengths for vis purposes
+  
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  weak_pca <- ggplot(isol_prcomp[["7x"]]$x[isol_prcomp[["7x"]]$x$Pop != "Anc", ], 
+  weak_pca <- ggplot(isol_prcomp[["7x"]]$x, 
                      aes(x = PC1, y = PC2)) +
     ggtitle("Weak Phage") +
     geom_segment(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
-                 aes(x = 0, y = 0, xend = PC1, yend = PC2),
+                 aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 1, color = "gray50") +
+                 alpha = .8, lwd = 2, color = "gray15") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
-                             aes(x = PC1, y = PC2,
+                             aes(x = arrow_len*PC1, y = arrow_len*PC2,
                                  label = row.names(isol_prcomp[["7x"]]$rotation)),
-              size = 9, alpha = .8, color = "gray0") +
+              size = 14, alpha = .8, color = "gray0", seed = 8,
+              min.segment.length = unit(1, "native"),
+              nudge_x = c(0, -0.1, -0.4, 0, 0.5), 
+              nudge_y = c(0, -0.1, 0.25, 0.2, 0)) + 
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
-    labs(x = "PC1", y = "PC2") +
-    theme(axis.title = element_text(size = 32),
-          axis.text = element_text(size = 20),
-          legend.title = element_text(size = 32),
-          legend.text = element_text(size = 28),
-          plot.title = element_text(size = 32)) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    xlim(-1, NA)
+    labs(x = paste("PC1 (", 
+                   round((100*((isol_prcomp[["7x"]]$sdev)**2)/
+                           sum((isol_prcomp[["7x"]]$sdev)**2))[1], 1),
+                   "%)", sep = ""),
+         y = paste("PC2 (", 
+                   round((100*((isol_prcomp[["7x"]]$sdev)**2)/
+                            sum((isol_prcomp[["7x"]]$sdev)**2))[2], 1),
+                   "%)", sep = "")) +
+    theme(axis.title = element_text(size = 36),
+          axis.text = element_text(size = 22),
+          legend.title = element_text(size = 36),
+          legend.text = element_text(size = 32),
+          plot.title = element_text(size = 36)) +
+    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                       labels = c("Ancestor", "Control", "Local", "Global"),
+                       values = my_cols[c(7, 8, 2, 6)]) +
+    #xlim(-1, NA) +
+    NULL
   print(weak_pca)
   dev.off()
 
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  strong_pca <- ggplot(isol_prcomp[["125"]]$x[isol_prcomp[["125"]]$x$Pop != "Anc",], 
+  strong_pca <- ggplot(isol_prcomp[["125"]]$x, 
                        aes(x = -PC1, y = PC2)) +
     ggtitle("Strong Phage") +
     geom_segment(data = as.data.frame(isol_prcomp[["125"]]$rotation),
-                 aes(x = 0, y = 0, xend = -PC1, yend = PC2),
+                 aes(x = 0, y = 0, xend = -arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 1, color = "gray50") +
+                 alpha = .8, lwd = 2, color = "gray15") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["125"]]$rotation),
-                             aes(x = -PC1, y = PC2,
+                             aes(x = -arrow_len*PC1, y = arrow_len*PC2,
                                  label = row.names(isol_prcomp[["125"]]$rotation)),
-                             size = 9, alpha = .8, color = "gray0") +
+                             size = 14, alpha = .8, color = "gray0", seed = 1,
+                             min.segment.length = unit(1, "native"),
+                             nudge_x = c(-0.1, -0.05, 0, 0, 0.05), 
+                             nudge_y = c(0, -0.1, 0, 0, -0.05)) +
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
-    labs(x = "PC1", y = "PC2") +
-    theme(axis.title = element_text(size = 32),
-          axis.text = element_text(size = 20),
-          legend.title = element_text(size = 32),
-          legend.text = element_text(size = 28),
-          plot.title = element_text(size = 32)) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    xlim(-1, NA) +
+    labs(x = paste("PC1 (", 
+                   round((100*((isol_prcomp[["125"]]$sdev)**2)/
+                            sum((isol_prcomp[["125"]]$sdev)**2))[1], 1),
+                   "%)", sep = ""),
+         y = paste("PC2 (", 
+                   round((100*((isol_prcomp[["125"]]$sdev)**2)/
+                            sum((isol_prcomp[["125"]]$sdev)**2))[2], 1),
+                   "%)", sep = "")) +
+    theme(axis.title = element_text(size = 36),
+          axis.text = element_text(size = 22),
+          legend.title = element_text(size = 36),
+          legend.text = element_text(size = 32),
+          plot.title = element_text(size = 36)) +
+    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                       labels = c("Ancestor", "Control", "Local", "Global"),
+                       values = my_cols[c(7, 8, 2, 6)]) +
+    #xlim(-1, NA) +
     NULL
   print(strong_pca)
   dev.off()
   
   tiff("./Output_figures/PCA_combined.tiff", 
-       width = 24, height = 10, units = "in", res = 100)
+       width = 24, height = 10, units = "in", res = 300)
   print(cowplot::plot_grid(
     weak_pca + theme(legend.position = "none"), 
     strong_pca + theme(legend.position = "none"),
