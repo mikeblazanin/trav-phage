@@ -21,10 +21,11 @@ library("npmv")
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
+scales::show_col(my_cols)
 
 #Global options
 make_curveplots <- FALSE
-make_statplots <- TRUE
+make_statplots <- FALSE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
@@ -1950,6 +1951,7 @@ isol_data <- full_join(gc_sum_pops_wide,
 isol_data <- as.data.frame(full_join(isol_data, isol_migr_sum))
 
 isol_data$EOP_avg <- log10(isol_data$EOP_avg)
+isol_data$resis <- -isol_data$EOP_avg
 
 #Rename for brevity
 colnames(isol_data) <- gsub("_avg_rel_avg", "", colnames(isol_data))
@@ -2045,13 +2047,20 @@ for (i in 1:length(isol_data_pca)) {
                 #"fit2_r_Rich", "fit2_k_Rich", 
                 #"fit2_v_Rich", 
                 #"fit2_d0_Rich", "fit2_lagtime_hrs_Rich",
-                "EOP_avg", "relative_k_avg_log10")
+                #"EOP_avg", 
+                "resis", "radius_mm_hr_rel_avg")
   #(don't need to center because all data are centered relative to
   # Anc = 0 already)
   isol_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
                              center = FALSE, scale = TRUE, retx = TRUE)
   isol_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
                               as.data.frame(isol_prcomp[[i]]$x))
+  row.names(isol_prcomp[[i]]$rotation) <- 
+    plyr::revalue(x = row.names(isol_prcomp[[i]]$rotation),
+                  replace = c("fit2_r_Orig" = "r", "fit2_k_Orig" = "k", 
+                              "fit2_lagtime_hrs_Orig" = "lag time", 
+                              "resis" = "resistance",
+                              "radius_mm_hr_rel_avg" = "agar growth"))
 }
 names(isol_prcomp) <- names(isol_data_pca)
 
@@ -2061,7 +2070,8 @@ summary(isol_prcomp[[2]])
 if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  ggplot(isol_prcomp[["7x"]]$x, aes(x = PC1, y = PC2)) +
+  weak_pca <- ggplot(isol_prcomp[["7x"]]$x[isol_prcomp[["7x"]]$x$Pop != "Anc", ], 
+                     aes(x = PC1, y = PC2)) +
     ggtitle("Weak Phage") +
     geom_segment(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
                  aes(x = 0, y = 0, xend = PC1, yend = PC2),
@@ -2070,19 +2080,26 @@ if(make_statplots) {
     ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
                              aes(x = PC1, y = PC2,
                                  label = row.names(isol_prcomp[["7x"]]$rotation)),
-              size = 7, alpha = .8, color = "gray50") +
+              size = 9, alpha = .8, color = "gray0") +
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
     labs(x = "PC1", y = "PC2") +
-    theme(axis.title = element_text(size = 20),
-          legend.title = element_text(size = 24),
-          legend.text = element_text(size = 20)) +
+    theme(axis.title = element_text(size = 32),
+          axis.text = element_text(size = 20),
+          legend.title = element_text(size = 32),
+          legend.text = element_text(size = 28),
+          plot.title = element_text(size = 32)) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
     xlim(-1, NA)
+  print(weak_pca)
   dev.off()
 
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  ggplot(isol_prcomp[["125"]]$x, aes(x = -PC1, y = PC2)) +
+  strong_pca <- ggplot(isol_prcomp[["125"]]$x[isol_prcomp[["125"]]$x$Pop != "Anc",], 
+                       aes(x = -PC1, y = PC2)) +
     ggtitle("Strong Phage") +
     geom_segment(data = as.data.frame(isol_prcomp[["125"]]$rotation),
                  aes(x = 0, y = 0, xend = -PC1, yend = PC2),
@@ -2091,22 +2108,35 @@ if(make_statplots) {
     ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["125"]]$rotation),
                              aes(x = -PC1, y = PC2,
                                  label = row.names(isol_prcomp[["125"]]$rotation)),
-                             size = 7, alpha = .8, color = "gray50") +
+                             size = 9, alpha = .8, color = "gray0") +
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
     labs(x = "PC1", y = "PC2") +
-    theme(axis.title = element_text(size = 20),
-          legend.title = element_text(size = 24),
-          legend.text = element_text(size = 20)) +
+    theme(axis.title = element_text(size = 32),
+          axis.text = element_text(size = 20),
+          legend.title = element_text(size = 32),
+          legend.text = element_text(size = 28),
+          plot.title = element_text(size = 32)) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
     xlim(-1, NA) +
     NULL
+  print(strong_pca)
+  dev.off()
+  
+  tiff("./Output_figures/PCA_combined.tiff", 
+       width = 24, height = 10, units = "in", res = 100)
+  print(cowplot::plot_grid(
+    weak_pca + theme(legend.position = "none"), 
+    strong_pca + theme(legend.position = "none"),
+    cowplot::get_legend(weak_pca),
+    #labels = c("Weak Phage", "Strong Phage"),
+    vjust = 0,
+    rel_widths = c(1, 1, 0.3),
+    nrow = 1, align = "h", axis = "tb"))
   dev.off()
 }
-
-
-#print(summary(isol_princomp), digits = 2)
-print(isol_princomp_7x$loadings, cutoff = 0)
-print(isol_princomp_125$loadings, cutoff = 0)
 
 ##Isolate growth curves: Check for normality ----
 
