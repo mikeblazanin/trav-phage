@@ -5,10 +5,8 @@
 ##      Plot lag time, r, k, v
 ##      Make PCA: lag time, r, k, v, resistance, migration
 ##      Stats
-##      normalization of migration data (for time, via log transform?)
 ##      check rep wells that are very dift from ea other?
 ##        (does it matter since it gets averaged out anyway?)
-##      Decide whether ancestor normalization is a good idea
 ##      Try fitting v = 1 fixed?
 
 ## Load packages and color scale ----
@@ -38,29 +36,19 @@ exper_evol_migr$Proj <- factor(exper_evol_migr$Proj,
 #Drop points after T14
 exper_evol_migr <- exper_evol_migr[exper_evol_migr$Timepoint <= 14, ]
 
-#Calculate total area
-exper_evol_migr$area_cm2 <- pi*exper_evol_migr$Width_cm/2*exper_evol_migr$Height_cm/2
+#Based on Croze, Ottavio A., et al. "Migration of chemotactic bacteria in 
+#soft agar: role of gel concentration." Biophysical journal 101.3 (2011): 525-534.
+#radius increases ~linearly with time, so we'll normalize radius by time
 
-#Let's assume that area increases exponentially
-# (e.g. what we might naively expect pop size to do)
-# then A(t) = C e^(kt)
-#So ln(A/C)/t = k (the growth constant of area
-#Well C is just the starting area, which we know has a diameter
-# of 2-3mm (see 2017-01-21 in lab notebook)
-# (even if the density is lower, since all points are being
-#  normalized the same way changes in C would simply move
-#  all points up/down proportional to t)
-# which equals an area of 0.01*pi cm^2 = 0.0314 cm^2
-#So k = ln(A/0.0314)/t
-
-#Calculate k
-exper_evol_migr$area_k <- log(exper_evol_migr$area_cm2/(0.01*pi))/
-  exper_evol_migr$time_since_inoc
+#Calculate radius/hr
+exper_evol_migr$radius_mm_hr <- 
+  10*(exper_evol_migr$Width_cm+exper_evol_migr$Height_cm)/
+  (2*exper_evol_migr$time_since_inoc)
 
 #Make plot of all pops
 if (make_statplots) {
   ggplot(data = exper_evol_migr,
-         aes(x = Timepoint, y = area_k,
+         aes(x = Timepoint, y = radius_mm_hr,
              group = paste(Pop, Treat), color = Treat)) +
     geom_line() +
     facet_grid(~Proj)
@@ -69,17 +57,15 @@ if (make_statplots) {
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
-                             area_mean = mean(area_cm2),
-                             area_sd = sd(area_cm2),
-                             area_n = n(),
-                             area_k_mean = mean(area_k),
-                             area_k_sd = sd(area_k))
+                             pops_n = n(),
+                             radius_mm_hr_mean = mean(radius_mm_hr),
+                             radius_mm_hr_sd = sd(radius_mm_hr))
 
 #Make plot of summarized data
 if (make_statplots) {
   my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
   
-  ggplot(data = exper_evol_summ, aes(x = Timepoint, y = area_k_mean,
+  ggplot(data = exper_evol_summ, aes(x = Timepoint, y = radius_mm_hr_mean,
                                      color = Treat)) +
     geom_point(position = position_dodge(0.2)) + 
     geom_line(size = 1.2, position = position_dodge(0.2)) +
@@ -87,11 +73,11 @@ if (make_statplots) {
     theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
           legend.text = element_text(size = 16)) +
     facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-    geom_errorbar(aes(ymax = area_k_mean+area_k_sd, 
-                      ymin = area_k_mean-area_k_sd),
+    geom_errorbar(aes(ymax = radius_mm_hr_mean+radius_mm_hr_sd, 
+                      ymin = radius_mm_hr_mean-radius_mm_hr_sd),
                   width=1, size = .7, position=position_dodge(0.2)) +
     labs(x = "Transfer", 
-         y = expression(paste("Mean Area of Growth per Hour ( ", cm^2, "/hr)"))) + 
+         y = expression(paste("Soft Agar Growth (mm/hr)"))) + 
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                     labels = c("Control", "Local", "Global"),
                     values = my_cols[c(8, 2, 6)]) +
@@ -102,21 +88,22 @@ if (make_statplots) {
   tiff("./Output_figures/Exper_evol_migr.tiff",
        width = 7, height = 4, units = "in", res = 300)
   ggplot(data = exper_evol_migr,
-                 aes(x = Timepoint, y = area_k, 
+                 aes(x = Timepoint, y = radius_mm_hr, 
                      group = paste(Treat, Pop),
                      color = Treat)) +
   #  geom_point(size = 0.5, alpha = 0.5) +
            geom_line(alpha = 0.5, lwd = .4) +
            facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
     geom_line(data = exper_evol_summ,
-              aes(x = Timepoint, y = area_k_mean, color = Treat,
+              aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
                   group = Treat),
               size = 1.3) +
-    labs(x = "Transfer", y = "Total Growth Parameter") + 
+    labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
     scale_x_continuous(breaks = c(0, 7, 14)) +
+    ylim(0, NA) +
     theme_bw() +
     theme(axis.text.y = element_text(size = 11), 
           axis.text.x = element_text(size = 11),
@@ -127,24 +114,25 @@ if (make_statplots) {
     NULL
   dev.off()
   
-  tiff("./Output_figures/Exper_evol_migr_tall.tiff",
+  tiff("./Output_figures/Exper_evol_migr_stacked.tiff",
        width = 7, height = 4, units = "in", res = 300)
   ggplot(data = exper_evol_migr,
-         aes(x = Timepoint, y = area_k, 
+         aes(x = Timepoint, y = radius_mm_hr, 
              group = paste(Treat, Pop),
              color = Treat)) +
     #  geom_point(size = 0.5, alpha = 0.5) +
     geom_line(alpha = 0.5, lwd = .4) +
     facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
     geom_line(data = exper_evol_summ,
-              aes(x = Timepoint, y = area_k_mean, color = Treat,
+              aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
                   group = Treat),
               size = 1.3) +
-    labs(x = "Transfer", y = "Total Growth Parameter") + 
+    labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
     scale_x_continuous(breaks = c(0, 7, 14)) +
+    ylim(0, NA) +
     theme_bw() +
     theme(axis.text.y = element_text(size = 11), 
           axis.text.x = element_text(size = 11),
@@ -167,25 +155,17 @@ isol_migration$Proj <- factor(isol_migration$Proj,
 isol_migration$Treat <- factor(isol_migration$Treat,
                                levels = c("Anc", "C", "L", "G"))
 
-#Calculate total area
-isol_migration$area_cm2 <- pi*isol_migration$Width_cm/2*isol_migration$Height_cm/2
-
-#Calculate k
-isol_migration$area_k <- log(isol_migration$area_cm2/(0.01*pi))/
-  isol_migration$time_since_inoc
+#Calculate radius/hr
+isol_migration$radius_mm_hr <-
+  10*(isol_migration$Width_cm+isol_migration$Height_cm)/
+  (2*isol_migration$time_since_inoc)
 
 #Calculate relative values to same-day ancestor
+# (note that first batch of isols had no same-day ancestor to normalize to)
 ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
 
-  #For total area
-isol_migration$relative_area <-
-  isol_migration$area_cm2/ancestors$area_cm2[
-    match(as.Date(isol_migration$end_timestamp),
-          as.Date(ancestors$end_timestamp))]
-
-  #For k
-isol_migration$relative_k <-
-  isol_migration$area_k/ancestors$area_k[
+isol_migration$radius_mm_hr_rel <-
+  isol_migration$radius_mm_hr - ancestors$radius_mm_hr[
     match(as.Date(isol_migration$end_timestamp),
           as.Date(ancestors$end_timestamp))]
 
@@ -196,80 +176,43 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT")
 
 if (make_statplots) {
-  #Total area
-  ggplot(isol_migration, 
-         aes(x = Pop, y = area_cm2, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = "Area of Growth (cm^2)", x = "Population") +
-    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                    labels = c("Control", "Local", "Global"),
-    #                    values = my_cols[c(8, 2, 6)]) +
-    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                   labels = c("Control", "Local", "Global"),
-    #                   values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL
-  
-  #Relative area
-  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = relative_area, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = "Total Area Relative to Ancestor",
-         x = "Population") +
-    geom_hline(yintercept = 1, lty = 2) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                      labels = c("Control", "Local", "Global"),
-                      values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL
-  
-  #K values
-  ggplot(isol_migration, 
-         aes(x = Pop, y = area_k, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = "Total Growth Parameter",
-         x = "Population") +
-    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                    labels = c("Control", "Local", "Global"),
-    #                    values = my_cols[c(8, 2, 6)]) +
-    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                   labels = c("Control", "Local", "Global"),
-    #                   values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL
-  
-  #Relative K
+  #radius
   tiff("./Output_figures/Isol_migration.tiff",
        width = 6, height = 4, units = "in", res = 300)
-  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = relative_k, 
+  print(ggplot(isol_migration, 
+         aes(x = Pop, y = radius_mm_hr, 
              color = Treat, fill = Treat)) +
     geom_point(position = position_dodge(0.5), alpha = 0.6,
                size = 2) +
     facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
                                                   Treat = my_facet_labels)) +
     theme_bw() + 
-    labs(y = "Total Growth Parameter Relative to Ancestor",
+    labs(y = "Soft Agar Growth (mm/hr)",
          x = "Population") +
-    geom_hline(yintercept = 1, lty = 2) +
+    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                    labels = c("Control", "Local", "Global"),
+    #                    values = my_cols[c(8, 2, 6)]) +
+    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+    #                   labels = c("Control", "Local", "Global"),
+    #                   values = my_cols[c(8, 2, 6)]) +
+    theme(legend.position = "none") +
+    NULL)
+  dev.off()
+  
+  #Relative radius
+  tiff("./Output_figures/Isol_migration_rel.tiff",
+       width = 6, height = 4, units = "in", res = 300)
+  print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+         aes(x = Pop, y = radius_mm_hr_rel, 
+             color = Treat, fill = Treat)) +
+    geom_point(position = position_dodge(0.5), alpha = 0.6,
+               size = 2) +
+    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+                                                  Treat = my_facet_labels)) +
+    theme_bw() + 
+    labs(y = "Soft Agar Growth Relative to Ancestor (mm/hr)",
+         x = "Population") +
+    geom_hline(yintercept = 0, lty = 2) +
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
@@ -277,23 +220,22 @@ if (make_statplots) {
                       labels = c("Control", "Local", "Global"),
                       values = my_cols[c(8, 2, 6)]) +
     theme(legend.position = "none") +
-    NULL
+    NULL)
   dev.off()
   
-  tiff("./Output_figures/Isol_migration_tall.tiff",
+  tiff("./Output_figures/Isol_migration_rel_stacked.tiff",
        width = 5, height = 4, units = "in", res = 300)
-  ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = relative_k, 
+  print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
+         aes(x = Pop, y = radius_mm_hr_rel, 
              color = Treat, fill = Treat)) +
     geom_point(position = position_dodge(0.5), alpha = 0.6,
                size = 2) +
     facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels),
-               scales = "free_y") +
+                                                  Treat = my_facet_labels)) +
     theme_bw() + 
-    labs(y = "Total Growth Parameter Relative to Ancestor",
+    labs(y = "Soft Agar Growth Relative to Ancestor (mm/hr)",
          x = "Population") +
-    geom_hline(yintercept = 1, lty = 2) +
+    geom_hline(yintercept = 0, lty = 2) +
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
@@ -301,16 +243,16 @@ if (make_statplots) {
                       labels = c("Control", "Local", "Global"),
                       values = my_cols[c(8, 2, 6)]) +
     theme(legend.position = "none") +
-    NULL
+    NULL)
   dev.off()
 }
 
 #Summarize for later inclusion w/ gc data
-isol_migration_temp <- isol_migration[!is.na(isol_migration$relative_k), ]
+isol_migration_temp <- isol_migration[!is.na(isol_migration$radius_mm_hr_rel), ]
 isol_migration_temp <- group_by(isol_migration_temp,
                            Proj, Pop, Treat)
 isol_migr_sum <- summarize(isol_migration_temp,
-                           relative_k_avg = mean(relative_k))
+                           radius_mm_hr_rel_avg = mean(radius_mm_hr_rel))
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
