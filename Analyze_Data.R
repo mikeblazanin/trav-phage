@@ -1457,7 +1457,8 @@ if (make_statplots) {
 }     
 
 #Calculate lag time
-gc_summarized$lag_time <- NA
+gc_summarized <- as.data.frame(gc_summarized)
+gc_summarized$fit2_lagtime_hrs <- NA
 for (sum_row in 1:nrow(gc_summarized)) {
   if (all(!is.na(gc_summarized[sum_row,
                                c("fit2_r", "fit2_k", "fit2_v",
@@ -1474,9 +1475,9 @@ for (sum_row in 1:nrow(gc_summarized)) {
                                t_vals = t_vals)
     pred_deriv <- calc_deriv(density = pred_vals1)
     exp_grow_index <- which.max(pred_deriv)
-    gc_summarized[sum_row, "lag_time"] <- 
-      ((gc_summarized[sum_row, "fit2_d0"] - pred_vals1[exp_grow_index])/
-         pred_deriv[exp_grow_index]) + t_vals[exp_grow_index]
+    gc_summarized[sum_row, "fit2_lagtime_hrs"] <- 
+      (((gc_summarized[sum_row, "fit2_d0"] - pred_vals1[exp_grow_index])/
+         pred_deriv[exp_grow_index]) + t_vals[exp_grow_index])/3600
     
     if (F) {
       print(ggplot(data = data.frame(time = t_vals, dens = pred_vals1), 
@@ -1484,7 +1485,8 @@ for (sum_row in 1:nrow(gc_summarized)) {
               #scale_y_continuous(trans = "log10") +
               # geom_vline(xintercept = exp_grow_time) +
               # geom_vline(xintercept = exp_grow_time2, lty = 2) +
-              geom_vline(xintercept = gc_summarized[sum_row, "lag_time"], lty = 2) +
+              geom_vline(xintercept = 3600*gc_summarized[sum_row, "lagtime_hrs"], 
+                         lty = 2) +
               geom_hline(yintercept = gc_summarized[sum_row, "fit2_d0"], lty = 2) +
               geom_abline(slope = pred_deriv[exp_grow_index],
                           intercept = pred_vals1[exp_grow_index] - 
@@ -1658,14 +1660,14 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "fit_k",
                               "fit_d0",
                               "fit2_r", "fit2_k", "fit2_v", 
-                              "fit2_q0", "fit2_m", "fit2_d0",
+                              "fit2_q0", "fit2_m", "fit2_d0", "fit2_lagtime_hrs",
                               "fit3_r", "fit3_k", "fit3_v", 
                               "fit3_q0", "fit3_d0"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
 # Just raw sd vals (w/ red line for mean avg value)
-if (make_statplots) {
+#if (make_statplots) {
   for (var in c("first_min_", "first_min_time_", 
                 "max_percap_gr_rate_", "max_percap_gr_time_", 
                 "max_percap_gr_dens_", 
@@ -1681,7 +1683,7 @@ if (make_statplots) {
   }
 }
 # Sd vals divided by matching avg value (so 1 is the reference)
-if (make_statplots) {
+#if (make_statplots) {
   for (var in c("first_min_", "first_min_time_", 
                 "max_percap_gr_rate_", "max_percap_gr_time_", 
                 "max_percap_gr_dens_", 
@@ -1718,7 +1720,7 @@ if (make_statplots) {
                #"pseudo_K_timesince_maxpercap_",
                #"fit_r_", "fit_k_", "fit_d0_",
                "fit2_r_", "fit2_k_", "fit2_v_", 
-               "fit2_q0_", "fit2_m_", "fit2_d0_"
+               "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_"
                #"fit3_r_", "fit3_k_", "fit3_v_", 
                #"fit3_q0_", "fit3_d0_"
                )
@@ -1733,7 +1735,7 @@ if (make_statplots) {
                   #"Time until diauxic shift (from max percap)",
                   #"Fit r", "Fit carrying capacity", "Fit init density",
                   "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 q0",
-                  "Fit 2 m", "fit 2 d0")[i]
+                  "Fit 2 m", "fit 2 d0", "fit 2 lag time (hrs)")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
@@ -1779,7 +1781,7 @@ for (var in c("first_min_avg",
               "pseudo_K_timesince_maxpercap_avg",
               "fit_r_avg", "fit_k_avg", "fit_d0_avg",
               "fit2_r_avg", "fit2_k_avg", "fit2_v_avg", 
-              "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg")) {
+              "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg", "fit2_lagtime_hrs_avg")) {
   new_var <- paste(var, "_rel", sep = "")
   gc_sum_isols[, new_var] <- gc_sum_isols[, var] -
     ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
@@ -1803,7 +1805,7 @@ if (make_statplots) {
                   #"pseudo_K_timesince_maxpercap_",
                   #"fit_r_", "fit_k_", "fit_d0_",
                   "fit2_r_", "fit2_k_", "fit2_v_", 
-                  "fit2_q0_", "fit2_m_", "fit2_d0_")
+                  "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_")
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
     var <- paste(var_root, "avg_rel", sep = "")
@@ -1817,7 +1819,8 @@ if (make_statplots) {
                   #"Relative Fit r", "Relative Fit carrying capacity", 
                   #"Relative Fit init density",
                   "Relative Fit 2 r", "Relative Fit 2 k", "Relative Fit 2 v", 
-                  "Relative Fit 2 q0", "Relative Fit 2 m", "Relative fit 2 d0")[i]
+                  "Relative Fit 2 q0", "Relative Fit 2 m", "Relative fit 2 d0",
+                  "Relative Fit 2 lag time")[i]
     #Note: if you want to view the sd's between wells of
     # Ancestor-normalized values, you'll have to go back to
     # gc_summarized and calculate the relative values there
@@ -1873,7 +1876,8 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
                             "pseudo_K_timesince_maxpercap_avg_rel",
                             "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel",
                             "fit2_r_avg_rel", "fit2_k_avg_rel", "fit2_v_avg_rel",
-                            "fit2_q0_avg_rel", "fit2_m_avg_rel", "fit2_d0_avg_rel"))
+                            "fit2_q0_avg_rel", "fit2_m_avg_rel", "fit2_d0_avg_rel",
+                            "fit2_lagtime_hrs_avg_rel"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized mean data (median below)
@@ -1883,6 +1887,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (make_statplots) {
+  dir.create("./Growth_curve_variables_plots_pops/", showWarnings = F)
   for (var_root in c("first_min_avg_rel", 
                      # "first_min_time_avg", 
                      "max_percap_gr_rate_avg_rel", 
@@ -1895,7 +1900,8 @@ if (make_statplots) {
                      "pseudo_K_timesince_maxpercap_avg_rel",
                      "fit2_r_avg_rel", "fit2_k_avg_rel", 
                      "fit2_v_avg_rel", "fit2_q0_avg_rel", 
-                     "fit2_m_avg_rel", "fit2_d0_avg_rel"
+                     "fit2_m_avg_rel", "fit2_d0_avg_rel",
+                     "fit2_lagtime_hrs_avg_rel"
   )) {
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
@@ -1952,81 +1958,67 @@ if (make_statplots) {
 }
 
 #View population-summarized median data
-if (make_statplots) {
-  for (var_root in c("first_min_avg_rel", 
-                     "max_percap_gr_rate_avg_rel", 
-                     "max_percap_gr_dens_avg_rel", 
-                     "max_percap_gr_timesincemin_avg_rel",
-                     "pseudo_K_avg_rel", 
-#                     "pseudo_K_timesincemin_avg_rel"
-                     "pseudo_K_timesince_maxpercap_avg_rel"
-                     )) {
-    var <- paste(var_root, "_med", sep = "")
-    var_sd <- paste(var_root, "_sd", sep = "")
-    tiff(paste("./Growth_curve_variables_plots_pops/", var, ".tiff", sep = ""),
-         width = 10, height = 10, units = "in", res = 300)
-    print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
-                 aes(x = Treat, y = get(var), group = Pop,
-                     color = Treat)) +
-            geom_point(position = position_dodge(0.1),
-                       size = 5, alpha = 0.8) +
-            geom_hline(yintercept = 1, lty = 2) +
-            scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                               labels = c("Control", "Local", "Global"),
-                               values = my_cols[c(8, 2, 6)]) +
-            facet_grid(Proj ~ Media, scales = "free_y",
-                       labeller = labeller(Proj = my_facet_labels,
-                                           Media = my_facet_labels)) +
-            ggtitle(var) +
-            theme_bw() +
-            # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
-            #                   ymax = get(var)+get(var_sd)),
-            #               position = position_dodge(0.3),
-            #               width = 0.2)
-            NULL)
-    dev.off()
-  }
-}
+# if (make_statplots) {
+#   dir.create("./Growth_curve_variables_plots_pops/", showWarnings = F)
+#   for (var_root in c("first_min_avg_rel", 
+#                      "max_percap_gr_rate_avg_rel", 
+#                      "max_percap_gr_dens_avg_rel", 
+#                      "max_percap_gr_timesincemin_avg_rel",
+#                      "pseudo_K_avg_rel", 
+# #                     "pseudo_K_timesincemin_avg_rel"
+#                      "pseudo_K_timesince_maxpercap_avg_rel"
+#                      )) {
+#     var <- paste(var_root, "_med", sep = "")
+#     var_sd <- paste(var_root, "_sd", sep = "")
+#     tiff(paste("./Growth_curve_variables_plots_pops/", var, ".tiff", sep = ""),
+#          width = 10, height = 10, units = "in", res = 300)
+#     print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+#                  aes(x = Treat, y = get(var), group = Pop,
+#                      color = Treat)) +
+#             geom_point(position = position_dodge(0.1),
+#                        size = 5, alpha = 0.8) +
+#             geom_hline(yintercept = 1, lty = 2) +
+#             scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+#                                labels = c("Control", "Local", "Global"),
+#                                values = my_cols[c(8, 2, 6)]) +
+#             facet_grid(Proj ~ Media, scales = "free_y",
+#                        labeller = labeller(Proj = my_facet_labels,
+#                                            Media = my_facet_labels)) +
+#             ggtitle(var) +
+#             theme_bw() +
+#             # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
+#             #                   ymax = get(var)+get(var_sd)),
+#             #               position = position_dodge(0.3),
+#             #               width = 0.2)
+#             NULL)
+#     dev.off()
+#   }
+# }
 
 #Cast measurements in different medias into different columns
 # (using population mean data)
-gc_sum_pops <- as.data.table(gc_sum_pops)
-gc_sum_pops_wide <- data.table::dcast(gc_sum_pops,
-                           Proj+Pop+Treat ~ Media,
-                           value.var = c("first_min_avg_rel_avg", 
-                                         "max_percap_gr_rate_avg_rel_avg", 
-                                         "max_percap_gr_dens_avg_rel_avg", 
-                                         "max_percap_gr_timesincemin_avg_rel_avg", 
-                                         "pseudo_K_avg_rel_avg", 
-                                         "pseudo_K_timesincemin_avg_rel_avg",
-                                         "pseudo_K_timesince_maxpercap_avg_rel_avg"))
-gc_sum_pops_wide <- as.data.frame(gc_sum_pops_wide)
+gc_sum_pops_wide <- tidyr::pivot_wider(gc_sum_pops,
+                                       values_from = ends_with("avg_rel_avg"),
+                                       names_from = Media,
+                                       id_cols = c("Proj", "Pop", "Treat"))
 
 #Add in resistance & migration data
 isol_data <- full_join(gc_sum_pops_wide, 
                               resis_data_sum)
-isol_data <- full_join(isol_data, isol_migr_sum)
+isol_data <- as.data.frame(full_join(isol_data, isol_migr_sum))
 
 isol_data$EOP_avg <- log10(isol_data$EOP_avg)
 
 #Rename for brevity
-isol_data <- isol_data[, c(1:13, 16:20)]
-colnames(isol_data)[4:18] <- c(
-  "min_Orig", "min_Rich",
-  "pc_rate_Orig", "pc_rate_Rich",
-  "pc_dens_Orig", "pc_dens_Rich",
-  "pc_time_Orig", "pc_time_Rich",
-  "K_Orig", "K_Rich",
-  "K_time_Orig", "K_time_Rich",
-  "log(EOP)", "EOP_bd", "Agar_grow")
+colnames(isol_data) <- gsub("_avg_rel_avg", "", colnames(isol_data))
 
 #Check correlations between variables
-gc_var_cors_7x <- cor(isol_data[isol_data$Proj == "7x", 
-                                       c(4:16, 18)])
-gc_var_cors_125 <- cor(isol_data[isol_data$Proj == "125", 
-                                        c(4:16, 18)])
-write.csv(gc_var_cors_7x, "grow_curve_var_correlations_7x.csv")
-write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
+# gc_var_cors_7x <- cor(isol_data[isol_data$Proj == "7x", 
+#                                        c(4:16, 18)])
+# gc_var_cors_125 <- cor(isol_data[isol_data$Proj == "125", 
+#                                         c(4:16, 18)])
+# write.csv(gc_var_cors_7x, "grow_curve_var_correlations_7x.csv")
+# write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
 
 # all vars are positive w/ ea other
 # max percap rate neg w/ first min
@@ -2039,7 +2031,7 @@ if (make_statplots) {
   #Make base figure
   p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
                                        isol_data$Proj == "7x", ],
-                  columns = c(4:16, 18),
+                  columns = c(24:29, 34:38, 40),
                   lower = list(continuous = "smooth"),
                   upper = list(continuous = "smooth"),
                   ggplot2::aes(color = Treat, group = Proj),
@@ -2061,7 +2053,7 @@ if (make_statplots) {
   #Make base figure
   p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
                                    isol_data$Proj == "125", ],
-                       columns = c(4:16, 18),
+                       columns = c(24:29, 34:38, 40),
                        lower = list(continuous = "smooth"),
                        upper = list(continuous = "smooth"),
                        ggplot2::aes(color = Treat, group = Proj),
@@ -2081,7 +2073,7 @@ if (make_statplots) {
   
   tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
   GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "7x", c(4:16, 18)],
+                             isol_data$Proj == "7x", c(24:29, 34:38, 40)],
                  nbreaks = 5,
                  hjust = 0.8,
                  layout.exp = 1.5) +
@@ -2090,7 +2082,7 @@ if (make_statplots) {
   
   tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
   GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "125", c(4:16, 18)],
+                             isol_data$Proj == "125", c(24:29, 34:38, 40)],
                  nbreaks = 5,
                  hjust = 0.8,
                  layout.exp = 1.5) +
@@ -2099,24 +2091,44 @@ if (make_statplots) {
 }
 
 ##Isolate growth curves: run PCA (naively) ----
-isol_data_pca_7x <- isol_data[isol_data$Proj == "7x", ]
-isol_data_pca_125 <- isol_data[isol_data$Proj == "125", ]
-#Don't need to scale because all values are relative to ancestor already
-# isol_data_pca_7x[, 4:14] <- scale(isol_data_pca_7x[, 4:14])
-# isol_data_pca_125[, 4:14] <- scale(isol_data_pca_125[, 4:14])
-isol_princomp_7x <- princomp(isol_data_pca_7x[, c(4:16, 18)], cor = T, scores = T)
-isol_princomp_125 <- princomp(isol_data_pca_125[, c(4:16, 18)], cor = T, scores = T)
+isol_data_pca <- list(
+  "7x" = isol_data[isol_data$Proj == "7x", ],
+  "125" = isol_data[isol_data$Proj == "125", ])
+isol_prcomp <- list()
+prcomp_loading <- list()
+for (i in 1:length(isol_data_pca)) {
+  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", "fit2_v_Orig", 
+                "fit2_d0_Orig", "fit2_lagtime_hrs_Orig",
+                "fit2_r_Rich", "fit2_k_Rich", "fit2_v_Rich", 
+                "fit2_d0_Rich", "fit2_lagtime_hrs_Rich",
+                "EOP_avg", "relative_k_avg")
+  #(don't need to center because all data are centered relative to
+  # Anc = 0 already)
+  isol_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
+                             center = FALSE, scale = TRUE, retx = TRUE)
+  #scores are in "x", loadings are in "rotation)
+  prcomp_loading[[i]] <- isol_prcomp[[i]]$rotation
+}
+names(isol_prcomp) <- names(isol_data_pca)
+names(prcomp_loading) <- names(isol_data_pca)
 
-isol_data_pca_7x <- cbind(isol_data_pca_7x, isol_princomp_7x$scores)
-isol_data_pca_125 <- cbind(isol_data_pca_125, isol_princomp_125$scores)
 
-loadings_7x <- 6*as.data.frame(isol_princomp_7x$loadings[])
-loadings_125 <- 6*as.data.frame(isol_princomp_125$loadings[])
-loadings_7x$varnames <- rownames(loadings_7x)
-loadings_125$varnames <- rownames(loadings_125)
-
-summary(isol_princomp_7x)
-summary(isol_princomp_125)
+# #Don't need to scale because all values are relative to ancestor already
+# # isol_data_pca_7x[, 4:14] <- scale(isol_data_pca_7x[, 4:14])
+# # isol_data_pca_125[, 4:14] <- scale(isol_data_pca_125[, 4:14])
+# isol_princomp_7x <- princomp(isol_data_pca_7x[, c(4:16, 18)], cor = T, scores = T)
+# isol_princomp_125 <- princomp(isol_data_pca_125[, c(4:16, 18)], cor = T, scores = T)
+# 
+# isol_data_pca_7x <- cbind(isol_data_pca_7x, isol_princomp_7x$scores)
+# isol_data_pca_125 <- cbind(isol_data_pca_125, isol_princomp_125$scores)
+# 
+# loadings_7x <- 6*as.data.frame(isol_princomp_7x$loadings[])
+# loadings_125 <- 6*as.data.frame(isol_princomp_125$loadings[])
+# loadings_7x$varnames <- rownames(loadings_7x)
+# loadings_125$varnames <- rownames(loadings_125)
+# 
+# summary(isol_princomp_7x)
+# summary(isol_princomp_125)
 
 if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA.tiff", 
