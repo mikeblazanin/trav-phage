@@ -494,7 +494,7 @@ calc_deriv <- function(density, percapita = FALSE,
   # time_normalize should = 3600)
   
   #Check inputs
-  if (!is.numeric(time)) {
+  if (!is.null(time) & !is.numeric(time)) {
     stop("time is not numeric")
   }
   if (!is.null(time_normalize)) {
@@ -1455,6 +1455,57 @@ if (make_statplots) {
     scale_x_continuous(trans = "log10")
   hist(gc_summarized$fit_err)
 }     
+
+#Calculate lag time
+gc_summarized$lag_time <- NA
+for (sum_row in 1:nrow(gc_summarized)) {
+  if (all(!is.na(gc_summarized[sum_row,
+                               c("fit2_r", "fit2_k", "fit2_v",
+                                 "fit2_q0", "fit2_m", "fit2_d0")]))) {
+    my_well <- gc_summarized$uniq_well[sum_row]
+    t_vals <- seq(from = 0, to = max(gc_data$Time_s[gc_data$uniq_well == my_well]),
+                  by = 1)
+    pred_vals1 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+                               k = gc_summarized[sum_row, "fit2_k"],
+                               v = gc_summarized[sum_row, "fit2_v"],
+                               q0 = gc_summarized[sum_row, "fit2_q0"],
+                               m = gc_summarized[sum_row, "fit2_m"],
+                               d0 = gc_summarized[sum_row, "fit2_d0"],
+                               t_vals = t_vals)
+    pred_deriv <- calc_deriv(density = pred_vals1)
+    exp_grow_index <- which.max(pred_deriv)
+    gc_summarized[sum_row, "lag_time"] <- 
+      ((gc_summarized[sum_row, "fit2_d0"] - pred_vals1[exp_grow_index])/
+         pred_deriv[exp_grow_index]) + t_vals[exp_grow_index]
+    
+    if (F) {
+      print(ggplot(data = data.frame(time = t_vals, dens = pred_vals1), 
+                   aes(x = t_vals, y = dens)) + geom_line() + 
+              #scale_y_continuous(trans = "log10") +
+              # geom_vline(xintercept = exp_grow_time) +
+              # geom_vline(xintercept = exp_grow_time2, lty = 2) +
+              geom_vline(xintercept = gc_summarized[sum_row, "lag_time"], lty = 2) +
+              geom_hline(yintercept = gc_summarized[sum_row, "fit2_d0"], lty = 2) +
+              geom_abline(slope = pred_deriv[exp_grow_index],
+                          intercept = pred_vals1[exp_grow_index] - 
+                            pred_deriv[exp_grow_index]*t_vals[exp_grow_index]) +
+              NULL)
+      print(ggplot(data = data.frame(time = t_vals, 
+                                     dNds = calc_deriv(density = pred_vals1)), 
+                   aes(x = t_vals, y = dNds)) + geom_line() + 
+              scale_y_continuous(trans = "log10") +
+              geom_vline(xintercept = exp_grow_time) +
+              NULL)
+      print(ggplot(data = data.frame(time = t_vals, 
+                                     dNdsdN = calc_deriv(density = pred_vals1,
+                                                         percapita = T)), 
+                   aes(x = t_vals, y = dNdsdN)) + geom_line() + 
+              scale_y_continuous(trans = "log10") +
+              geom_vline(xintercept = exp_grow_time) +
+              NULL)
+    }
+  }
+}
 
 #Isolate growth curves: Make example plots (eg for talks) ----
 if (make_curveplots) {
