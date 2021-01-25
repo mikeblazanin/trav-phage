@@ -2032,85 +2032,74 @@ if (make_statplots) {
   dev.off()
 }
 
-##Isolate growth curves: run PCA (naively) ----
+##Isolate growth curves: run PCA ----
 isol_data_pca <- list(
   "7x" = isol_data[isol_data$Proj == "7x", ],
   "125" = isol_data[isol_data$Proj == "125", ])
 isol_prcomp <- list()
-prcomp_loading <- list()
 for (i in 1:length(isol_data_pca)) {
-  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", "fit2_v_Orig", 
-                "fit2_d0_Orig", "fit2_lagtime_hrs_Orig",
-                "fit2_r_Rich", "fit2_k_Rich", "fit2_v_Rich", 
-                "fit2_d0_Rich", "fit2_lagtime_hrs_Rich",
-                "EOP_avg", "relative_k_avg")
+  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
+                #"fit2_v_Orig", 
+                #"fit2_d0_Orig", 
+                "fit2_lagtime_hrs_Orig",
+                #"fit2_r_Rich", "fit2_k_Rich", 
+                #"fit2_v_Rich", 
+                #"fit2_d0_Rich", "fit2_lagtime_hrs_Rich",
+                "EOP_avg", "relative_k_avg_log10")
   #(don't need to center because all data are centered relative to
   # Anc = 0 already)
   isol_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
                              center = FALSE, scale = TRUE, retx = TRUE)
-  #scores are in "x", loadings are in "rotation)
-  prcomp_loading[[i]] <- isol_prcomp[[i]]$rotation
+  isol_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
+                              as.data.frame(isol_prcomp[[i]]$x))
 }
 names(isol_prcomp) <- names(isol_data_pca)
-names(prcomp_loading) <- names(isol_data_pca)
 
-
-# #Don't need to scale because all values are relative to ancestor already
-# # isol_data_pca_7x[, 4:14] <- scale(isol_data_pca_7x[, 4:14])
-# # isol_data_pca_125[, 4:14] <- scale(isol_data_pca_125[, 4:14])
-# isol_princomp_7x <- princomp(isol_data_pca_7x[, c(4:16, 18)], cor = T, scores = T)
-# isol_princomp_125 <- princomp(isol_data_pca_125[, c(4:16, 18)], cor = T, scores = T)
-# 
-# isol_data_pca_7x <- cbind(isol_data_pca_7x, isol_princomp_7x$scores)
-# isol_data_pca_125 <- cbind(isol_data_pca_125, isol_princomp_125$scores)
-# 
-# loadings_7x <- 6*as.data.frame(isol_princomp_7x$loadings[])
-# loadings_125 <- 6*as.data.frame(isol_princomp_125$loadings[])
-# loadings_7x$varnames <- rownames(loadings_7x)
-# loadings_125$varnames <- rownames(loadings_125)
-# 
-# summary(isol_princomp_7x)
-# summary(isol_princomp_125)
+summary(isol_prcomp[[1]])
+summary(isol_prcomp[[2]])
 
 if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  ggplot(isol_data_pca_7x,
-         aes(x = Comp.1, y = Comp.2)) +
+  ggplot(isol_prcomp[["7x"]]$x, aes(x = PC1, y = PC2)) +
     ggtitle("Weak Phage") +
-    geom_segment(data = loadings_7x,
-                 aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+    geom_segment(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
+                 aes(x = 0, y = 0, xend = PC1, yend = PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
                  alpha = .8, lwd = 1, color = "gray50") +
-    ggrepel::geom_text_repel(data = loadings_7x,
-                             aes(x = Comp.1, y = Comp.2, label = varnames),
+    ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
+                             aes(x = PC1, y = PC2,
+                                 label = row.names(isol_prcomp[["7x"]]$rotation)),
               size = 7, alpha = .8, color = "gray50") +
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
     labs(x = "PC1", y = "PC2") +
     theme(axis.title = element_text(size = 20),
           legend.title = element_text(size = 24),
-          legend.text = element_text(size = 20))
+          legend.text = element_text(size = 20)) +
+    xlim(-1, NA)
   dev.off()
 
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  ggplot(isol_data_pca_125,
-         aes(x = Comp.1, y = Comp.2)) +
+  ggplot(isol_prcomp[["125"]]$x, aes(x = -PC1, y = PC2)) +
     ggtitle("Strong Phage") +
-    geom_segment(data = loadings_125,
-                 aes(x = 0, y = 0, xend = Comp.1, yend = Comp.2),
+    geom_segment(data = as.data.frame(isol_prcomp[["125"]]$rotation),
+                 aes(x = 0, y = 0, xend = -PC1, yend = PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
                  alpha = .8, lwd = 1, color = "gray50") +
-    ggrepel::geom_text_repel(data = loadings_125,
-                             aes(x = Comp.1, y = Comp.2, label = varnames),
+    ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["125"]]$rotation),
+                             aes(x = -PC1, y = PC2,
+                                 label = row.names(isol_prcomp[["125"]]$rotation)),
                              size = 7, alpha = .8, color = "gray50") +
     geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
     theme_bw() +
     labs(x = "PC1", y = "PC2") +
     theme(axis.title = element_text(size = 20),
           legend.title = element_text(size = 24),
-          legend.text = element_text(size = 20))
+          legend.text = element_text(size = 20)) +
+    xlim(-1, NA) +
+    NULL
   dev.off()
 }
 
