@@ -1820,7 +1820,9 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
                             "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel",
                             "fit2_r_avg_rel", "fit2_k_avg_rel", "fit2_v_avg_rel",
                             "fit2_q0_avg_rel", "fit2_m_avg_rel", "fit2_d0_avg_rel",
-                            "fit2_lagtime_hrs_avg_rel"))
+                            "fit2_lagtime_hrs_avg_rel",
+                            "fit2_r_avg", "fit2_k_avg", "fit2_v_avg",
+                            "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg"))
 gc_sum_pops <- as.data.frame(gc_sum_pops)
 
 #View population-summarized mean data (median below)
@@ -1937,6 +1939,51 @@ if (make_statplots) {
 #     dev.off()
 #   }
 # }
+
+#Plot predicted curves for each pop in ea media
+t_vals <- seq(from = 0, to = max(gc_data$Time_s), by = 5*60)
+gc_sum_pops_curves <- data.frame(
+  Proj = rep(gc_sum_pops$Proj, each = length(t_vals)),
+  Pop = rep(gc_sum_pops$Pop, each = length(t_vals)),
+  Treat = rep(gc_sum_pops$Treat, each = length(t_vals)),
+  Media = rep(gc_sum_pops$Media, each = length(t_vals)),
+  Time_s = rep(t_vals, nrow(gc_sum_pops)),
+  Dens = rep(0, nrow(gc_sum_pops)*length(t_vals)))
+startrow <- 1
+for (i in 1:nrow(gc_sum_pops)) {
+  gc_sum_pops_curves$Dens[startrow:(startrow+length(t_vals)-1)] <- 
+    baranyi_func(
+    r = gc_sum_pops$fit2_r_avg_avg[i],
+    k = gc_sum_pops$fit2_k_avg_avg[i],
+    v = gc_sum_pops$fit2_v_avg_avg[i], 
+    q0 = gc_sum_pops$fit2_q0_avg_avg[i], 
+    d0 = gc_sum_pops$fit2_d0_avg_avg[i], 
+    m = gc_sum_pops$fit2_m_avg_avg[i],
+    t_vals = t_vals)
+  startrow <- startrow + length(t_vals)
+}
+
+my_facet_labels <- c("7x" = "Weak Phage", 
+                     "125" = "Strong Phage",
+                     "C" = "Control", "G" = "Global", "L" = "Local",
+                     "A" = "WT",
+                     "Rich" = "Rich Media", "Orig" = "Original Media")
+tiff("./Output_figures/pred_gcs.tiff",
+     width = 10.5, height = 10, units = "in", res = 300)
+ggplot(data = gc_sum_pops_curves,
+       aes(x = Time_s/3600, y = Dens, color = Treat, group = paste(Pop, Treat))) +
+  geom_line(lwd = 1, alpha = 0.8) +
+  facet_grid(Proj~Media, scales = "free_y",
+             labeller = labeller(Proj = my_facet_labels,
+                                 Media = my_facet_labels)) +
+  theme_bw() +
+  scale_y_continuous(trans = "log10") +
+  xlim(0, 11) +
+  scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                     labels = c("Ancestor", "Control", "Local", "Global"),
+                     values = my_cols[c(7, 8, 2, 6)]) +
+  NULL
+dev.off()
 
 #Cast measurements in different medias into different columns
 # (using population mean data)
