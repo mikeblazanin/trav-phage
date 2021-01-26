@@ -1832,38 +1832,39 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "A" = "WT",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 if (make_statplots) {
+  var_roots <- c("first_min_avg_rel", 
+                 # "first_min_time_avg", 
+                 "max_percap_gr_rate_avg_rel", 
+                 # "max_percap_gr_time_avg", 
+                 "max_percap_gr_dens_avg_rel", 
+                 "max_percap_gr_timesincemin_avg_rel",
+                 "pseudo_K_avg_rel", 
+                 # "pseudo_K_time_avg", 
+                 "pseudo_K_timesincemin_avg_rel",
+                 "pseudo_K_timesince_maxpercap_avg_rel",
+                 "fit2_r_avg_rel", "fit2_k_avg_rel", 
+                 "fit2_v_avg_rel", "fit2_q0_avg_rel", 
+                 "fit2_m_avg_rel", "fit2_d0_avg_rel",
+                 "fit2_lagtime_hrs_avg_rel"
+  )
   dir.create("./Growth_curve_variables_plots_pops/", showWarnings = F)
-  for (var_root in c("first_min_avg_rel", 
-                     # "first_min_time_avg", 
-                     "max_percap_gr_rate_avg_rel", 
-                     # "max_percap_gr_time_avg", 
-                     "max_percap_gr_dens_avg_rel", 
-                     "max_percap_gr_timesincemin_avg_rel",
-                     "pseudo_K_avg_rel", 
-                     # "pseudo_K_time_avg", 
-                     "pseudo_K_timesincemin_avg_rel",
-                     "pseudo_K_timesince_maxpercap_avg_rel",
-                     "fit2_r_avg_rel", "fit2_k_avg_rel", 
-                     "fit2_v_avg_rel", "fit2_q0_avg_rel", 
-                     "fit2_m_avg_rel", "fit2_d0_avg_rel",
-                     "fit2_lagtime_hrs_avg_rel"
-  )) {
+  for (var_root in var_roots) {
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots_pops/", var, ".tiff", sep = ""),
          width = 10, height = 10, units = "in", res = 300)
-    print(ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
+    print(
+      ggplot(data = gc_sum_pops[gc_sum_pops$Pop != "Anc", ],
                  aes(x = Treat, y = get(var), group = Pop,
                      color = Treat)) +
-            geom_point(position = position_dodge(0.1),
-                       size = 5, alpha = 0.8) +
+            geom_point(size = 5, alpha = 0.65) +
             scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                                labels = c("Control", "Local", "Global"),
                                values = my_cols[c(8, 2, 6)]) +
             facet_grid(Proj ~ Media, scales = "free_y",
                        labeller = labeller(Proj = my_facet_labels,
                                            Media = my_facet_labels)) +
-            geom_hline(yintercept = 1, lty = 2) +
+            geom_hline(yintercept = 0, lty = 2) +
             ggtitle(var) +
             theme_bw() +
             # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
@@ -1873,6 +1874,105 @@ if (make_statplots) {
           NULL)
     dev.off()
   }
+}
+
+#Make combined r-k-lagtime plot
+if(make_statplots) {
+  my_facet_labels <- c("7x" = "Weak Phage", 
+                       "125" = "Strong Phage",
+                       "C" = "Control", "G" = "Global", "L" = "Local",
+                       "A" = "WT",
+                       "Rich" = "Rich Media", "Orig" = "Orig Media")
+  
+  temp1 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
+  temp1$Title <- "r"
+  rplot <-
+    ggplot(data = temp1,
+           aes(x = Treat, y = fit2_r_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    facet_nested(Proj ~ Media, scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels,
+                                     Media = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Relative Maximum Per Capita Growth Rate (r) (/hr)", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(rplot)
+  
+  temp2 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
+  temp2$Title <- "k"
+  kplot <-
+    ggplot(data = temp2,
+           aes(x = Treat, y = fit2_k_avg_rel_avg/10**8, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    facet_nested(Proj ~ Media, scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels,
+                                     Media = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = expression(paste("Relative Density at Diauxic Shift (k) (",
+                              10^8, " cfu/mL)")), 
+         x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(kplot)
+  
+  temp3 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
+  temp3$Title <- "lag time"
+  lagplot <-
+    ggplot(data = temp3,
+           aes(x = Treat, y = fit2_lagtime_hrs_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    facet_nested(Proj ~ Media, scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels,
+                                     Media = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Relative Lag Time (hrs)", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(lagplot)
+    
+  tiff("./Growth_curve_variables_plots_pops/r_k_lag_combined.tiff",
+       width = 12, height = 8, units = "in", res = 300)
+  print(cowplot::plot_grid(
+    rplot + theme(legend.position = "none", 
+                  strip.background.y = element_blank(), 
+                  strip.text.y = element_blank(),
+                  strip.text.x = element_text(size = 18),
+                  axis.title = element_text(size = 22),
+                  axis.text.y = element_text(size = 20),
+                  axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
+    kplot + theme(legend.position = "none",
+                  strip.background.y = element_blank(), 
+                  strip.text.y = element_blank(),
+                  strip.text.x = element_text(size = 18),
+                  axis.title = element_text(size = 22),
+                  axis.text.y = element_text(size = 20),
+                  axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
+    lagplot + theme(legend.position = "none",
+                    strip.text = element_text(size = 18),
+                    axis.title = element_text(size = 22),
+                    axis.text.y = element_text(size = 20),
+                    axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
+    ncol = 3, rel_widths = c(1, 1.05, 1.1)))
+  dev.off()
 }
 
 #View population mean data r vs k
