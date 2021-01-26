@@ -313,7 +313,7 @@ if (make_statplots) {
   #Nice plot
   tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
        units = "in", res = 300)
-  ggplot(resis_data[resis_data$Treat != "Anc" &
+  print(ggplot(resis_data[resis_data$Treat != "Anc" &
                       resis_data$approach == "new", ],
          aes(x = Pop, y = EOP, 
              color = Treat, fill = Treat,
@@ -339,12 +339,12 @@ if (make_statplots) {
     scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
     labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
     theme(legend.position = "none") +
-    NULL
+    NULL)
   dev.off()
   
-  tiff("./Output_figures/Isol_resis_tall.tiff", width = 5, height = 4,
+  tiff("./Output_figures/Isol_resis_stacked.tiff", width = 5, height = 4,
        units = "in", res = 300)
-  ggplot(resis_data[resis_data$Treat != "Anc" &
+  print(ggplot(resis_data[resis_data$Treat != "Anc" &
                       resis_data$approach == "new", ],
          aes(x = Pop, y = EOP, 
              color = Treat, fill = Treat,
@@ -370,7 +370,7 @@ if (make_statplots) {
     scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
     labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
     theme(legend.position = "none") +
-    NULL
+    NULL)
   dev.off()
 }
 
@@ -1610,36 +1610,36 @@ gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 #Take a look at the standard deviations between replicate wells
 # Just raw sd vals (w/ red line for mean avg value)
-#if (make_statplots) {
-  for (var in c("first_min_", "first_min_time_", 
-                "max_percap_gr_rate_", "max_percap_gr_time_", 
-                "max_percap_gr_dens_", 
-                "max_percap_gr_timesincemin_",
-                "pseudo_K_", "pseudo_K_time_", 
-                "pseudo_K_timesincemin_", 
-                "pseudo_K_timesince_maxpercap_")) {
-    my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
-    my_avg <- mean(gc_sum_isols[, paste(var, "avg", sep = "")])
-    hist(my_sd, main = var, 
-         xlim = c(min(my_sd, my_avg, na.rm = T), max(my_sd, my_avg, na.rm = T)))
-    abline(v = my_avg, col = "red", lwd = 2)
-  }
-}
+# if (make_statplots) {
+#   for (var in c("first_min_", "first_min_time_", 
+#                 "max_percap_gr_rate_", "max_percap_gr_time_", 
+#                 "max_percap_gr_dens_", 
+#                 "max_percap_gr_timesincemin_",
+#                 "pseudo_K_", "pseudo_K_time_", 
+#                 "pseudo_K_timesincemin_", 
+#                 "pseudo_K_timesince_maxpercap_")) {
+#     my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
+#     my_avg <- mean(gc_sum_isols[, paste(var, "avg", sep = "")])
+#     hist(my_sd, main = var, 
+#          xlim = c(min(my_sd, my_avg, na.rm = T), max(my_sd, my_avg, na.rm = T)))
+#     abline(v = my_avg, col = "red", lwd = 2)
+#   }
+# }
 # Sd vals divided by matching avg value (so 1 is the reference)
 #if (make_statplots) {
-  for (var in c("first_min_", "first_min_time_", 
-                "max_percap_gr_rate_", "max_percap_gr_time_", 
-                "max_percap_gr_dens_", 
-                "max_percap_gr_timesincemin_",
-                "pseudo_K_", "pseudo_K_time_", 
-                "pseudo_K_timesincemin_", 
-                "pseudo_K_timesince_maxpercap_")) {
-    my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
-    my_avg <- gc_sum_isols[, paste(var, "avg", sep = "")]
-    hist(my_sd/my_avg, main = var, xlim = c(0, max(my_sd/my_avg, 1, na.rm = T)))
-    abline(v = 1, col = "red", lwd = 2)
-  }
-}
+#   for (var in c("first_min_", "first_min_time_", 
+#                 "max_percap_gr_rate_", "max_percap_gr_time_", 
+#                 "max_percap_gr_dens_", 
+#                 "max_percap_gr_timesincemin_",
+#                 "pseudo_K_", "pseudo_K_time_", 
+#                 "pseudo_K_timesincemin_", 
+#                 "pseudo_K_timesince_maxpercap_")) {
+#     my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
+#     my_avg <- gc_sum_isols[, paste(var, "avg", sep = "")]
+#     hist(my_sd/my_avg, main = var, xlim = c(0, max(my_sd/my_avg, 1, na.rm = T)))
+#     abline(v = 1, col = "red", lwd = 2)
+#   }
+# }
 
 #Generally, sd's between reps are small relative to the values themselves
 
