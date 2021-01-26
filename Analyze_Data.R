@@ -2315,8 +2315,12 @@ for (i in 1:length(isol_data_pca)) {
 }
 names(isol_all_prcomp) <- names(isol_data_pca)
 
-summary(isol_all_prcomp[[1]])
-summary(isol_all_prcomp[[2]])
+summary(isol_all_prcomp[["7x"]])
+summary(isol_all_prcomp[["125"]])
+
+isol_all_prcomp[["7x"]]$rotation
+isol_all_prcomp[["125"]]$rotation
+
 
 if(make_statplots) {
   arrow_len <- 4 #multiplier for arrow lengths for vis purposes
