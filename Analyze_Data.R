@@ -2181,7 +2181,80 @@ if (make_statplots) {
   dev.off()
 }
 
-##Isolate data: run PCA ----
+##Isolate growth curves: Check for normality ----
+
+#Check for univariate normality
+if (make_statplots) {
+  for (var_root in c("first_min_avg_rel_avg_", 
+                     "max_percap_gr_rate_avg_rel_avg_",
+                     "max_percap_gr_dens_avg_rel_avg_",
+                     "max_percap_gr_timesincemin_avg_rel_avg_",
+                     "pseudo_K_avg_rel_avg_",
+                     "pseudo_K_timesincemin_avg_rel_avg_"
+  )) {
+    for (media in c("Orig", "Rich")) {
+      for (proj in unique(gc_sum_pops_wide$Proj)) {
+        var <- paste(var_root, media, sep = "")
+        # hist(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]), 
+        #      main = paste(proj, var))
+        qqnorm(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
+                                             gc_sum_pops_wide$Pop != "Anc", 
+                                           var]), 
+               main = paste(proj, var))
+        qqline(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
+                                             gc_sum_pops_wide$Pop != "Anc", 
+                                           var]))
+      }
+    }
+  }
+}
+
+#Define function to make chi-square quantile plots 
+# to test for multivariate normality of data or residuals
+# (credit to Jonathan Reuning-Scherer)
+CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
+  #usually, vars is xxx$residuals or data from one group and label is for plot
+  x<-cov(scale(vars),use="pairwise.complete.obs")
+  squares<-sort(diag(as.matrix(scale(vars))%*%solve(x)%*%as.matrix(t(scale(vars)))))
+  quantiles<-quantile(squares)
+  hspr<-quantiles[4]-quantiles[2]
+  cumprob<-c(1:length(vars[,1]))/length(vars[,1])-1/(2*length(vars[,1]))
+  degf<-dim(x)[1]
+  quants<-qchisq(cumprob,df=degf)
+  gval<-(quants**(-1+degf/2))/(exp(quants/2)*gamma(degf/2)*(sqrt(2)**degf))
+  scale<-hspr / (qchisq(.75,degf)-qchisq(.25,degf))
+  se<-(scale/gval)*sqrt(cumprob*(1-cumprob)/length(squares))
+  lower<-quants-2*se
+  upper<-quants+2*se
+  
+  plot(quants,squares,col='red',pch=19,cex=1.2,xlab="Chi-Square Quantiles",
+       ylab=label,main=paste("Chi-Square Quantiles for",label),ylim=range(upper,lower, squares) , xlim=range(c(0,quants)))
+  lines(c(0,100),c(0,100),col=1)
+  lines(quants,upper,col="blue",lty=2,lwd=2)
+  lines(quants,lower,col="blue",lty=2,lwd=2)
+  legend(0,range(upper,lower)[2]*.9,c("Data","95% Conf Limits"),lty=c(0,2),col=c("red","blue"),lwd=c(2,2),
+         pch=c(19,NA))
+}
+
+#Make multivariate normality plots
+for (proj in unique(gc_sum_pops_wide$Proj)) {
+  CSQPlot(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, 
+                           4:15],
+          label = proj)
+}
+
+#Note that 125 is nearly multivariate normal
+# while 7x is so far from multivariate normal no transformations
+# will save it
+
+#So we'll have to use non-parametric methods for
+# MANOVA/ANOVA
+
+#Luckily, discriminant analysis is not strongly dependent on
+# multivariate normality, as long as we're not planning on using
+# it to classify future observations
+
+##Isolate data: run PCA (gc Orig only) ----
 isol_data_pca <- list(
   "7x" = isol_data[isol_data$Proj == "7x", ],
   "125" = isol_data[isol_data$Proj == "125", ])
@@ -2866,84 +2939,7 @@ if(make_statplots) {
   dev.off()
 }
 
-##Isolate growth curves: Check for normality ----
-
-#Check for univariate normality
-if (make_statplots) {
-  for (var_root in c("first_min_avg_rel_avg_", 
-                     "max_percap_gr_rate_avg_rel_avg_",
-                     "max_percap_gr_dens_avg_rel_avg_",
-                     "max_percap_gr_timesincemin_avg_rel_avg_",
-                     "pseudo_K_avg_rel_avg_",
-                     "pseudo_K_timesincemin_avg_rel_avg_"
-  )) {
-    for (media in c("Orig", "Rich")) {
-      for (proj in unique(gc_sum_pops_wide$Proj)) {
-        var <- paste(var_root, media, sep = "")
-        # hist(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]), 
-        #      main = paste(proj, var))
-        qqnorm(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
-                                             gc_sum_pops_wide$Pop != "Anc", 
-                                           var]), 
-               main = paste(proj, var))
-        qqline(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
-                                             gc_sum_pops_wide$Pop != "Anc", 
-                                           var]))
-      }
-    }
-  }
-}
-
-#Define function to make chi-square quantile plots 
-# to test for multivariate normality of data or residuals
-# (credit to Jonathan Reuning-Scherer)
-CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
-  #usually, vars is xxx$residuals or data from one group and label is for plot
-  x<-cov(scale(vars),use="pairwise.complete.obs")
-  squares<-sort(diag(as.matrix(scale(vars))%*%solve(x)%*%as.matrix(t(scale(vars)))))
-  quantiles<-quantile(squares)
-  hspr<-quantiles[4]-quantiles[2]
-  cumprob<-c(1:length(vars[,1]))/length(vars[,1])-1/(2*length(vars[,1]))
-  degf<-dim(x)[1]
-  quants<-qchisq(cumprob,df=degf)
-  gval<-(quants**(-1+degf/2))/(exp(quants/2)*gamma(degf/2)*(sqrt(2)**degf))
-  scale<-hspr / (qchisq(.75,degf)-qchisq(.25,degf))
-  se<-(scale/gval)*sqrt(cumprob*(1-cumprob)/length(squares))
-  lower<-quants-2*se
-  upper<-quants+2*se
-  
-  plot(quants,squares,col='red',pch=19,cex=1.2,xlab="Chi-Square Quantiles",
-       ylab=label,main=paste("Chi-Square Quantiles for",label),ylim=range(upper,lower, squares) , xlim=range(c(0,quants)))
-  lines(c(0,100),c(0,100),col=1)
-  lines(quants,upper,col="blue",lty=2,lwd=2)
-  lines(quants,lower,col="blue",lty=2,lwd=2)
-  legend(0,range(upper,lower)[2]*.9,c("Data","95% Conf Limits"),lty=c(0,2),col=c("red","blue"),lwd=c(2,2),
-         pch=c(19,NA))
-}
-
-#Make multivariate normality plots
-for (proj in unique(gc_sum_pops_wide$Proj)) {
-    CSQPlot(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, 
-                             4:15],
-            label = proj)
-}
-
-#Note that 125 is nearly multivariate normal
-# while 7x is so far from multivariate normal no transformations
-# will save it
-
-#So we'll have to use non-parametric methods for
-# MANOVA/ANOVA
-
-#Luckily, discriminant analysis is not strongly dependent on
-# multivariate normality, as long as we're not planning on using
-# it to classify future observations
-
-#Split out data into two separate projects
-gc_sum_pops_wide_7x <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "7x", ]
-gc_sum_pops_wide_125 <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "125", ]
-
-##Isolate growth curves: statistical tests ----
+##Isolate data: statistical tests ----
 
 #With the original variables
 # Want to test: whether treats are dift from ea other in ea proj
