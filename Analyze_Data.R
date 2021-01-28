@@ -2946,53 +2946,14 @@ if(make_statplots) {
 
 ##Isolate data: statistical tests ----
 
-#With the original variables
-# Want to test: whether treats are dift from ea other in ea proj
-#               whether treats are dift from 1 (Anc value) in ea proj
-nonpartest(max_percap_gr_rate_avg_rel_avg_Orig|
-             max_percap_gr_rate_avg_rel_avg_Rich|
-             max_percap_gr_dens_avg_rel_avg_Orig|
-             max_percap_gr_dens_avg_rel_avg_Rich|
-             max_percap_gr_timesincemin_avg_rel_avg_Orig|
-             max_percap_gr_timesincemin_avg_rel_avg_Rich|
-             pseudo_K_avg_rel_avg_Orig|
-             pseudo_K_avg_rel_avg_Rich|
-             pseudo_K_timesincemin_avg_rel_avg_Orig|
-             pseudo_K_timesincemin_avg_rel_avg_Rich~Treat,
-           gc_sum_pops_wide_7x[gc_sum_pops_wide_7x$Treat != "Anc", ],
-           plots = F)
-nonpartest(max_percap_gr_rate_avg_rel_avg_Orig|
-             max_percap_gr_rate_avg_rel_avg_Rich|
-             max_percap_gr_dens_avg_rel_avg_Orig|
-             max_percap_gr_dens_avg_rel_avg_Rich|
-             max_percap_gr_timesincemin_avg_rel_avg_Orig|
-             max_percap_gr_timesincemin_avg_rel_avg_Rich|
-             pseudo_K_avg_rel_avg_Orig|
-             pseudo_K_avg_rel_avg_Rich|
-             pseudo_K_timesincemin_avg_rel_avg_Orig|
-             pseudo_K_timesincemin_avg_rel_avg_Rich~Treat,
-           gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
-           plots = F)
-
-#7x
-nonpartest(LD1|LD2~Treat, 
-           gc_sum_pops_wide_7x[gc_sum_pops_wide_7x$Treat != "Anc", ],
-           permreps=1000, plots = F)
-
-#125
-nonpartest(LD1|LD2~Treat, 
-           gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
-           permreps=1000, plots = F)
-ssnonpartest(LD1|LD2~Treat, 
-             gc_sum_pops_wide_125[gc_sum_pops_wide_125$Treat != "Anc", ],
-             factors.and.variables = T)
-            
 
 
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
