@@ -2943,64 +2943,6 @@ for (proj in unique(gc_sum_pops_wide$Proj)) {
 gc_sum_pops_wide_7x <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "7x", ]
 gc_sum_pops_wide_125 <- gc_sum_pops_wide[gc_sum_pops_wide$Proj == "125", ]
 
-##Isolate growth curves: Discriminant Analysis ----
-
-
-
-#Run linear discriminant analysis
-cols_to_use <- 6:15
-gc_lda_7x <- lda(x = scale(gc_sum_pops_wide_7x[, cols_to_use]),
-              grouping = gc_sum_pops_wide_7x$Treat)
-gc_lda_125 <- lda(x = scale(gc_sum_pops_wide_125[, cols_to_use]),
-                 grouping = gc_sum_pops_wide_125$Treat)
-
-#Add discriminant function scores to gc_sum_pops_wide
-# (by matrix multiplying the variables with the scaling matrix provided by lda)
-gc_sum_pops_wide_7x <- cbind(gc_sum_pops_wide_7x,
-                             scale(gc_sum_pops_wide_7x[, cols_to_use])%*%
-                               gc_lda_7x$scaling)
-gc_sum_pops_wide_125 <- cbind(gc_sum_pops_wide_125,
-                              scale(gc_sum_pops_wide_125[, cols_to_use])%*%
-                                gc_lda_125$scaling)
-
-if(make_statplots) {
-  #Make plots of LD1 and LD2
-  ggplot(data = gc_sum_pops_wide_7x,
-         aes(x = LD1, y = LD2, color = Treat)) +
-    geom_point(size = 3) +
-    ggtitle("7x") +
-    theme_bw()
-  ggplot(data = gc_sum_pops_wide_125,
-         aes(x = LD1, y = LD2, color = Treat)) +
-    geom_point(size = 3)  +
-    ggtitle("125") +
-    theme_bw()
-  
-  ggplot(data = gc_sum_pops_wide_7x,
-         aes(x = Treat, y = LD1)) +
-    geom_boxplot() +
-    ggtitle("7x")
-  ggplot(data = gc_sum_pops_wide_125,
-         aes(x = Treat, y = LD1)) +
-    geom_boxplot() +
-    ggtitle("125")
-}
-
-#View loadings
-gc_lda_7x
-gc_lda_125
-
-#7x
-# percap rate Orig - left, down
-# percap dens Rich - left, down
-# percap time Rich - Right
-# pseudo K time Orig - Left
-# Global evolved higher percap rate and pseudo K time in Orig
-# Control evolved lower percap rate & pseudo K time in Orig
-# Local evolved lowest percap rate and pseudo K time in Orig
-#125
-# 
-
 ##Isolate growth curves: statistical tests ----
 
 #With the original variables
