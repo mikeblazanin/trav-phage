@@ -2185,29 +2185,31 @@ if (make_statplots) {
 
 #Check for univariate normality
 if (make_statplots) {
-  for (var_root in c("first_min_avg_rel_avg_", 
-                     "max_percap_gr_rate_avg_rel_avg_",
-                     "max_percap_gr_dens_avg_rel_avg_",
-                     "max_percap_gr_timesincemin_avg_rel_avg_",
-                     "pseudo_K_avg_rel_avg_",
-                     "pseudo_K_timesincemin_avg_rel_avg_"
+  for (var in c("fit2_r_Orig", "fit2_k_Orig", 
+                #"fit2_v_Orig", 
+                #"fit2_d0_Orig", 
+                "fit2_lagtime_hrs_Orig",
+                "fit2_r_Rich", "fit2_k_Rich",
+                #"fit2_v_Rich",
+                #"fit2_d0_Rich", 
+                "fit2_lagtime_hrs_Rich",
+                #"EOP_avg", 
+                "resis", "radius_mm_hr_rel_avg"
   )) {
-    for (media in c("Orig", "Rich")) {
-      for (proj in unique(gc_sum_pops_wide$Proj)) {
-        var <- paste(var_root, media, sep = "")
-        # hist(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, var]), 
-        #      main = paste(proj, var))
-        qqnorm(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
-                                             gc_sum_pops_wide$Pop != "Anc", 
-                                           var]), 
-               main = paste(proj, var))
-        qqline(as.numeric(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj &
-                                             gc_sum_pops_wide$Pop != "Anc", 
-                                           var]))
-      }
-    }
+    print(ggplot(data = isol_data[isol_data$Pop != "Anc", ],
+                 aes(sample = get(var))) +
+            geom_qq() +
+            geom_qq_line() +
+            facet_grid(~Proj) +
+            ggtitle(var))
+    print(ggplot(data = isol_data[isol_data$Pop != "Anc", ],
+                 aes(x = get(var))) +
+            geom_histogram(bins = 10) +
+            facet_grid(~Proj) +
+            ggtitle(var))
   }
 }
+
 
 #Define function to make chi-square quantile plots 
 # to test for multivariate normality of data or residuals
@@ -2237,22 +2239,25 @@ CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
 }
 
 #Make multivariate normality plots
-for (proj in unique(gc_sum_pops_wide$Proj)) {
-  CSQPlot(gc_sum_pops_wide[gc_sum_pops_wide$Proj == proj, 
-                           4:15],
-          label = proj)
+for (proj in unique(isol_data$Proj)) {
+  CSQPlot(isol_data[isol_data$Proj == proj, c("fit2_r_Orig", "fit2_k_Orig", 
+                               #"fit2_v_Orig", 
+                               #"fit2_d0_Orig", 
+                               "fit2_lagtime_hrs_Orig",
+                               "fit2_r_Rich", "fit2_k_Rich",
+                               #"fit2_v_Rich",
+                               #"fit2_d0_Rich", 
+                               "fit2_lagtime_hrs_Rich",
+                               #"EOP_avg", 
+                               "resis", "radius_mm_hr_rel_avg"
+  )], label = proj)
 }
 
-#Note that 125 is nearly multivariate normal
-# while 7x is so far from multivariate normal no transformations
-# will save it
+#Most variables are univariate normal (except for resis which is ~binary
+# and k Rich which has overdispersed tails)
 
-#So we'll have to use non-parametric methods for
-# MANOVA/ANOVA
-
-#Luckily, discriminant analysis is not strongly dependent on
-# multivariate normality, as long as we're not planning on using
-# it to classify future observations
+#Surprisingly, 7x is pretty multivariate normal, and 125 is certainly
+# within the 95% confidence interval
 
 ##Isolate data: run PCA (gc Orig only) ----
 isol_data_pca <- list(
