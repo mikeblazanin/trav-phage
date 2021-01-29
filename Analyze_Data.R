@@ -1879,16 +1879,17 @@ if (make_statplots) {
   }
 }
 
-#Make combined r-k-lagtime plot
+#Make combined r-k-lagtime-v plot
 if(make_statplots) {
   my_facet_labels <- c("7x" = "Weak Phage", 
                        "125" = "Strong Phage",
                        "C" = "Control", "G" = "Global", "L" = "Local",
                        "A" = "WT",
-                       "Rich" = "Rich Media", "Orig" = "Orig Media")
+                       "Rich" = "Rich", "Orig" = "Orig")
   
   temp1 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
   temp1$Title <- "r"
+  temp1$Media_title <- "Media"
   rplot <-
     ggplot(data = temp1,
            aes(x = Treat, y = fit2_r_avg_rel_avg, group = Pop,
@@ -1899,7 +1900,7 @@ if(make_statplots) {
                        values = my_cols[c(8, 2, 6)]) +
     scale_x_discrete(breaks = c("C", "L", "G"),
                      labels = c("Control", "Local", "Global")) +
-    facet_nested(Proj ~ Media, scales = "free_y",
+    facet_nested(Proj ~ Media_title*Media, scales = "free_y",
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
@@ -1910,6 +1911,7 @@ if(make_statplots) {
   
   temp2 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
   temp2$Title <- "k"
+  temp2$Media_title <- "Media"
   kplot <-
     ggplot(data = temp2,
            aes(x = Treat, y = fit2_k_avg_rel_avg/10**8, group = Pop,
@@ -1920,7 +1922,7 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
-    facet_nested(Proj ~ Media, scales = "free_y",
+    facet_nested(Proj ~ Media_title*Media, scales = "free_y",
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
@@ -1933,6 +1935,7 @@ if(make_statplots) {
   
   temp3 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
   temp3$Title <- "lag time"
+  temp3$Media_title <- "Media"
   lagplot <-
     ggplot(data = temp3,
            aes(x = Treat, y = fit2_lagtime_hrs_avg_rel_avg, group = Pop,
@@ -1943,7 +1946,7 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
                        values = my_cols[c(8, 2, 6)]) +
-    facet_nested(Proj ~ Media, scales = "free_y",
+    facet_nested(Proj ~ Media_title*Media, scales = "free_y",
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
@@ -1951,8 +1954,30 @@ if(make_statplots) {
     theme_bw() +
     NULL
   #print(lagplot)
+  
+  temp4 <- gc_sum_pops[gc_sum_pops$Pop != "Anc", ]
+  temp4$Title <- "v"
+  temp4$Media_title <- "Media"
+  vplot <-
+    ggplot(data = temp4,
+           aes(x = Treat, y = fit2_v_log10_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    facet_nested(Proj ~ Media_title*Media, scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels,
+                                     Media = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Relative Deceleration Parameter (v)", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(vplot)
     
-  tiff("./Growth_curve_variables_plots_pops/r_k_lag_combined.tiff",
+  tiff("./Growth_curve_variables_plots_pops/r_k_lag_v_combined.tiff",
        width = 12, height = 8, units = "in", res = 300)
   print(cowplot::plot_grid(
     rplot + theme(legend.position = "none", 
@@ -1970,11 +1995,18 @@ if(make_statplots) {
                   axis.text.y = element_text(size = 20),
                   axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
     lagplot + theme(legend.position = "none",
+                    strip.background.y = element_blank(), 
+                    strip.text.y = element_blank(),
                     strip.text = element_text(size = 18),
                     axis.title = element_text(size = 22),
                     axis.text.y = element_text(size = 20),
                     axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
-    ncol = 3, rel_widths = c(1, 1.05, 1.1)))
+    vplot + theme(legend.position = "none",
+                  strip.text = element_text(size = 18),
+                  axis.title = element_text(size = 22),
+                  axis.text.y = element_text(size = 20),
+                  axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
+    ncol = 4, rel_widths = c(1, 1.05, 1.1, 1)))
   dev.off()
 }
 
