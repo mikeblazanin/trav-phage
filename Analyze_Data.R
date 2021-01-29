@@ -10,12 +10,8 @@
 
 ## Load packages and color scale ----
 library("ggplot2")
-library("scales")
 library("dplyr")
-library("data.table")
-library("MASS")
 library("ggh4x")
-library("npmv")
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -24,7 +20,7 @@ scales::show_col(my_cols)
 
 #Global options
 make_curveplots <- FALSE
-make_statplots <- FALSE
+make_statplots <- TRUE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
