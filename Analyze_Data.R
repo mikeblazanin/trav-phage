@@ -1,10 +1,4 @@
 ##TODO: 
-##      Re-run fitting Baryani to data
-##      Check & fix bad fits
-##      Calculate lag time
-##      Plot lag time, r, k, v
-##      Make PCA: lag time, r, k, v, resistance, migration
-##      Stats
 ##      check rep wells that are very dift from ea other?
 ##        (does it matter since it gets averaged out anyway?)
 
