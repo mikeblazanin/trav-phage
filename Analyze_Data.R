@@ -1667,7 +1667,7 @@ if (make_statplots) {
                )
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
-    var_name <- c("First minimum density (cfu/mL)", NA,
+    var_name <- c("First minimum density (cfu/mL)",
                   "Maximum per-capita growth rate",
                   #"Density at maximum per-capita growth rate",
                   #"Time until maximum per-capita growth rate",
@@ -1675,8 +1675,12 @@ if (make_statplots) {
                   #"Time until diauxic shift (from min)",
                   #"Time until diauxic shift (from max percap)",
                   #"Fit r", "Fit carrying capacity", "Fit init density",
-                  "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 log10(v)", "Fit 2 q0",
-                  "Fit 2 m", "fit 2 d0", "fit 2 lag time (hrs)")[i]
+                  "Maximum Per Capita Growth Rate (r) (/hr)", 
+                  "Density at Diauxic Shift (k) (cfu/mL)", 
+                  "Deceleration Parameter (v)", 
+                  "Deceleration Parameter (log10(v))", 
+                  "Fit 2 q0", "Fit 2 m", "fit 2 d0", 
+                  "Lag time (hrs)")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
@@ -1698,7 +1702,9 @@ if (make_statplots) {
                           width = 0.2) +
             labs(y = var_name, x = "Population") +
             theme_bw() +
-            theme(legend.position = "none")
+            theme(legend.position = "none",
+                  axis.text.x = element_text(size = 7, angle = 90, 
+                                             hjust = 1, vjust = 0.5))
     )
     dev.off()
   }
