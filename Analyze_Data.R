@@ -3015,6 +3015,15 @@ p.adjust(summary.aov(manova_res_7x)$` Response resis`$`Pr(>F)`,
            length(summary.aov(manova_res_125)),
          method = "holm")
 TukeyHSD(aov(lm(resis ~ Treat, data = isol_data_7x)))
+p.adjust(c(
+  "C" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "C"], 
+         mu = 0)$p.value,
+  "L" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "L"], 
+         mu = 0)$p.value,
+  "G" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "G"], 
+         mu = 0)$p.value),
+  method = "holm", n = 6)
+
 
 isol_data_125 <- isol_data[isol_data$Proj == "125" & isol_data$Pop != "Anc", ]
 manova_res_125 <- manova(as.matrix(
@@ -3040,3 +3049,11 @@ p.adjust(summary.aov(manova_res_125)$` Response resis`$`Pr(>F)`,
            length(summary.aov(manova_res_125)),
          method = "holm")
 TukeyHSD(aov(lm(resis ~ Treat, data = isol_data_125)))
+p.adjust(c(
+  "C" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "C"], 
+               mu = 0)$p.value,
+  "L" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "L"], 
+               mu = 0)$p.value,
+  "G" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "G"], 
+               mu = 0)$p.value),
+  method = "holm", n = 6)
