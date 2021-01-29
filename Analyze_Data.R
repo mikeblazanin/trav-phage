@@ -2006,7 +2006,7 @@ if(make_statplots) {
                   axis.title = element_text(size = 22),
                   axis.text.y = element_text(size = 20),
                   axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
-    ncol = 4, rel_widths = c(1, 1.05, 1.1, 1)))
+    ncol = 4, rel_widths = c(1, 1, 1, 1)))
   dev.off()
 }
 
@@ -2076,49 +2076,51 @@ if (make_statplots) {
 # }
 
 #Plot predicted curves for each pop in ea media
-t_vals <- seq(from = 0, to = max(gc_data$Time_s), by = 5*60)
-gc_sum_pops_curves <- data.frame(
-  Proj = rep(gc_sum_pops$Proj, each = length(t_vals)),
-  Pop = rep(gc_sum_pops$Pop, each = length(t_vals)),
-  Treat = rep(gc_sum_pops$Treat, each = length(t_vals)),
-  Media = rep(gc_sum_pops$Media, each = length(t_vals)),
-  Time_s = rep(t_vals, nrow(gc_sum_pops)),
-  Dens = rep(0, nrow(gc_sum_pops)*length(t_vals)))
-startrow <- 1
-for (i in 1:nrow(gc_sum_pops)) {
-  gc_sum_pops_curves$Dens[startrow:(startrow+length(t_vals)-1)] <- 
-    baranyi_func(
-    r = gc_sum_pops$fit2_r_avg_avg[i],
-    k = gc_sum_pops$fit2_k_avg_avg[i],
-    v = gc_sum_pops$fit2_v_avg_avg[i], 
-    q0 = gc_sum_pops$fit2_q0_avg_avg[i], 
-    d0 = gc_sum_pops$fit2_d0_avg_avg[i], 
-    m = gc_sum_pops$fit2_m_avg_avg[i],
-    t_vals = t_vals)
-  startrow <- startrow + length(t_vals)
+if (make_statplots) {
+  t_vals <- seq(from = 0, to = max(gc_data$Time_s), by = 5*60)
+  gc_sum_pops_curves <- data.frame(
+    Proj = rep(gc_sum_pops$Proj, each = length(t_vals)),
+    Pop = rep(gc_sum_pops$Pop, each = length(t_vals)),
+    Treat = rep(gc_sum_pops$Treat, each = length(t_vals)),
+    Media = rep(gc_sum_pops$Media, each = length(t_vals)),
+    Time_s = rep(t_vals, nrow(gc_sum_pops)),
+    Dens = rep(0, nrow(gc_sum_pops)*length(t_vals)))
+  startrow <- 1
+  for (i in 1:nrow(gc_sum_pops)) {
+    gc_sum_pops_curves$Dens[startrow:(startrow+length(t_vals)-1)] <- 
+      baranyi_func(
+        r = gc_sum_pops$fit2_r_avg_avg[i],
+        k = gc_sum_pops$fit2_k_avg_avg[i],
+        v = gc_sum_pops$fit2_v_avg_avg[i], 
+        q0 = gc_sum_pops$fit2_q0_avg_avg[i], 
+        d0 = gc_sum_pops$fit2_d0_avg_avg[i], 
+        m = gc_sum_pops$fit2_m_avg_avg[i],
+        t_vals = t_vals)
+    startrow <- startrow + length(t_vals)
+  }
+  
+  my_facet_labels <- c("7x" = "Weak Phage", 
+                       "125" = "Strong Phage",
+                       "C" = "Control", "G" = "Global", "L" = "Local",
+                       "A" = "WT",
+                       "Rich" = "Rich Media", "Orig" = "Original Media")
+  tiff("./Output_figures/pred_gcs.tiff",
+       width = 10.5, height = 10, units = "in", res = 300)
+  ggplot(data = gc_sum_pops_curves,
+         aes(x = Time_s/3600, y = Dens, color = Treat, group = paste(Pop, Treat))) +
+    geom_line(lwd = 1, alpha = 0.8) +
+    facet_grid(Proj~Media, scales = "free_y",
+               labeller = labeller(Proj = my_facet_labels,
+                                   Media = my_facet_labels)) +
+    theme_bw() +
+    scale_y_continuous(trans = "log10") +
+    xlim(0, 11) +
+    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                       labels = c("Ancestor", "Control", "Local", "Global"),
+                       values = my_cols[c(7, 8, 2, 6)]) +
+    NULL
+  dev.off()
 }
-
-my_facet_labels <- c("7x" = "Weak Phage", 
-                     "125" = "Strong Phage",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT",
-                     "Rich" = "Rich Media", "Orig" = "Original Media")
-tiff("./Output_figures/pred_gcs.tiff",
-     width = 10.5, height = 10, units = "in", res = 300)
-ggplot(data = gc_sum_pops_curves,
-       aes(x = Time_s/3600, y = Dens, color = Treat, group = paste(Pop, Treat))) +
-  geom_line(lwd = 1, alpha = 0.8) +
-  facet_grid(Proj~Media, scales = "free_y",
-             labeller = labeller(Proj = my_facet_labels,
-                                 Media = my_facet_labels)) +
-  theme_bw() +
-  scale_y_continuous(trans = "log10") +
-  xlim(0, 11) +
-  scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                     labels = c("Ancestor", "Control", "Local", "Global"),
-                     values = my_cols[c(7, 8, 2, 6)]) +
-  NULL
-dev.off()
 
 #Cast measurements in different medias into different columns
 # (using population mean data)
@@ -2221,11 +2223,11 @@ if (make_statplots) {
 #Check for univariate normality
 if (make_statplots) {
   for (var in c("fit2_r_Orig", "fit2_k_Orig", 
-                #"fit2_v_Orig", 
+                "fit2_v_log10_Orig", 
                 #"fit2_d0_Orig", 
                 "fit2_lagtime_hrs_Orig",
                 "fit2_r_Rich", "fit2_k_Rich",
-                #"fit2_v_Rich",
+                "fit2_v_log10_Rich",
                 #"fit2_d0_Rich", 
                 "fit2_lagtime_hrs_Rich",
                 #"EOP_avg", 
@@ -2244,7 +2246,6 @@ if (make_statplots) {
             ggtitle(var))
   }
 }
-
 
 #Define function to make chi-square quantile plots 
 # to test for multivariate normality of data or residuals
@@ -2276,11 +2277,11 @@ CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
 #Make multivariate normality plots
 for (proj in unique(isol_data$Proj)) {
   CSQPlot(isol_data[isol_data$Proj == proj, c("fit2_r_Orig", "fit2_k_Orig", 
-                               #"fit2_v_Orig", 
+                               "fit2_v_log10_Orig", 
                                #"fit2_d0_Orig", 
                                "fit2_lagtime_hrs_Orig",
                                "fit2_r_Rich", "fit2_k_Rich",
-                               #"fit2_v_Rich",
+                               "fit2_v_log10_Rich",
                                #"fit2_d0_Rich", 
                                "fit2_lagtime_hrs_Rich",
                                #"EOP_avg", 
@@ -2289,15 +2290,16 @@ for (proj in unique(isol_data$Proj)) {
 }
 
 #Most variables are univariate normal (except for resis which is ~binary
-# and k Rich which has overdispersed tails)
+# and k Rich and v Orig which has overdispersed tails)
 
-#Surprisingly, 7x is pretty multivariate normal, and 125 is certainly
-# within the 95% confidence interval
+#Surprisingly, both 7x and 125 are somewhat multivariate normal
 
 ##Isolate data: run PCA (gc Orig only) ----
 isol_data_pca <- list(
   "7x" = isol_data[isol_data$Proj == "7x", ],
   "125" = isol_data[isol_data$Proj == "125", ])
+
+
 isol_prcomp <- list()
 for (i in 1:length(isol_data_pca)) {
   use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
@@ -2549,11 +2551,11 @@ if(make_statplots) {
 isol_all_prcomp <- list()
 for (i in 1:length(isol_data_pca)) {
   use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
-                #"fit2_v_Orig", 
+                "fit2_v_log10_Orig", 
                 #"fit2_d0_Orig", 
                 "fit2_lagtime_hrs_Orig",
                 "fit2_r_Rich", "fit2_k_Rich",
-                #"fit2_v_Rich",
+                "fit2_v_log10_Rich",
                 #"fit2_d0_Rich", 
                 "fit2_lagtime_hrs_Rich",
                 #"EOP_avg", 
@@ -2571,7 +2573,9 @@ for (i in 1:length(isol_data_pca)) {
                               "fit2_k_Rich" = "k Rich",
                               "fit2_lagtime_hrs_Orig" = "lag Orig",
                               "fit2_lagtime_hrs_Rich" = "lag Rich",
-                              "radius_mm_hr_rel_avg" = "agar growth"))
+                              "radius_mm_hr_rel_avg" = "agar growth",
+                              "fit2_v_log10_Orig" = "v Orig",
+                              "fit2_v_log10_Rich" = "v Rich"))
 }
 names(isol_all_prcomp) <- names(isol_data_pca)
 
@@ -2807,11 +2811,11 @@ if(make_statplots) {
     geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
                  aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
+                 alpha = .8, lwd = 2, color = "firebrick4") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
                              aes(y = arrow_len*PC1, x = arrow_len*PC2,
                                  label = row.names(isol_all_prcomp_corrbiplot[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 8,
+                             size = 14, alpha = .8, color = "firebrick4", seed = 8,
                              min.segment.length = unit(1, "native"),
                              nudge_x = c(0,0,0,0,0,0,0,0),
                              nudge_y = c(0,0,0,0,0,0,0,0)) +
@@ -2834,6 +2838,7 @@ if(make_statplots) {
                        labels = c("Ancestor", "Control", "Local", "Global"),
                        values = my_cols[c(7, 8, 2, 6)]) +
     #xlim(NA, 3) +
+    ylim(-1.6, NA) +
     NULL
   print(weak_pca12)
   dev.off()
@@ -2847,11 +2852,11 @@ if(make_statplots) {
     geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
                  aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
+                 alpha = .8, lwd = 2, color = "firebrick4") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
                              aes(y = arrow_len*PC1, x = arrow_len*PC3,
                                  label = row.names(isol_all_prcomp_corrbiplot[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 8,
+                             size = 14, alpha = .8, color = "firebrick4", seed = 8,
                              min.segment.length = unit(1, "native"),
                              nudge_x = c(0,0,0,0,0,0,0,0),
                              nudge_y = c(0,0,0,0,0,0,0,0)) +
@@ -2889,11 +2894,11 @@ if(make_statplots) {
     geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
                  aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
+                 alpha = .8, lwd = 2, color = "firebrick4") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
                              aes(y = arrow_len*PC1, x = arrow_len*PC2,
                                  label = row.names(isol_all_prcomp_corrbiplot[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
+                             size = 14, alpha = .8, color = "firebrick4", seed = 1,
                              min.segment.length = unit(1, "native"),
                              nudge_x = c(0,0,0,0,0,0,0,0), 
                              nudge_y = c(0,0,0,0,0,0,0,0)) +
@@ -2929,11 +2934,11 @@ if(make_statplots) {
     geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
                  aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
+                 alpha = .8, lwd = 2, color = "firebrick4") +
     ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
                              aes(y = arrow_len*PC1, x = arrow_len*PC3,
                                  label = row.names(isol_all_prcomp_corrbiplot[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
+                             size = 14, alpha = .8, color = "firebrick4", seed = 1,
                              min.segment.length = unit(1, "native"),
                              nudge_x = c(0,0,0,0,0,0,0,0), 
                              nudge_y = c(0,0,0,0,0,0,0,0)) +
