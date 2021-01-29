@@ -7,7 +7,6 @@
 ##      Stats
 ##      check rep wells that are very dift from ea other?
 ##        (does it matter since it gets averaged out anyway?)
-##      Try fitting v = 1 fixed?
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -1452,6 +1451,9 @@ for (sum_row in 1:nrow(gc_summarized)) {
   }
 }
 
+#Make log-transformed v
+gc_summarized$fit2_v_log10 <- log10(gc_summarized$fit2_v)
+
 #Isolate growth curves: Make example plots (eg for talks) ----
 if (make_curveplots) {
   temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
@@ -1602,7 +1604,7 @@ gc_sum_isols <- summarize_at(gc_summarized,
                               "fit_r",
                               "fit_k",
                               "fit_d0",
-                              "fit2_r", "fit2_k", "fit2_v", 
+                              "fit2_r", "fit2_k", "fit2_v", "fit2_v_log10", 
                               "fit2_q0", "fit2_m", "fit2_d0", "fit2_lagtime_hrs",
                               "fit3_r", "fit3_k", "fit3_v", 
                               "fit3_q0", "fit3_d0"))
@@ -1662,7 +1664,7 @@ if (make_statplots) {
                #"pseudo_K_timesincemin_",
                #"pseudo_K_timesince_maxpercap_",
                #"fit_r_", "fit_k_", "fit_d0_",
-               "fit2_r_", "fit2_k_", "fit2_v_", 
+               "fit2_r_", "fit2_k_", "fit2_v_", "fit2_v_log10_",
                "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_"
                #"fit3_r_", "fit3_k_", "fit3_v_", 
                #"fit3_q0_", "fit3_d0_"
@@ -1677,7 +1679,7 @@ if (make_statplots) {
                   #"Time until diauxic shift (from min)",
                   #"Time until diauxic shift (from max percap)",
                   #"Fit r", "Fit carrying capacity", "Fit init density",
-                  "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 q0",
+                  "Fit 2 r", "Fit 2 k", "Fit 2 v", "Fit 2 log10(v)", "Fit 2 q0",
                   "Fit 2 m", "fit 2 d0", "fit 2 lag time (hrs)")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
@@ -1723,7 +1725,7 @@ for (var in c("first_min_avg",
               "pseudo_K_timesincemin_avg",
               "pseudo_K_timesince_maxpercap_avg",
               "fit_r_avg", "fit_k_avg", "fit_d0_avg",
-              "fit2_r_avg", "fit2_k_avg", "fit2_v_avg", 
+              "fit2_r_avg", "fit2_k_avg", "fit2_v_log10_avg", 
               "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg", "fit2_lagtime_hrs_avg")) {
   new_var <- paste(var, "_rel", sep = "")
   gc_sum_isols[, new_var] <- gc_sum_isols[, var] -
@@ -1747,7 +1749,7 @@ if (make_statplots) {
                   #"pseudo_K_timesincemin_",
                   #"pseudo_K_timesince_maxpercap_",
                   #"fit_r_", "fit_k_", "fit_d0_",
-                  "fit2_r_", "fit2_k_", "fit2_v_", 
+                  "fit2_r_", "fit2_k_", "fit2_v_log10_", 
                   "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_")
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
@@ -1818,7 +1820,8 @@ gc_sum_pops <- summarize_at(gc_sum_isols,
                             "pseudo_K_timesincemin_avg_rel",
                             "pseudo_K_timesince_maxpercap_avg_rel",
                             "fit_r_avg_rel", "fit_k_avg_rel", "fit_d0_avg_rel",
-                            "fit2_r_avg_rel", "fit2_k_avg_rel", "fit2_v_avg_rel",
+                            "fit2_r_avg_rel", "fit2_k_avg_rel", 
+                            "fit2_v_log10_avg_rel",
                             "fit2_q0_avg_rel", "fit2_m_avg_rel", "fit2_d0_avg_rel",
                             "fit2_lagtime_hrs_avg_rel",
                             "fit2_r_avg", "fit2_k_avg", "fit2_v_avg",
@@ -1843,7 +1846,7 @@ if (make_statplots) {
                  "pseudo_K_timesincemin_avg_rel",
                  "pseudo_K_timesince_maxpercap_avg_rel",
                  "fit2_r_avg_rel", "fit2_k_avg_rel", 
-                 "fit2_v_avg_rel", "fit2_q0_avg_rel", 
+                 "fit2_v_log10_avg_rel", "fit2_q0_avg_rel", 
                  "fit2_m_avg_rel", "fit2_d0_avg_rel",
                  "fit2_lagtime_hrs_avg_rel"
   )
