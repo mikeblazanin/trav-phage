@@ -20,7 +20,7 @@ scales::show_col(my_cols)
 
 #Global options
 make_curveplots <- FALSE
-make_statplots <- TRUE
+make_statplots <- FALSE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
@@ -2151,16 +2151,29 @@ colnames(isol_data) <- gsub("_avg_rel_avg", "", colnames(isol_data))
 
 #Make correlation figures
 if (make_statplots) {
-  tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
   #Make base figure
-  p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
-                                       isol_data$Proj == "7x", ],
-                  columns = c(24:29, 34:38, 40),
+  temp <- isol_data[isol_data$Treat != "Anc" &
+                      isol_data$Proj == "125", ]
+  colnames(temp) <- plyr::revalue(
+    colnames(temp),
+    replace = c("fit2_r_Orig" = "r Orig", 
+                "fit2_r_Rich" = "r Rich", 
+                "fit2_k_Orig" = "k Orig", 
+                "fit2_k_Rich" = "k Rich",
+                "fit2_lagtime_hrs_Orig" = "lag Orig",
+                "fit2_lagtime_hrs_Rich" = "lag Rich",
+                "radius_mm_hr_rel_avg" = "agar growth",
+                "fit2_v_log10_Orig" = "v Orig",
+                "fit2_v_log10_Rich" = "v Rich"))
+  p <- GGally::ggpairs(temp,
+                  columns = c("r Orig", "r Rich", "k Orig", "k Rich",
+                              "lag Orig", "lag Rich", "v Orig", "v Rich",
+                              "agar growth", "resis"),
                   lower = list(continuous = "smooth"),
                   upper = list(continuous = "smooth"),
                   ggplot2::aes(color = Treat, group = Proj),
                   title = "Weak Phage") +
-    theme(strip.text = element_text(size = 7),
+    theme(strip.text = element_text(size = 9),
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   #Change colors
   for (i in 1:p$nrow) {
@@ -2170,19 +2183,34 @@ if (make_statplots) {
                              values = my_cols[c(8, 2, 6)])
     }
   }
+  tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
   print(p)
   dev.off()
   
-  tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, units = "in", res = 300)
   #Make base figure
-  p <- GGally::ggpairs(isol_data[isol_data$Treat != "Anc" &
-                                   isol_data$Proj == "125", ],
-                       columns = c(24:29, 34:38, 40),
+  temp <- isol_data[isol_data$Treat != "Anc" &
+                      isol_data$Proj == "125", ]
+  colnames(temp) <- plyr::revalue(
+    colnames(temp),
+    replace = c("fit2_r_Orig" = "r Orig", 
+                "fit2_r_Rich" = "r Rich", 
+                "fit2_k_Orig" = "k Orig", 
+                "fit2_k_Rich" = "k Rich",
+                "fit2_lagtime_hrs_Orig" = "lag Orig",
+                "fit2_lagtime_hrs_Rich" = "lag Rich",
+                "radius_mm_hr_rel_avg" = "agar growth",
+                "fit2_v_log10_Orig" = "v Orig",
+                "fit2_v_log10_Rich" = "v Rich"))
+  p <- GGally::ggpairs(temp,
+                       columns = c("r Orig", "r Rich", "k Orig", "k Rich",
+                                   "lag Orig", "lag Rich", "v Orig", "v Rich",
+                                   "agar growth", "resis"),
                        lower = list(continuous = "smooth"),
                        upper = list(continuous = "smooth"),
                        ggplot2::aes(color = Treat, group = Proj),
                        title = "Strong Phage") +
-    theme(strip.text = element_text(size = 7),
+    theme(strip.text = element_text(size = 9),
           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   #Change colors
   for (i in 1:p$nrow) {
@@ -2192,12 +2220,25 @@ if (make_statplots) {
                            values = my_cols[c(8, 2, 6)])
     }
   }
+  tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
   print(p)
   dev.off()
   
   tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
   GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "7x", c(24:29, 34:38, 40)],
+                             isol_data$Proj == "7x", 
+                           c("fit2_r_Orig", "fit2_k_Orig", 
+                             "fit2_v_log10_Orig", 
+                             #"fit2_d0_Orig", 
+                             "fit2_lagtime_hrs_Orig",
+                             "fit2_r_Rich", "fit2_k_Rich",
+                             "fit2_v_log10_Rich",
+                             #"fit2_d0_Rich", 
+                             "fit2_lagtime_hrs_Rich",
+                             #"EOP_avg", 
+                             "resis", "radius_mm_hr_rel_avg"
+                           )],
                  nbreaks = 5,
                  hjust = 0.8,
                  layout.exp = 1.5) +
@@ -2206,7 +2247,18 @@ if (make_statplots) {
   
   tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
   GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "125", c(24:29, 34:38, 40)],
+                             isol_data$Proj == "125", 
+                           c("fit2_r_Orig", "fit2_k_Orig", 
+                             "fit2_v_log10_Orig", 
+                             #"fit2_d0_Orig", 
+                             "fit2_lagtime_hrs_Orig",
+                             "fit2_r_Rich", "fit2_k_Rich",
+                             "fit2_v_log10_Rich",
+                             #"fit2_d0_Rich", 
+                             "fit2_lagtime_hrs_Rich",
+                             #"EOP_avg", 
+                             "resis", "radius_mm_hr_rel_avg"
+                           )],
                  nbreaks = 5,
                  hjust = 0.8,
                  layout.exp = 1.5) +
@@ -2996,6 +3048,21 @@ manova_res_7x <- manova(as.matrix(
                                     #"EOP_avg", 
                                     "resis", "radius_mm_hr_rel_avg")]) ~ 
     isol_data_7x$Treat)
+isol_data_125 <- isol_data[isol_data$Proj == "125" & isol_data$Pop != "Anc", ]
+manova_res_125 <- manova(as.matrix(
+  isol_data_125[, c("fit2_r_Orig", "fit2_k_Orig", 
+                    "fit2_v_log10_Orig", 
+                    #"fit2_d0_Orig", 
+                    "fit2_lagtime_hrs_Orig",
+                    "fit2_r_Rich", "fit2_k_Rich",
+                    "fit2_v_log10_Rich",
+                    #"fit2_d0_Rich", 
+                    "fit2_lagtime_hrs_Rich",
+                    #"EOP_avg", 
+                    "resis", "radius_mm_hr_rel_avg")]) ~ 
+    isol_data_125$Treat)
+
+#7x results
 summary(manova_res_7x, test = "Wilks")
 summary.aov(manova_res_7x)
 p.adjust(summary.aov(manova_res_7x)$` Response fit2_lagtime_hrs_Orig`$`Pr(>F)`,
@@ -3020,20 +3087,7 @@ p.adjust(c(
          mu = 0)$p.value),
   method = "holm", n = 6)
 
-
-isol_data_125 <- isol_data[isol_data$Proj == "125" & isol_data$Pop != "Anc", ]
-manova_res_125 <- manova(as.matrix(
-  isol_data_125[, c("fit2_r_Orig", "fit2_k_Orig", 
-                   "fit2_v_log10_Orig", 
-                   #"fit2_d0_Orig", 
-                   "fit2_lagtime_hrs_Orig",
-                   "fit2_r_Rich", "fit2_k_Rich",
-                   "fit2_v_log10_Rich",
-                   #"fit2_d0_Rich", 
-                   "fit2_lagtime_hrs_Rich",
-                   #"EOP_avg", 
-                   "resis", "radius_mm_hr_rel_avg")]) ~ 
-    isol_data_125$Treat)
+#125 results
 summary(manova_res_125, test = "Wilks")
 summary.aov(manova_res_125)
 p.adjust(summary.aov(manova_res_125)$` Response radius_mm_hr_rel_avg`$`Pr(>F)`,
@@ -3053,3 +3107,5 @@ p.adjust(c(
   "G" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "G"], 
                mu = 0)$p.value),
   method = "holm", n = 6)
+
+
