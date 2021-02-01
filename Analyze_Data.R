@@ -1,6 +1,8 @@
 ##TODO: 
 ##      check rep wells that are very dift from ea other?
 ##        (does it matter since it gets averaged out anyway?)
+##      Test for differences in variance between treats
+##        maybe using Bayesian?
 
 ## Load packages and color scale ----
 library("ggplot2")
@@ -2153,7 +2155,7 @@ colnames(isol_data) <- gsub("_avg_rel_avg", "", colnames(isol_data))
 if (make_statplots) {
   #Make base figure
   temp <- isol_data[isol_data$Treat != "Anc" &
-                      isol_data$Proj == "125", ]
+                      isol_data$Proj == "7x", ]
   colnames(temp) <- plyr::revalue(
     colnames(temp),
     replace = c("fit2_r_Orig" = "r Orig", 
