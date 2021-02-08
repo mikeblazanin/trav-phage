@@ -2,102 +2,129 @@ library(deSolve)
 library(ggplot2)
 
 #Define derivs func
-derivs <- function(t, y, parms, n_x) {
+derivs <- function(t, yvals, parms, n_x, dx) {
   #The derivs function must return the derivative of all the variables at a
   # given time, in a list
   
-  #Parms contains:  D_N, D_P, D_R (diffusion coefficients)
-  #                 chi - chemotaxis sensitivity coeff
-  #                 a - infection rate
-  #                 b - burst size
-  #                 c - consumption rate of resources/cell
-  #                 m - constant metabolic maintenance cost
-  
+  #Parms contains:  D_N, D_P, D_R, D_A (diffusion coefficients) (um/s)
+  #                 chi - chemotaxis sensitivity coeff (um/s)
+  #                 c_R, c_A - consumption rate of resources or attractant/cell 
+  #                       (mmol/cfu/s)
+  #                 y - cell yield per resource (cfu/mmol)
+  #                 k_R, k_A - Michaelis-Menten rate params (mmol/mL)
+  #                 N_0, P_0 - cfu or pfu/mL
+  #                 i - infection rate (infec/cell/ml/pfu/ml/s)
+  #                 b - burst size (pfu/infec)
+  #                 N_0, P_0 - initial densities (cfu or pfu/mL)
+  #                 R_0, A_0 - initial densities (mmol/mL)
+
   #n_x is the number of grid spaces
-  N <- y[1:n_x]
-  P <- y[(n_x+1):(2*n_x)]
-  R <- y[(2*n_x+1):(3*n_x)]
+  N <- yvals[1:n_x]
+  P <- yvals[(n_x+1):(2*n_x)]
+  R <- yvals[(2*n_x+1):(3*n_x)]
+  A <- yvals[(3*n_x+1):(4*n_x)]
   
   N[N < 0] <- 0
   P[P < 0] <- 0
   R[R < 0] <- 0
+  A[A < 0] <- 0
   
-  calc_gradient <- function(x) {
-    return(c(diff(c(x[1:2])),
-              diff(c(x[1:length(x)]), lag = 2)/2,
-              diff(c(x[(length(x)-1):length(x)]))))
-    #return(diff(c(x[1], x, x[length(x)])))
+  #dx is the size of each grid space (in um)
+  calc_gradient <- function(x, dx) {
+    # return(c(diff(c(x[1:2])),
+    #           diff(c(x[1:length(x)]), lag = 2)/2,
+    #           diff(c(x[(length(x)-1):length(x)]))))
+    return(diff(c(x[2], x, x[length(x)-1]), lag = 2)/dx)
     #return(c(diff(x), 0))
   }
   
   #Calculate changes
   with(as.list(parms), {
-    grad_N <- calc_gradient(N)
-    grad_P <- calc_gradient(P)
-    grad_R <- calc_gradient(R)
+    grad_N <- calc_gradient(N, dx)
+    grad_P <- calc_gradient(P, dx)
+    grad_R <- calc_gradient(R, dx)
+    grad_A <- calc_gradient(A, dx)
     
-    #Have a problem where N has to be diff-d twice while the others
-    # only once
-    # and diff always reduces size of vector by 1
-    # so have to decide how to handle edge cases
+    dN = calc_gradient(D_N*grad_N - chi*N*grad_A, dx) +
+          c_R*y*(R/(R+k_R))*N - i*N*P
+    dP = D_P*calc_gradient(grad_P, dx) + i*(b-1)*N*P
+    dR = D_R*calc_gradient(grad_R, dx) - c_R*(R/(R+k_R))*N
+    dA = D_A*calc_gradient(grad_A, dx) - c_A*(A/(A+k_A))*N
     
-    dN = calc_gradient(D_N*grad_N - chi*N*grad_R) +
-          N*(c*R - m) - a*N*P
-    dP = D_P*calc_gradient(grad_P) + a*(b-1)*N*P
-    dR = D_R*calc_gradient(grad_R) - c*N*R
-    
-    return(list(c(dN, dP, dR)))
+    return(list(c(dN, dP, dR, dA)))
   })
 }
 
-#time in hours
-parms <- c(D_N = 0, D_P = 0, D_R = 0,
-           chi = 0,
-           a = 10**-10,
-           b = 50,
-           c = 10**-9,
-           m = 1)
-n_x <- 1001
-y_init = matrix(c(rep(0, (n_x-1)/2), 10**5, rep(0, (n_x-1)/2),
-                  rep(10**2, n_x),
-                  rep(10**9, n_x)),
-                ncol = 3)
-times = seq(from = 0, to = 24, by = 0.1)
+parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+           chi = 300,
+           c_A = 4*10**-16, c_R = 8*10**-11,
+           y = 1*10**10,
+           k_R = 5*10**-5, k_A = 1*10**-6,
+           i = 10**-12, b = 50)
+n_x <- 1000
+dx <- 45000/n_x #in um
+#In order of N, P, R, A
+# (and arbitrarily setting the volume of each dx to 1 mL)
+y_init = matrix(c(rep(2450000, round(1425/dx)), rep(0, n_x-round(1425/dx)),
+                  rep(0, n_x),
+                  rep(.05, n_x),
+                  rep(1*10**-3, n_x)),
+                ncol = 4)
+#time in seconds
+times = seq(from = 0, to = 24*60*60, by = 5*60)
 
 #Run derivs
 yout <- as.data.frame(ode.1D(y = y_init, times = times,
-               func = derivs, parms = parms, n_x = n_x,
-               nspec = 3, names = c("N", "P", "R")))
+               func = derivs, parms = parms, n_x = n_x, dx=dx,
+               nspec = 4, names = c("N", "P", "R", "A")))
 
 #1st col: time, cols 2:n_x+1 - density of N at spot x
 #         then start w/ P cols, then start w/ R cols
 
 #Reorganize
-yout_lng <- as.data.frame(tidyr::pivot_longer(yout, cols = -time,
-                               names_to = "col",
-                               values_to = "density"))
-yout_lng$pop <- NA
-yout_lng$x <- NA
-temp_rows <- which(as.numeric(yout_lng$col) <= (ncol(yout)-1)/3)
-yout_lng$pop[temp_rows] <- "N"
-yout_lng$x[temp_rows] <- yout_lng$col[temp_rows]
-temp_rows <- which(as.numeric(yout_lng$col) > (ncol(yout)-1)/3 & 
-                     as.numeric(yout_lng$col) <= 2*(ncol(yout)-1)/3)
-yout_lng$pop[temp_rows] <- "P"
-yout_lng$x[temp_rows] <- as.numeric(yout_lng$col[temp_rows])-(ncol(yout)-1)/3
-temp_rows <- which(as.numeric(yout_lng$col) > 2*(ncol(yout)-1)/3 & 
-                     as.numeric(yout_lng$col) <= (ncol(yout)-1))
-yout_lng$pop[temp_rows] <- "R"
-yout_lng$x[temp_rows] <- as.numeric(yout_lng$col[temp_rows])-2*(ncol(yout)-1)/3
-if(any(is.na(yout_lng$pop))) {stop("some cols uncategorized")}
+colnames(yout)[2:ncol(yout)] <- 
+  c(paste(rep("N", n_x), 1:1000, sep = "_"), 
+    paste(rep("P", n_x), 1:1000, sep = "_"),
+    paste(rep("R", n_x), 1:1000, sep = "_"),
+    paste(rep("A", n_x), 1:1000, sep = "_"))
 
-ggplot(data = yout_lng[yout_lng$x == "501", ],
-       aes(x = time, y = density+1, color = pop)) +
+yout_lng <- as.data.frame(tidyr::pivot_longer(yout, cols = -time,
+                               names_to = c("pop", "x"),
+                               names_sep = "_",
+                               values_to = "density"))
+
+#Plot
+ggplot(data = yout_lng[yout_lng$x %in% 499:502, ],
+       aes(x = time/3600, y = density+10, color = pop)) +
   geom_line() +
-  facet_grid(pop~., scales = "free") +
+  facet_grid(pop~x, scales = "free") +
   scale_y_continuous(trans = "log10")
 
-ggplot(data = yout_lng, aes(x = as.numeric(time), 
+n <- ggplot(data = yout_lng[yout_lng$pop == "N", ], 
+            aes(x = as.numeric(time)/3600, 
                             y = as.numeric(x), z = log10(density+10))) +
   geom_contour_filled() +
   facet_grid(~pop)
+p <- ggplot(data = yout_lng[yout_lng$pop == "P", ], 
+            aes(x = as.numeric(time)/3600, 
+                y = as.numeric(x), z = log10(density+10))) +
+  geom_contour_filled() +
+  facet_grid(~pop)
+r <- ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+            aes(x = as.numeric(time)/3600, 
+                y = as.numeric(x), 
+                z = as.numeric(log10(density+10)))) +
+  geom_contour_filled() +
+  facet_grid(~pop)
+a <- ggplot(data = yout_lng[yout_lng$pop == "A", ], 
+            aes(x = as.numeric(time)/3600, 
+                y = as.numeric(x), 
+                z = as.numeric(log10(density+10)))) +
+  geom_contour_filled() +
+  facet_grid(~pop)
+
+tiff("model_plot.tiff", width = 10, height = 10, units = "in", res = 300)
+cowplot::plot_grid(n, p, r, a, nrow = 2)
+dev.off()
+
+#ggplot(data = yout_lng[yout_lng$time == 
