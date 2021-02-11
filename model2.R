@@ -50,8 +50,6 @@ disp_dx <- dx                        #dispersion distances
 
 inoc_radius <- 1425
 
-res_scale <- 1
-
 #Define parameters
 parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
            chi = 300,
@@ -82,7 +80,7 @@ y_init = matrix(c(
 #   ncol = 4)
 
 #Define times (in seconds)
-times = seq(from = 0, to = 24*60*60, by = 1*60)
+times = seq(from = 0, to = 36*60*60, by = 1*60)
 #to = 24*60*60, by = 5*60)
 
 #Run model
@@ -106,18 +104,19 @@ yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
                                               names_sep = "_",
                                               values_to = "density"))
 
-
-ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-       aes(x = as.numeric(time), 
-           y = as.numeric(x), 
-           color = as.numeric(density))) +
-           #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
-  #geom_contour_filled() +
-  geom_point() +
-  #geom_line(aes(group = x)) +
-  #facet_grid(~pop) +
-  #scale_color_continuous(name = "dens") +
-  NULL
+if (F) {
+  ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+         aes(x = as.numeric(time), 
+             y = as.numeric(x), 
+             color = as.numeric(density))) +
+    #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
+    #geom_contour_filled() +
+    geom_point() +
+    #geom_line(aes(group = x)) +
+    #facet_grid(~pop) +
+    #scale_color_continuous(name = "dens") +
+    NULL
+}
 
 #Make contour plots
 if (F) {
@@ -153,7 +152,7 @@ if (F) {
   dev.off()
 }
 
-ggplot(data = yout_lng[yout_lng$time %in% c(60*60*c(0, 1, 3, 6, 12, 18, 24)) &
+ggplot(data = yout_lng[yout_lng$time %in% c(60*60*c(0, 1, 3, 6, 12, 18, 24, 36)) &
                          yout_lng$pop %in% c("R", "N", "A"), ],
        aes(x = as.numeric(x)*dx/10000, y = as.numeric(density)+1)) +
   facet_grid(pop ~ ., scales = "free") +
@@ -161,6 +160,8 @@ ggplot(data = yout_lng[yout_lng$time %in% c(60*60*c(0, 1, 3, 6, 12, 18, 24)) &
   scale_y_continuous(trans = "log10") +
   geom_hline(yintercept = 1, lty = 2) +
   NULL
+
+
 
 if (F) {
   ggplot(data = yout_lng[yout_lng$x %in% c(0:3) &
