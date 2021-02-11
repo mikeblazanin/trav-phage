@@ -39,134 +39,268 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     return(list(c(dN, dP, dR, dA)))
   })
 }
+
+#Define function to run simulations across grid of values
+run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
+                     init_N_dens = 250000/inoc_r_n, 
+                     init_P_dens = 0,
+                     chi = 300, c_A = 4*10**-13, c_R = 2*10**-11, 
+                     yield = 10**7, i = 10**-12, nx = 100, 
+                     combinatorial = TRUE, print_info = TRUE) {
+  #nx is the number of concentric circles the plate is broken up into
+  #inoc_r is the radius, in um, n and p are respectively inoculated into
+  #init_N and P are the total inoculated bacterial & phage populations
+  # (which will be distributed over inoc_r_n area)
+  
+  if(any(length(nx) > 1)) {stop("Varying nx is not supported")}
+  
+  #Save parameter value combinations into dataframe
+  if (combinatorial == TRUE) {
+  param_combos <- expand.grid(list("inoc_r_n" = inoc_r_n, "inoc_r_p" = inoc_r_p,
+                     "init_N_dens" = init_N_dens, "init_P_dens" = init_P_dens,
+                     "chi" = chi, "c_A" = c_A, "c_R" = c_R, 
+                     "yield" = yield, "i" = i),
+                     stringsAsFactors = FALSE)
+  num_sims <- nrow(param_combos)
+  } else {
+    num_sims <- max(sapply(X = list(inoc_r_n, inoc_r_p, init_N_dens, init_P_dens,
+                                    chi, c_A, c_R, yield, i), FUN = length))
     
-#Calculate physical dimensions
-radius <- 45000                      #um
-nx <- 100                            #concentric circles
-dx <- radius/nx                      #thickness of each circle
-r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
-r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
-disp_dx <- dx                        #dispersion distances
-
-inoc_radius <- 1425
-
-#Define parameters
-parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
-           chi = 300,
-           c_A = 4*10**-13, c_R = 2*10**-11,
-           yield = 10**7,
-           k_R = .05, k_A = .001,
-           i = 0*10**-12, b = 0*50)
-# parms <- c(D_N = 50*10**-12, D_P = 0, D_R = 800*10**-12, D_A = 8*10**-12,
-#            chi = 300*10**-12,
-#            c_A = 1.5, c_R = .6/.064,
-#            yield = .064,
-#            k_R = .05, k_A = .001,
-#            i = 0*10**-12, b = 0*50)
-
-
-#Define init conditions (NPRA)
-y_init = matrix(c(
-  rep(250000/round(1425/dx), round(1425/dx)), rep(0, nx-round(1425/dx)),
-  rep(0, nx),
-  rep(2000/nx, nx),
-  rep(25/nx, nx)),
-  ncol = 4)
-# y_init = matrix(c(
-#   rep(.029, round(inoc_radius/dx)), rep(0, nx-round(inoc_radius/dx)),
-#   rep(0, nx),
-#   res_scale*rep(40, nx),
-#   res_scale*rep(0.1, nx)),
-#   ncol = 4)
-
-#Define times (in seconds)
-times = seq(from = 0, to = 36*60*60, by = 1*60)
-#to = 24*60*60, by = 5*60)
-
-#Run model
-yout <- ode.1D(y = y_init, times = times,
-               func = derivs, parms = parms,
-               nspec = 4, names = c("N", "P", "R", "A"),
-               nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
-               disp_dx = disp_dx, maxsteps = 25000)
-yout_df <- as.data.frame(yout)
-yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
-
-#Reorganize
-colnames(yout_df)[2:ncol(yout_df)] <- 
-  c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
-    paste(rep("P", nx), 0:(nx-1), sep = "_"),
-    paste(rep("R", nx), 0:(nx-1), sep = "_"),
-    paste(rep("A", nx), 0:(nx-1), sep = "_"))
-
-yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
-                                              names_to = c("pop", "x"),
-                                              names_sep = "_",
-                                              values_to = "density"))
-
-if (F) {
-  ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-         aes(x = as.numeric(time), 
-             y = as.numeric(x), 
-             color = as.numeric(density))) +
-    #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
-    #geom_contour_filled() +
-    geom_point() +
-    #geom_line(aes(group = x)) +
-    #facet_grid(~pop) +
-    #scale_color_continuous(name = "dens") +
-    NULL
+    #Check for parameter lengths being non-divisible with the
+    # number of simulations inferred from the longest parameter length
+    if (!all(num_sims %% sapply(X = list(inoc_r_n, inoc_r_p, 
+                                         init_N_dens, init_P_dens,
+                                         chi, c_A, c_R, yield, i), 
+                                FUN = length) == 0)) {
+      warning("Combinatorial=TRUE but longest param vals length is not a multiple of all other param vals lengths")
+    }
+    
+    #Save parameters into dataframe, replicating shorter parameter
+    # vectors as needed to reach # of simulations
+    param_combos <- data.frame("inoc_r_n" = rep_len(inoc_r_n, num_sims), 
+                               "inoc_r_p" = rep_len(inoc_r_p, num_sims),
+                               "init_N_dens" = rep_len(init_N_dens, num_sims), 
+                               "init_P_dens" = rep_len(init_P_dens, num_sims),
+                               "chi" = rep_len(chi, num_sims), 
+                               "c_A" = rep_len(c_A, num_sims), 
+                               "c_R" = rep_len(c_R, num_sims), 
+                               "yield" = rep_len(yield, num_sims), 
+                               "i" = rep_len(i, num_sims),
+                               stringsAsFactors = FALSE)
+  }
+  
+  #Define physical parameters of plate (true for all runs)
+  radius <- 45000                      #um
+  dx <- radius/nx                      #thickness of each circle
+  r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
+  r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
+  disp_dx <- dx                        #dispersion distances
+  
+  #Define times (in seconds) (true for all runs)
+  times = seq(from = 0, to = 24*60*60, by = 1*60)
+  times_keep <- seq(from = 0, to = 24*60*60, by = 15*60)
+  
+    #Create output dataframe (yout)
+  bigout <- 
+    cbind(
+      data.frame(
+        "uniq_run" = rep(1:nrow(param_combos), each = length(times_keep)),
+        "inoc_r_n" = rep(param_combos$inoc_r_n, each = length(times_keep)), 
+        "inoc_r_p" = rep(param_combos$inoc_r_p, each = length(times_keep)),
+        "init_N_dens" = rep(param_combos$init_N_dens, each = length(times_keep)), 
+        "init_P_dens" = rep(param_combos$init_P_dens, each = length(times_keep)),
+        "chi" = rep(param_combos$chi, each = length(times_keep)), 
+        "c_A" = rep(param_combos$c_A, each = length(times_keep)), 
+        "c_R" = rep(param_combos$c_R, each = length(times_keep)), 
+        "yield" = rep(param_combos$yield, each = length(times_keep)), 
+        "i" = rep(param_combos$i, each = length(times_keep)),
+        stringsAsFactors = FALSE),
+      as.data.frame(matrix(NA, nrow = length(times_keep)*nrow(param_combos), 
+                           ncol = 1+4*nx),
+                    col.names = c("time", 1:(4*nx))))
+  
+  #Print number of simulations that will be run
+  if(print_info) {
+    print(paste(num_sims, "simulations will be run"))
+    
+    #Save sequence of 10% cutoff points for later reference
+    progress_seq <- round(seq(from = 0, to = num_sims, by = num_sims/10))
+  }
+  
+  #Run simulations
+  for (myrun in 1:nrow(param_combos)) {
+    if (myrun != param_combos$uniq_run[myrun]) {stop("myrun != uniq_run")}
+    #Define parameters vector
+    parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+             chi = param_combos$chi[myrun],
+             c_A = param_combos$c_A[myrun], 
+             c_R = param_combos$c_R[myrun],
+             yield = param_combos$yield[myrun],
+             k_R = .05, k_A = .001,
+             i = param_combos$i[myrun], b = 50)
+    
+    #Define initial conditions
+    y_init = matrix(c(
+      #N
+      rep(param_combos$init_N_dens[myrun], 
+          round(param_combos$inoc_r_n[myrun]/dx)),
+      rep(0, nx - round(param_combos$inoc_r_n[myrun]/dx)),
+      #P
+      rep(param_combos$init_P_dens[myrun], 
+          round(param_combos$inoc_r_p[myrun]/dx)),
+      rep(0, nx - round(param_combos$inoc_r_p[myrun]/dx)),
+      #R
+      rep(2000/nx, nx),
+      #A
+      rep(25/nx, nx)),
+      ncol = 4)
+    
+    #Run model
+    yout <- as.data.frame(ode.1D(y = y_init, times = times,
+                                 func = derivs, parms = parms,
+                                 nspec = 4, names = c("N", "P", "R", "A"),
+                                 nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
+                                 disp_dx = disp_dx, maxsteps = 25000))
+    yout <- yout[yout$time %in% times_keep, ]
+    
+    #Save results
+    bigout[(myrun-1)*length(times_keep):(myrun*length(times_keep)), 
+           11:ncol(bigout)] <- yout
+  }
+  #Rename columns
+  #Reorganize
+  colnames(bigout)[11:ncol(bigout)] <- 
+    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
+      paste(rep("P", nx), 0:(nx-1), sep = "_"),
+      paste(rep("R", nx), 0:(nx-1), sep = "_"),
+      paste(rep("A", nx), 0:(nx-1), sep = "_"))
+  
+  return(bigout)
 }
-
-#Make contour plots
+      
+#Simple model (for future reference)
 if (F) {
-  n <- ggplot(data = yout_lng[yout_lng$pop == "N", ], 
-              aes(x = as.numeric(time)/3600, 
-                  y = as.numeric(x), 
-                  z = log10(density+1))) +
-    geom_contour_filled() +
-    facet_grid(~pop)
-  p <- ggplot(data = yout_lng[yout_lng$pop == "P", ], 
-              aes(x = as.numeric(time)/3600, 
-                  y = as.numeric(x), 
-                  z = log10(density+1))) +
-    geom_contour_filled() +
-    facet_grid(~pop)
-  r <- ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-              aes(x = as.numeric(time)/3600, 
-                  y = as.numeric(x), 
-                  z = log10(density+1))) +
-    geom_contour_filled() +
-    facet_grid(~pop) +
-    NULL
-  a <- ggplot(data = yout_lng[yout_lng$pop == "A", ], 
-              aes(x = as.numeric(time)/3600, 
-                  y = as.numeric(x), 
-                  z = log10(density+1))) +
-    geom_contour_filled() +
-    facet_grid(~pop) +
+  #Calculate physical dimensions
+  radius <- 45000                      #um
+  nx <- 100                            #concentric circles
+  dx <- radius/nx                      #thickness of each circle
+  r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
+  r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
+  disp_dx <- dx                        #dispersion distances
+  
+  inoc_r_n <- 1425
+  inoc_r_p <- 5*1425
+  
+  #Define parameters
+  parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+             chi = 300,
+             c_A = 4*10**-13, c_R = 2*10**-11,
+             yield = 10**7,
+             k_R = .05, k_A = .001,
+             i = 10**-12, b = 50)
+  
+  #Define init conditions (NPRA)
+  y_init = matrix(c(
+    rep(250000/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
+    rep(25000/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
+    rep(2000/nx, nx),
+    rep(25/nx, nx)),
+    ncol = 4)
+  
+  #Define times (in seconds)
+  times = seq(from = 0, to = 24*60*60, by = 1*60)
+  
+  #Run model
+  yout <- ode.1D(y = y_init, times = times,
+                 func = derivs, parms = parms,
+                 nspec = 4, names = c("N", "P", "R", "A"),
+                 nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
+                 disp_dx = disp_dx, maxsteps = 25000)
+  yout_df <- as.data.frame(yout)
+  yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
+  
+  #Reorganize
+  colnames(yout_df)[2:ncol(yout_df)] <- 
+    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
+      paste(rep("P", nx), 0:(nx-1), sep = "_"),
+      paste(rep("R", nx), 0:(nx-1), sep = "_"),
+      paste(rep("A", nx), 0:(nx-1), sep = "_"))
+  
+  yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
+                                                names_to = c("pop", "x"),
+                                                names_sep = "_",
+                                                values_to = "density"))
+  
+  if (F) {
+    ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+           aes(x = as.numeric(time), 
+               y = as.numeric(x), 
+               color = as.numeric(density))) +
+      #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
+      #geom_contour_filled() +
+      geom_point() +
+      #geom_line(aes(group = x)) +
+      #facet_grid(~pop) +
+      #scale_color_continuous(name = "dens") +
+      NULL
+  }
+  
+  #Make contour plots
+  if (F) {
+    n <- ggplot(data = yout_lng[yout_lng$pop == "N", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop)
+    p <- ggplot(data = yout_lng[yout_lng$pop == "P", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop)
+    r <- ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop) +
+      NULL
+    a <- ggplot(data = yout_lng[yout_lng$pop == "A", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop) +
+      NULL
+    
+    tiff("model_plot.tiff", width = 10, height = 10, units = "in", res = 300)
+    cowplot::plot_grid(n, p, r, a, nrow = 2)
+    dev.off()
+  }
+  
+  my_times <- 60*60*c(0, 1, 3, 6, 12, 18, 24)
+  ggplot(data = yout_lng[yout_lng$time %in% my_times &
+                           yout_lng$pop %in% c("N", "P", "R", "A"), ],
+         aes(x = as.numeric(x)*dx/10000, y = as.numeric(density)+1)) +
+    facet_wrap(pop ~ ., scales = "free") +
+    geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
+    scale_y_continuous(trans = "log10") +
+    geom_hline(yintercept = 1, lty = 2) +
+    xlim(NA, 2) +
+    scale_color_manual(values = 
+                         scales::seq_gradient_pal("red", "blue")(
+                           seq(0,1,length.out = length(my_times)))) +
     NULL
   
-  tiff("model_plot.tiff", width = 10, height = 10, units = "in", res = 300)
-  cowplot::plot_grid(n, p, r, a, nrow = 2)
-  dev.off()
+  if (F) {
+    ggplot(data = yout_lng[yout_lng$x %in% c(0:3) &
+                             yout_lng$pop %in% c("R", "N", "A"), ],
+           aes(x = as.numeric(time), y = as.numeric(density))) +
+      geom_line() +
+      facet_grid(pop~x, scales = "free")
+  }
 }
 
-ggplot(data = yout_lng[yout_lng$time %in% c(60*60*c(0, 1, 3, 6, 12, 18, 24, 36)) &
-                         yout_lng$pop %in% c("R", "N", "A"), ],
-       aes(x = as.numeric(x)*dx/10000, y = as.numeric(density)+1)) +
-  facet_grid(pop ~ ., scales = "free") +
-  geom_line(aes(color = as.factor(time/3600))) +
-  scale_y_continuous(trans = "log10") +
-  geom_hline(yintercept = 1, lty = 2) +
-  NULL
-
-
-
-if (F) {
-  ggplot(data = yout_lng[yout_lng$x %in% c(0:3) &
-                           yout_lng$pop %in% c("R", "N", "A"), ],
-         aes(x = as.numeric(time), y = as.numeric(density))) +
-    geom_line() +
-    facet_grid(pop~x, scales = "free")
-}
+# which.max(as.numeric(yout_lng$x[yout_lng$density > 10**2 &
+#                        yout_lng$pop == "N"]))
