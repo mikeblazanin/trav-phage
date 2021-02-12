@@ -1,19 +1,17 @@
+#Import & set global options ----
 library(deSolve)
 library(ggplot2)
 
-#Define function to calculate derivatives
+make_statplots <- TRUE
+make_curveplots <- FALSE
+
+#Define function to calculate derivatives ----
 derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   with(as.list(parms), {
     N <- y[1:nx]
     P <- y[(nx+1):(2*nx)]
     R <- y[(2*nx+1):(3*nx)]
     A <- y[(3*nx+1):(4*nx)]
-    
-    #Adding this incredibly slows down the integration
-    # N[N < 0] <- 0
-    # P[P < 0] <- 0
-    # R[R < 0] <- 0
-    # A[A < 0] <- 0
     
     #Calculate diffusion & migration (zero gradient at boundaries)
     flux_N <- -diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx -
@@ -40,7 +38,7 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   })
 }
 
-#Simple model (for future reference)
+#Simple model (for future reference) ----
 if (F) {
   #Calculate physical dimensions
   radius <- 45000                      #um
@@ -164,7 +162,7 @@ if (F) {
   }
 }
 
-#Define function to run simulations across grid of values
+#Define function to run simulations across grid of values ----
 run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
                      init_N_dens = 250000/1425, 
                      init_P_dens = 25000/1425,
@@ -308,6 +306,7 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   return(list(bigout, param_combos))
 }
 
+#Run 1 ----
 run1_nx <- 100
 if (F) {
   run1 <- run_sims(inoc_r_p = c(0, 1425, 45000),
@@ -323,7 +322,8 @@ if (F) {
 
 #Pivot to tidy
 run1_lng <- as.data.frame(
-  tidyr::pivot_longer(run1[[1]],
+  tidyr::pivot_longer(run1[[1]][run1[[1]]$time %in% 
+                                  c(60*60*c(0, 1, 2, 3, 6, 12, 18, 24)), ],
                       cols = -c("uniq_run", "inoc_r_n", "inoc_r_p", 
                                 "init_N_dens", "init_P_dens", "chi", "c_A", 
                                 "c_R", "yield", "i", "time"),
@@ -350,118 +350,123 @@ run1_sum <-
 #Make profile plots for each run
 dir.create("./run1_profile_plots", showWarnings = FALSE)
 my_times <- 60*60*c(0, 1, 2, 3, 6, 12, 18, 24)
-for (uniq_run in unique(run1_lng$uniq_run)) {
-  tiff(paste("./run1_profile_plots/", uniq_run, ".tiff", sep = ""),
-       width = 6, height = 4, units = "in", res = 200)
-  print(ggplot(data = run1_lng[run1_lng$time %in% my_times &
-                                 run1_lng$uniq_run == uniq_run, ],
-               aes(x = as.numeric(x)*(45000/run1_nx)/10000, y = as.numeric(density)+1)) +
-          facet_wrap(pop ~ ., scales = "free",
-                     labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
-                                                 "P" = "Phage", "R" = "Resources"))) +
-          geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
-          geom_point(data = cbind(run1_sum[run1_sum$uniq_run == uniq_run, ],
-                                  "pop" = "N"),
-                     aes(x = first_1000cfuml/10000,
-                         y = first_1000cfuml_dens+1)) +
-          scale_y_continuous(trans = "log10") +
-          geom_hline(yintercept = 1, lty = 2) +
-          scale_color_manual(name = "Time (hrs)",
-                             values = 
-                               scales::seq_gradient_pal("red", "blue")(
-                                 seq(0,1,length.out = length(my_times)))) +
-          labs(x = "Position (cm)", y = "Density + 1 (cfu, pfu, or \U003BCmol)") +
-          NULL)
-  dev.off()
+if (make_curveplots) {
+  for (uniq_run in unique(run1_lng$uniq_run)) {
+    tiff(paste("./run1_profile_plots/", uniq_run, ".tiff", sep = ""),
+         width = 6, height = 4, units = "in", res = 200)
+    print(ggplot(data = run1_lng[run1_lng$time %in% my_times &
+                                   run1_lng$uniq_run == uniq_run, ],
+                 aes(x = as.numeric(x)*(45000/run1_nx)/10000, y = as.numeric(density)+1)) +
+            facet_wrap(pop ~ ., scales = "free",
+                       labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
+                                                   "P" = "Phage", "R" = "Resources"))) +
+            geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
+            geom_point(data = cbind(run1_sum[run1_sum$uniq_run == uniq_run, ],
+                                    "pop" = "N"),
+                       aes(x = first_1000cfuml/10000,
+                           y = first_1000cfuml_dens+1)) +
+            scale_y_continuous(trans = "log10") +
+            geom_hline(yintercept = 1, lty = 2) +
+            scale_color_manual(name = "Time (hrs)",
+                               values = 
+                                 scales::seq_gradient_pal("red", "blue")(
+                                   seq(0,1,length.out = length(my_times)))) +
+            labs(x = "Position (cm)", y = "Density + 1 (cfu, pfu, or \U003BCmol)") +
+            NULL)
+    dev.off()
+  }
 }
-
+  
 #In run 1, when phage are global and infec rate is high (e-12), bact form
 # traveling peaks. Otherwise they form expanding fronts.
 # (uniq runs 3, 6, 9 after 24 hrs, 12, 15, 18, 21, 24, 27 at multiple high hrs)
-                   
-tiff("./Modeling_plots/run1_contour1.tiff", width = 10, height = 10,
-     units = "in", res = 300)
-ggplot(data = run1_sum, aes(x = chi, y = i, z = percentile_95)) +
-  geom_contour_filled() +
-  facet_grid(inoc_r_p*c_A ~ c_R,
-             labeller = labeller(inoc_r_p = c("0" = "Control", 
-                                       "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  labs(x = "chemotaxis sensitivity", y = "infection rate",
-       subtitle = "Resource Consumption Rate", title = "95th Percentile")
-dev.off()
 
-tiff("./Modeling_plots/run1_contour2.tiff", width = 10, height = 10,
-     units = "in", res = 300)
-ggplot(data = run1_sum, aes(x = chi, y = i, z = percentile_90)) +
-  geom_contour_filled() +
-  facet_grid(inoc_r_p*c_A ~ c_R,
-             labeller = labeller(inoc_r_p = c("0" = "Control", 
-                                              "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  labs(x = "chemotaxis sensitivity", y = "infection rate",
-       subtitle = "Resource Consumption Rate", title = "90th Percentile")
-dev.off()
-
-tiff("./Modeling_plots/run1_contour3.tiff", width = 10, height = 10,
-     units = "in", res = 300)
-ggplot(data = run1_sum, aes(x = chi, y = i, z = first_100cfuml)) +
-  geom_contour_filled() +
-  facet_grid(inoc_r_p*c_A ~ c_R,
-             labeller = labeller(inoc_r_p = c("0" = "Control", 
-                                              "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  labs(x = "chemotaxis sensitivity", y = "infection rate",
-       subtitle = "Resource Consumption Rate", 
-       title = "Threshold 100 cfu/mL Percentile")
-dev.off()
-
-tiff("./Modeling_plots/run1_contour4.tiff", width = 10, height = 10,
-     units = "in", res = 300)
-ggplot(data = run1_sum, aes(x = chi, y = i, z = first_1000cfuml)) +
-  geom_contour_filled() +
-  facet_grid(inoc_r_p*c_A ~ c_R,
-             labeller = labeller(inoc_r_p = c("0" = "Control", 
-                                              "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  labs(x = "chemotaxis sensitivity", y = "infection rate",
-       subtitle = "Resource Consumption Rate", 
-       title = "Threshold 1000 cfu/mL Percentile")
-dev.off()
-
-tiff("./Modeling_plots/run1_contour5.tiff", width = 10, height = 10,
-     units = "in", res = 300)
-ggplot(data = run1_sum, aes(x = chi, y = i, z = first_10000cfuml)) +
-  geom_contour_filled() +
-  facet_grid(inoc_r_p*c_A ~ c_R,
-             labeller = labeller(inoc_r_p = c("0" = "Control", 
-                                              "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  labs(x = "chemotaxis sensitivity", y = "infection rate",
-       subtitle = "Resource Consumption Rate", 
-       title = "Threshold 10000 cfu/mL Percentile")
-dev.off()
-
-for (my_c_R in unique(run1_sum$c_R)) {
-  tiff(paste("./Modeling_plots/run1_contour4_c_r=", my_c_R, ".tiff", sep = ""),
-       width = 10, height = 10, units = "in", res = 300)
-  print(ggplot(data = run1_sum[run1_sum$c_R == my_c_R, ], 
-         aes(x = chi, y = i, z = first_1000cfuml)) +
+if (make_statplots) {         
+  tiff("./Modeling_plots/run1_contour1.tiff", width = 10, height = 10,
+       units = "in", res = 300)
+  ggplot(data = run1_sum, aes(x = chi, y = i, z = percentile_95)) +
     geom_contour_filled() +
-    facet_grid(inoc_r_p ~ c_A,
+    facet_grid(inoc_r_p*c_A ~ c_R,
+               labeller = labeller(inoc_r_p = c("0" = "Control", 
+                                                "1425" = "Local", "45000" = "Global"))) +
+    scale_y_continuous(trans = "log10") +
+    labs(x = "chemotaxis sensitivity", y = "infection rate",
+         subtitle = "Resource Consumption Rate", title = "95th Percentile")
+  dev.off()
+  
+  tiff("./Modeling_plots/run1_contour2.tiff", width = 10, height = 10,
+       units = "in", res = 300)
+  ggplot(data = run1_sum, aes(x = chi, y = i, z = percentile_90)) +
+    geom_contour_filled() +
+    facet_grid(inoc_r_p*c_A ~ c_R,
+               labeller = labeller(inoc_r_p = c("0" = "Control", 
+                                                "1425" = "Local", "45000" = "Global"))) +
+    scale_y_continuous(trans = "log10") +
+    labs(x = "chemotaxis sensitivity", y = "infection rate",
+         subtitle = "Resource Consumption Rate", title = "90th Percentile")
+  dev.off()
+  
+  tiff("./Modeling_plots/run1_contour3.tiff", width = 10, height = 10,
+       units = "in", res = 300)
+  ggplot(data = run1_sum, aes(x = chi, y = i, z = first_100cfuml)) +
+    geom_contour_filled() +
+    facet_grid(inoc_r_p*c_A ~ c_R,
                labeller = labeller(inoc_r_p = c("0" = "Control", 
                                                 "1425" = "Local", "45000" = "Global"))) +
     scale_y_continuous(trans = "log10") +
     labs(x = "chemotaxis sensitivity", y = "infection rate",
          subtitle = "Resource Consumption Rate", 
-         title = "Threshold 1000 cfu/mL Percentile"))
+         title = "Threshold 100 cfu/mL Percentile")
   dev.off()
+  
+  tiff("./Modeling_plots/run1_contour4.tiff", width = 10, height = 10,
+       units = "in", res = 300)
+  ggplot(data = run1_sum, aes(x = chi, y = i, z = first_1000cfuml/(24*1000))) +
+    geom_contour_filled() +
+    facet_grid(inoc_r_p*c_A ~ c_R,
+               labeller = labeller(inoc_r_p = c("0" = "Control", 
+                                                "1425" = "Local", "45000" = "Global"))) +
+    scale_y_continuous(trans = "log10") +
+    labs(x = "chemotaxis sensitivity", y = "infection rate",
+         subtitle = "Resource Consumption Rate", 
+         title = "Soft agar growth (mm/hr) [1000 cfu threshold]")
+  dev.off()
+  
+  tiff("./Modeling_plots/run1_contour5.tiff", width = 10, height = 10,
+       units = "in", res = 300)
+  ggplot(data = run1_sum, aes(x = chi, y = i, z = first_10000cfuml)) +
+    geom_contour_filled() +
+    facet_grid(inoc_r_p*c_A ~ c_R,
+               labeller = labeller(inoc_r_p = c("0" = "Control", 
+                                                "1425" = "Local", "45000" = "Global"))) +
+    scale_y_continuous(trans = "log10") +
+    labs(x = "chemotaxis sensitivity", y = "infection rate",
+         subtitle = "Resource Consumption Rate", 
+         title = "Threshold 10000 cfu/mL Percentile")
+  dev.off()
+  
+  for (my_c_R in unique(run1_sum$c_R)) {
+    tiff(paste("./Modeling_plots/run1_contour4_c_r=", my_c_R, ".tiff", sep = ""),
+         width = 10, height = 10, units = "in", res = 300)
+    print(ggplot(data = run1_sum[run1_sum$c_R == my_c_R, ], 
+                 aes(x = chi, y = i, z = first_1000cfuml)) +
+            geom_contour_filled() +
+            facet_grid(inoc_r_p ~ c_A,
+                       labeller = labeller(inoc_r_p = c("0" = "Control", 
+                                                        "1425" = "Local", "45000" = "Global"))) +
+            scale_y_continuous(trans = "log10") +
+            labs(x = "chemotaxis sensitivity", y = "infection rate",
+                 subtitle = "Resource Consumption Rate", 
+                 title = "Threshold 1000 cfu/mL Percentile"))
+    dev.off()
+  }
 }
 
 #The changes included in run1 (specifically those for c_A and chi)
 # aren't enough to actually affect the migration rate
 # so changes in migration rate aren't proportional to changes in c_A and chi
 
+#Run 2 ----
 run2_nx <- 100
 if (F) {
   run2 <- run_sims(inoc_r_p = 0,
