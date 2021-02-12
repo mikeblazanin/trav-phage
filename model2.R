@@ -17,10 +17,25 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     
     #Calculate diffusion & migration (zero gradient at boundaries)
     flux_N <- -diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx -
-      chi*N*diff(diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+      chi*N*diff(r_end * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
     flux_P <- -diff(r_end * -D_P * diff(c(P[1], P, P[nx]))/disp_dx)/r_mid/dx
     flux_R <- -diff(r_end * -D_R * diff(c(R[1], R, R[nx]))/disp_dx)/r_mid/dx
     flux_A <- -diff(r_end * -D_A * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+    
+    #for troubleshooting:
+    if (F) {
+      par(mfrow = c(2, 1))
+      plot(1:length(N), N)
+      plot(1:length(N), 
+           -diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx,
+           main = "diffusion")
+      lines(1:length(N),
+            -chi*N*diff(r_end * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx)
+      par(mfrow = c(1, 1))
+      plot(-diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx,
+           -chi*N*diff(r_end * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx,
+           xlab = "Diffusion", ylab = "Migration")
+    }
     
     #Calculate growth and death
     grow_N <- c_R*yield*R/(R+k_R)*N - i*N*P
