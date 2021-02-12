@@ -42,8 +42,8 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
 
 #Define function to run simulations across grid of values
 run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
-                     init_N_dens = 250000/inoc_r_n, 
-                     init_P_dens = 0,
+                     init_N_dens = 250000/1425, 
+                     init_P_dens = 25000/1425,
                      chi = 300, c_A = 4*10**-13, c_R = 2*10**-11, 
                      yield = 10**7, i = 10**-12, nx = 100, 
                      combinatorial = TRUE, print_info = TRUE) {
@@ -168,7 +168,7 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     
     #Print progress update
     if (print_info & myrun %in% progress_seq) {
-      print(paste((which(progress_seq == i)-1)*10,
+      print(paste((which(progress_seq == myrun)-1)*10,
                   "% completed", sep = ""))
     }
   }
@@ -307,6 +307,14 @@ if (F) {
       facet_grid(pop~x, scales = "free")
   }
 }
+
+run1 <- run_sims(inoc_r_p = c(0, 1425, 45000),
+                       chi = c(300, 450, 600),
+                       c_R = c(2*10**-11, 4*10**-11, 6*10**-11),
+                       i = c(10**-12, 10**-14, 10**-16))
+
+
+
 
 # which.max(as.numeric(yout_lng$x[yout_lng$density > 10**2 &
 #                        yout_lng$pop == "N"]))
