@@ -346,34 +346,7 @@ run1_lng <- as.data.frame(
                       names_sep = "_",
                       values_to = "density"))
 
-#Make profile plots for each run
-dir.create("./run1_profile_plots", showWarnings = FALSE)
-my_times <- 60*60*c(0, 1, 2, 3, 6, 12, 18, 24)
-for (uniq_run in unique(run1_lng$uniq_run)) {
-  tiff(paste("./run1_profile_plots/", uniq_run, ".tiff", sep = ""),
-       width = 6, height = 4, units = "in", res = 200)
-  print(ggplot(data = run1_lng[run1_lng$time %in% my_times &
-                           run1_lng$uniq_run == uniq_run, ],
-         aes(x = as.numeric(x)*(45000/run1_nx)/10000, y = as.numeric(density)+1)) +
-    facet_wrap(pop ~ ., scales = "free",
-               labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
-                                           "P" = "Phage", "R" = "Resources"))) +
-    geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
-    scale_y_continuous(trans = "log10") +
-    geom_hline(yintercept = 1, lty = 2) +
-    scale_color_manual(name = "Time (hrs)",
-                       values = 
-                         scales::seq_gradient_pal("red", "blue")(
-                           seq(0,1,length.out = length(my_times)))) +
-    labs(x = "Position (cm)", y = "Density + 1 (cfu, pfu, or \U003BCmol)") +
-    NULL)
-  dev.off()
-}
-
-#In run 1, when phage are global and infec rate is high (e-12), bact form
-# traveling peaks. Otherwise they form expanding fronts.
-# (uniq runs 3, 6, 9 after 24 hrs, 12, 15, 18, 21, 24, 27 at multiple high hrs)
-
+#Summarize
 run1_sum <- 
   dplyr::summarise(
     dplyr::group_by(run1_lng[run1_lng$time == max(run1_lng$time) &
@@ -386,7 +359,40 @@ run1_sum <-
     percentile_90 = dx*max(which(cumsum(density) < 0.90*tot_dens)),
     first_100cfuml = dx*max(which(density >= 10**2)),
     first_1000cfuml = dx*max(which(density >= 10**3)),
-    first_10000cfuml = dx*max(which(density >= 10**4)))
+    first_10000cfuml = dx*max(which(density >= 10**4)),
+    first_1000cfuml_dens = density[max(which(density >= 10**3))])
+
+#Make profile plots for each run
+dir.create("./run1_profile_plots", showWarnings = FALSE)
+my_times <- 60*60*c(0, 1, 2, 3, 6, 12, 18, 24)
+for (uniq_run in unique(run1_lng$uniq_run)) {
+  tiff(paste("./run1_profile_plots/", uniq_run, ".tiff", sep = ""),
+       width = 6, height = 4, units = "in", res = 200)
+  print(ggplot(data = run1_lng[run1_lng$time %in% my_times &
+                                 run1_lng$uniq_run == uniq_run, ],
+               aes(x = as.numeric(x)*(45000/run1_nx)/10000, y = as.numeric(density)+1)) +
+          facet_wrap(pop ~ ., scales = "free",
+                     labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
+                                                 "P" = "Phage", "R" = "Resources"))) +
+          geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
+          geom_point(data = cbind(run1_sum[run1_sum$uniq_run == uniq_run, ],
+                                  "pop" = "N"),
+                     aes(x = first_1000cfuml/10000,
+                         y = first_1000cfuml_dens+1)) +
+          scale_y_continuous(trans = "log10") +
+          geom_hline(yintercept = 1, lty = 2) +
+          scale_color_manual(name = "Time (hrs)",
+                             values = 
+                               scales::seq_gradient_pal("red", "blue")(
+                                 seq(0,1,length.out = length(my_times)))) +
+          labs(x = "Position (cm)", y = "Density + 1 (cfu, pfu, or \U003BCmol)") +
+          NULL)
+  dev.off()
+}
+
+#In run 1, when phage are global and infec rate is high (e-12), bact form
+# traveling peaks. Otherwise they form expanding fronts.
+# (uniq runs 3, 6, 9 after 24 hrs, 12, 15, 18, 21, 24, 27 at multiple high hrs)
                    
 tiff("./Modeling_plots/run1_contour1.tiff", width = 10, height = 10,
      units = "in", res = 300)
@@ -467,4 +473,57 @@ for (my_c_R in unique(run1_sum$c_R)) {
   dev.off()
 }
 
+#The changes included in run1 (specifically those for c_A and chi)
+# aren't enough to actually affect the migration rate
+# so changes in migration rate aren't proportional to changes in c_A and chi
 
+run2_nx <- 100
+if (F) {
+  run2 <- run_sims(inoc_r_p = 0,
+                   chi = 300*10**c(0, 2, 4, 6, 8),
+                   c_R = 2*10**-11,
+                   c_A = 4*10**c(-13, -11, -9, -7),
+                   i = 10**-12, 
+                   nx = run2_nx)
+  write.csv(run2[[1]], "./run2_1.csv", row.names = FALSE, quote = FALSE)
+  write.csv(run2[[2]], "./run2_2.csv", row.names = FALSE, quote = FALSE)
+} else {run1 <- list(read.csv("./run2_1.csv", header = TRUE),
+                     read.csv("./run2_2.csv", header = TRUE))}
+
+#Pivot to tidy
+run2_lng <- as.data.frame(
+  tidyr::pivot_longer(run2[[1]],
+                      cols = -c("uniq_run", "inoc_r_n", "inoc_r_p", 
+                                "init_N_dens", "init_P_dens", "chi", "c_A", 
+                                "c_R", "yield", "i", "time"),
+                      names_to = c("pop", "x"),
+                      names_sep = "_",
+                      values_to = "density"))
+
+run2_sum <- 
+  dplyr::summarise(
+    dplyr::group_by(run2_lng[run2_lng$time == max(run2_lng$time) &
+                               run2_lng$pop == "N", ],
+                    uniq_run, inoc_r_n, inoc_r_p, init_N_dens, init_P_dens,
+                    chi, c_A, c_R, yield, i),
+    tot_dens = sum(density),
+    dx = 45000/length(unique(x)),
+    percentile_95 = dx*max(which(cumsum(density) < 0.95*tot_dens)),
+    percentile_90 = dx*max(which(cumsum(density) < 0.90*tot_dens)),
+    first_1000cfuml = dx*max(which(density >= 10**3)),
+    first_10000cfuml = dx*max(which(density >= 10**4)))
+
+tiff("./Modeling_plots/run2_contour4.tiff", width = 10, height = 10,
+     units = "in", res = 300)
+ggplot(data = run2_sum, aes(x = chi, y = c_A, z = first_1000cfuml)) +
+  geom_contour_filled() +
+  # facet_grid(inoc_r_p*c_A ~ c_R,
+  #            labeller = labeller(inoc_r_p = c("0" = "Control", 
+  #                                             "1425" = "Local", "45000" = "Global"))) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10") +
+  # labs(x = "chemotaxis sensitivity", y = "infection rate",
+  #      subtitle = "Resource Consumption Rate", 
+  #      title = "Threshold 1000 cfu/mL Percentile")
+  NULL
+dev.off()
