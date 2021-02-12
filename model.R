@@ -1,3 +1,5 @@
+##TODO: figure out why chi & c_A are still not doing anything
+
 #Import & set global options ----
 library(deSolve)
 library(ggplot2)
@@ -167,14 +169,27 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
                      init_N_dens = 250000/1425, 
                      init_P_dens = 25000/1425,
                      chi = 300, c_A = 4*10**-13, c_R = 2*10**-11, 
-                     yield = 10**7, i = 10**-12, nx = 100, 
+                     yield = 10**7, i = 10**-12, 
+                     radius = 45000, nx = 100,
+                     times = seq(from = 0, to = 24*60*60, by = 1*60),
+                     times_keep = seq(from = 0, to = 24*60*60, by = 15*60),
+                     D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+                     k_R = 0.05, k_A = 0.001, b = 50,
+                     init_R_dens = 2000/nx, init_A_dens = 25/nx,
                      combinatorial = TRUE, print_info = TRUE) {
+  
   #nx is the number of concentric circles the plate is broken up into
   #inoc_r is the radius, in um, n and p are respectively inoculated into
   #init_N and P are the total inoculated bacterial & phage populations
   # (which will be distributed over inoc_r_n area)
   
-  if(any(length(nx) > 1)) {stop("Varying nx is not supported")}
+  #Input checks
+  stopifnot(
+    length(radius) == 1, length(nx) == 1, 
+    length(D_N) == 1, length(D_P) == 1, length(D_R) == 1, length(D_A) == 1, 
+    length(k_R) == 1, length(k_A) == 1, length(b) == 1,
+    length(init_R_dens) == 1, length(init_A_dens) == 1,
+    length(times) > 1, all(times_keep %in% times))
   
   #Save parameter value combinations into dataframe
   if (combinatorial == TRUE) {
@@ -212,15 +227,12 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   }
   
   #Define physical parameters of plate (true for all runs)
-  radius <- 45000                      #um
+  # (radius is default defined in um)
+  # (time is default defines in seconds)
   dx <- radius/nx                      #thickness of each circle
   r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
   r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
   disp_dx <- dx                        #dispersion distances
-  
-  #Define times (in seconds) (true for all runs)
-  times = seq(from = 0, to = 24*60*60, by = 1*60)
-  times_keep <- seq(from = 0, to = 24*60*60, by = 15*60)
   
   #Create output dataframe (yout)
   bigout <- 
@@ -252,13 +264,13 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   #Run simulations
   for (myrun in 1:nrow(param_combos)) {
     #Define parameters vector
-    parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+    parms <- c(D_N = D_N, D_P = D_P, D_R = D_R, D_A = D_A,
              chi = param_combos$chi[myrun],
              c_A = param_combos$c_A[myrun], 
              c_R = param_combos$c_R[myrun],
              yield = param_combos$yield[myrun],
-             k_R = .05, k_A = .001,
-             i = param_combos$i[myrun], b = 50)
+             k_R = k_R, k_A = k_A,
+             i = param_combos$i[myrun], b = b)
     
     #Define initial conditions
     y_init = matrix(c(
@@ -271,9 +283,9 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
           round(param_combos$inoc_r_p[myrun]/dx)),
       rep(0, nx - round(param_combos$inoc_r_p[myrun]/dx)),
       #R
-      rep(2000/nx, nx),
+      rep(init_R_dens, nx),
       #A
-      rep(25/nx, nx)),
+      rep(init_A_dens, nx)),
       ncol = 4)
     
     #Run model
