@@ -482,14 +482,15 @@ if (make_statplots) {
 run2_nx <- 100
 if (F) {
   run2 <- run_sims(inoc_r_p = 0,
-                   chi = 300*10**c(0, 2, 4, 6, 8),
+                   chi = 300*10**c(0, 8),
                    c_R = 2*10**-11,
-                   c_A = 4*10**c(-13, -11, -9, -7),
+                   c_A = 4*10**c(-13, -9),
                    i = 10**-12, 
-                   nx = run2_nx)
+                   nx = run2_nx,
+                   D_N = 0)
   write.csv(run2[[1]], "./run2_1.csv", row.names = FALSE, quote = FALSE)
   write.csv(run2[[2]], "./run2_2.csv", row.names = FALSE, quote = FALSE)
-} else {run1 <- list(read.csv("./run2_1.csv", header = TRUE),
+} else {run2 <- list(read.csv("./run2_1.csv", header = TRUE),
                      read.csv("./run2_2.csv", header = TRUE))}
 
 #Pivot to tidy
@@ -513,7 +514,8 @@ run2_sum <-
     percentile_95 = dx*max(which(cumsum(density) < 0.95*tot_dens)),
     percentile_90 = dx*max(which(cumsum(density) < 0.90*tot_dens)),
     first_1000cfuml = dx*max(which(density >= 10**3)),
-    first_10000cfuml = dx*max(which(density >= 10**4)))
+    first_10000cfuml = dx*max(which(density >= 10**4)),
+    first_1000cfuml_dens = density[max(which(density >= 10**3))])
 
 tiff("./Modeling_plots/run2_contour4.tiff", width = 10, height = 10,
      units = "in", res = 300)
@@ -529,3 +531,34 @@ ggplot(data = run2_sum, aes(x = chi, y = c_A, z = first_1000cfuml)) +
   #      title = "Threshold 1000 cfu/mL Percentile")
   NULL
 dev.off()
+
+#Make profile plots
+#Make profile plots for each run
+dir.create("./run2_profile_plots", showWarnings = FALSE)
+my_times <- 60*60*c(0, 1, 2, 3, 6, 12, 18, 24)
+if (make_curveplots) {
+  for (uniq_run in unique(run2_lng$uniq_run)) {
+    tiff(paste("./run2_profile_plots/", uniq_run, ".tiff", sep = ""),
+         width = 6, height = 4, units = "in", res = 200)
+    print(ggplot(data = run2_lng[run2_lng$time %in% my_times &
+                                   run2_lng$uniq_run == uniq_run, ],
+                 aes(x = as.numeric(x)*(45000/run2_nx)/10000, y = as.numeric(density)+1)) +
+            facet_wrap(pop ~ ., scales = "free",
+                       labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
+                                                   "P" = "Phage", "R" = "Resources"))) +
+            geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
+            geom_point(data = cbind(run2_sum[run2_sum$uniq_run == uniq_run, ],
+                                    "pop" = "N"),
+                       aes(x = first_1000cfuml/10000,
+                           y = first_1000cfuml_dens+1)) +
+            scale_y_continuous(trans = "log10") +
+            geom_hline(yintercept = 1, lty = 2) +
+            scale_color_manual(name = "Time (hrs)",
+                               values = 
+                                 scales::seq_gradient_pal("red", "blue")(
+                                   seq(0,1,length.out = length(my_times)))) +
+            labs(x = "Position (cm)", y = "Density + 1 (cfu, pfu, or \U003BCmol)") +
+            NULL)
+    dev.off()
+  }
+}
