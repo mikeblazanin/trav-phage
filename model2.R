@@ -100,7 +100,7 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   times = seq(from = 0, to = 24*60*60, by = 1*60)
   times_keep <- seq(from = 0, to = 24*60*60, by = 15*60)
   
-    #Create output dataframe (yout)
+  #Create output dataframe (yout)
   bigout <- 
     cbind(
       data.frame(
@@ -116,8 +116,8 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
         "i" = rep(param_combos$i, each = length(times_keep)),
         stringsAsFactors = FALSE),
       as.data.frame(matrix(NA, nrow = length(times_keep)*nrow(param_combos), 
-                           ncol = 1+4*nx),
-                    col.names = c("time", 1:(4*nx))))
+                           ncol = 1+4*nx,
+                           dimnames = list(NULL, c("time", 1:(4*nx))))))
   
   #Print number of simulations that will be run
   if(print_info) {
@@ -129,7 +129,6 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   
   #Run simulations
   for (myrun in 1:nrow(param_combos)) {
-    if (myrun != param_combos$uniq_run[myrun]) {stop("myrun != uniq_run")}
     #Define parameters vector
     parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
              chi = param_combos$chi[myrun],
@@ -164,12 +163,19 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     yout <- yout[yout$time %in% times_keep, ]
     
     #Save results
-    bigout[(myrun-1)*length(times_keep):(myrun*length(times_keep)), 
+    bigout[(myrun-1)*length(times_keep)+1:(myrun*length(times_keep)), 
            11:ncol(bigout)] <- yout
+    
+    #Print progress update
+    if (print_info & myrun %in% progress_seq) {
+      print(paste((which(progress_seq == i)-1)*10,
+                  "% completed", sep = ""))
+    }
   }
+  
   #Rename columns
   #Reorganize
-  colnames(bigout)[11:ncol(bigout)] <- 
+  colnames(bigout)[12:ncol(bigout)] <- 
     c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
       paste(rep("P", nx), 0:(nx-1), sep = "_"),
       paste(rep("R", nx), 0:(nx-1), sep = "_"),
