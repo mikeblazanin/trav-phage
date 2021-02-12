@@ -17,7 +17,7 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     
     #Calculate diffusion & migration (zero gradient at boundaries)
     flux_N <- -diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx -
-      chi*N*diff(r_end * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+      chi*diff(r_end * c(N[1], N) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
     flux_P <- -diff(r_end * -D_P * diff(c(P[1], P, P[nx]))/disp_dx)/r_mid/dx
     flux_R <- -diff(r_end * -D_R * diff(c(R[1], R, R[nx]))/disp_dx)/r_mid/dx
     flux_A <- -diff(r_end * -D_A * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
@@ -482,9 +482,9 @@ if (make_statplots) {
 run2_nx <- 100
 if (F) {
   run2 <- run_sims(inoc_r_p = 0,
-                   chi = 300*10**c(0, 8),
-                   c_R = 2*10**-11,
-                   c_A = 4*10**c(-13, -9),
+                   chi = c(300, 600, 900, 1200),
+                   c_R = c(2, 4)*10**-11,
+                   c_A = c(4, 8, 12, 16)*10**c(-13),
                    i = 10**-12, 
                    nx = run2_nx,
                    D_N = 0)
@@ -521,11 +521,12 @@ tiff("./Modeling_plots/run2_contour4.tiff", width = 10, height = 10,
      units = "in", res = 300)
 ggplot(data = run2_sum, aes(x = chi, y = c_A, z = first_1000cfuml)) +
   geom_contour_filled() +
+  facet_grid(~ c_R) +
   # facet_grid(inoc_r_p*c_A ~ c_R,
   #            labeller = labeller(inoc_r_p = c("0" = "Control", 
   #                                             "1425" = "Local", "45000" = "Global"))) +
-  scale_y_continuous(trans = "log10") +
-  scale_x_continuous(trans = "log10") +
+  # scale_y_continuous(trans = "log10") +
+  # scale_x_continuous(trans = "log10") +
   # labs(x = "chemotaxis sensitivity", y = "infection rate",
   #      subtitle = "Resource Consumption Rate", 
   #      title = "Threshold 1000 cfu/mL Percentile")
