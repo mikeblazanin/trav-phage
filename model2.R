@@ -287,7 +287,7 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     yout <- yout[yout$time %in% times_keep, ]
     
     #Save results
-    bigout[(myrun-1)*length(times_keep)+1:(myrun*length(times_keep)), 
+    bigout[((myrun-1)*length(times_keep)+1):(myrun*length(times_keep)), 
            11:ncol(bigout)] <- yout
     
     #Print progress update
