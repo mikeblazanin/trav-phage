@@ -40,6 +40,130 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   })
 }
 
+#Simple model (for future reference)
+if (F) {
+  #Calculate physical dimensions
+  radius <- 45000                      #um
+  nx <- 100                            #concentric circles
+  dx <- radius/nx                      #thickness of each circle
+  r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
+  r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
+  disp_dx <- dx                        #dispersion distances
+  
+  inoc_r_n <- 1425
+  inoc_r_p <- 5*1425
+  
+  #Define parameters
+  parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
+             chi = 300,
+             c_A = 4*10**-13, c_R = 2*10**-11,
+             yield = 10**7,
+             k_R = .05, k_A = .001,
+             i = 10**-12, b = 50)
+  
+  #Define init conditions (NPRA)
+  y_init = matrix(c(
+    rep(250000/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
+    rep(25000/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
+    rep(2000/nx, nx),
+    rep(25/nx, nx)),
+    ncol = 4)
+  
+  #Define times (in seconds)
+  times = seq(from = 0, to = 24*60*60, by = 1*60)
+  
+  #Run model
+  yout <- ode.1D(y = y_init, times = times,
+                 func = derivs, parms = parms,
+                 nspec = 4, names = c("N", "P", "R", "A"),
+                 nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
+                 disp_dx = disp_dx, maxsteps = 25000)
+  yout_df <- as.data.frame(yout)
+  yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
+  
+  #Reorganize
+  colnames(yout_df)[2:ncol(yout_df)] <- 
+    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
+      paste(rep("P", nx), 0:(nx-1), sep = "_"),
+      paste(rep("R", nx), 0:(nx-1), sep = "_"),
+      paste(rep("A", nx), 0:(nx-1), sep = "_"))
+  
+  yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
+                                                names_to = c("pop", "x"),
+                                                names_sep = "_",
+                                                values_to = "density"))
+  
+  if (F) {
+    ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+           aes(x = as.numeric(time), 
+               y = as.numeric(x), 
+               color = as.numeric(density))) +
+      #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
+      #geom_contour_filled() +
+      geom_point() +
+      #geom_line(aes(group = x)) +
+      #facet_grid(~pop) +
+      #scale_color_continuous(name = "dens") +
+      NULL
+  }
+  
+  #Make contour plots
+  if (F) {
+    n <- ggplot(data = yout_lng[yout_lng$pop == "N", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop)
+    p <- ggplot(data = yout_lng[yout_lng$pop == "P", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop)
+    r <- ggplot(data = yout_lng[yout_lng$pop == "R", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop) +
+      NULL
+    a <- ggplot(data = yout_lng[yout_lng$pop == "A", ], 
+                aes(x = as.numeric(time)/3600, 
+                    y = as.numeric(x), 
+                    z = log10(density+1))) +
+      geom_contour_filled() +
+      facet_grid(~pop) +
+      NULL
+    
+    tiff("model_plot.tiff", width = 10, height = 10, units = "in", res = 300)
+    cowplot::plot_grid(n, p, r, a, nrow = 2)
+    dev.off()
+  }
+  
+  my_times <- 60*60*c(0, 1, 3, 6, 12, 18, 24)
+  ggplot(data = yout_lng[yout_lng$time %in% my_times &
+                           yout_lng$pop %in% c("N", "P", "R", "A"), ],
+         aes(x = as.numeric(x)*dx/10000, y = as.numeric(density)+1)) +
+    facet_wrap(pop ~ ., scales = "free") +
+    geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
+    scale_y_continuous(trans = "log10") +
+    geom_hline(yintercept = 1, lty = 2) +
+    xlim(NA, 2) +
+    scale_color_manual(values = 
+                         scales::seq_gradient_pal("red", "blue")(
+                           seq(0,1,length.out = length(my_times)))) +
+    NULL
+  
+  if (F) {
+    ggplot(data = yout_lng[yout_lng$x %in% c(0:3) &
+                             yout_lng$pop %in% c("R", "N", "A"), ],
+           aes(x = as.numeric(time), y = as.numeric(density))) +
+      geom_line() +
+      facet_grid(pop~x, scales = "free")
+  }
+}
+
 #Define function to run simulations across grid of values
 run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
                      init_N_dens = 250000/1425, 
@@ -184,130 +308,6 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   return(bigout)
 }
       
-#Simple model (for future reference)
-if (F) {
-  #Calculate physical dimensions
-  radius <- 45000                      #um
-  nx <- 100                            #concentric circles
-  dx <- radius/nx                      #thickness of each circle
-  r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
-  r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
-  disp_dx <- dx                        #dispersion distances
-  
-  inoc_r_n <- 1425
-  inoc_r_p <- 5*1425
-  
-  #Define parameters
-  parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
-             chi = 300,
-             c_A = 4*10**-13, c_R = 2*10**-11,
-             yield = 10**7,
-             k_R = .05, k_A = .001,
-             i = 10**-12, b = 50)
-  
-  #Define init conditions (NPRA)
-  y_init = matrix(c(
-    rep(250000/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
-    rep(25000/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
-    rep(2000/nx, nx),
-    rep(25/nx, nx)),
-    ncol = 4)
-  
-  #Define times (in seconds)
-  times = seq(from = 0, to = 24*60*60, by = 1*60)
-  
-  #Run model
-  yout <- ode.1D(y = y_init, times = times,
-                 func = derivs, parms = parms,
-                 nspec = 4, names = c("N", "P", "R", "A"),
-                 nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
-                 disp_dx = disp_dx, maxsteps = 25000)
-  yout_df <- as.data.frame(yout)
-  yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
-  
-  #Reorganize
-  colnames(yout_df)[2:ncol(yout_df)] <- 
-    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
-      paste(rep("P", nx), 0:(nx-1), sep = "_"),
-      paste(rep("R", nx), 0:(nx-1), sep = "_"),
-      paste(rep("A", nx), 0:(nx-1), sep = "_"))
-  
-  yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
-                                                names_to = c("pop", "x"),
-                                                names_sep = "_",
-                                                values_to = "density"))
-  
-  if (F) {
-    ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-           aes(x = as.numeric(time), 
-               y = as.numeric(x), 
-               color = as.numeric(density))) +
-      #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
-      #geom_contour_filled() +
-      geom_point() +
-      #geom_line(aes(group = x)) +
-      #facet_grid(~pop) +
-      #scale_color_continuous(name = "dens") +
-      NULL
-  }
-  
-  #Make contour plots
-  if (F) {
-    n <- ggplot(data = yout_lng[yout_lng$pop == "N", ], 
-                aes(x = as.numeric(time)/3600, 
-                    y = as.numeric(x), 
-                    z = log10(density+1))) +
-      geom_contour_filled() +
-      facet_grid(~pop)
-    p <- ggplot(data = yout_lng[yout_lng$pop == "P", ], 
-                aes(x = as.numeric(time)/3600, 
-                    y = as.numeric(x), 
-                    z = log10(density+1))) +
-      geom_contour_filled() +
-      facet_grid(~pop)
-    r <- ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-                aes(x = as.numeric(time)/3600, 
-                    y = as.numeric(x), 
-                    z = log10(density+1))) +
-      geom_contour_filled() +
-      facet_grid(~pop) +
-      NULL
-    a <- ggplot(data = yout_lng[yout_lng$pop == "A", ], 
-                aes(x = as.numeric(time)/3600, 
-                    y = as.numeric(x), 
-                    z = log10(density+1))) +
-      geom_contour_filled() +
-      facet_grid(~pop) +
-      NULL
-    
-    tiff("model_plot.tiff", width = 10, height = 10, units = "in", res = 300)
-    cowplot::plot_grid(n, p, r, a, nrow = 2)
-    dev.off()
-  }
-  
-  my_times <- 60*60*c(0, 1, 3, 6, 12, 18, 24)
-  ggplot(data = yout_lng[yout_lng$time %in% my_times &
-                           yout_lng$pop %in% c("N", "P", "R", "A"), ],
-         aes(x = as.numeric(x)*dx/10000, y = as.numeric(density)+1)) +
-    facet_wrap(pop ~ ., scales = "free") +
-    geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
-    scale_y_continuous(trans = "log10") +
-    geom_hline(yintercept = 1, lty = 2) +
-    xlim(NA, 2) +
-    scale_color_manual(values = 
-                         scales::seq_gradient_pal("red", "blue")(
-                           seq(0,1,length.out = length(my_times)))) +
-    NULL
-  
-  if (F) {
-    ggplot(data = yout_lng[yout_lng$x %in% c(0:3) &
-                             yout_lng$pop %in% c("R", "N", "A"), ],
-           aes(x = as.numeric(time), y = as.numeric(density))) +
-      geom_line() +
-      facet_grid(pop~x, scales = "free")
-  }
-}
-
 run1 <- run_sims(inoc_r_p = c(0, 1425, 45000),
                        chi = c(300, 450, 600),
                        c_R = c(2*10**-11, 4*10**-11, 6*10**-11),
