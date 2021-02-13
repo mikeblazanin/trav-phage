@@ -357,7 +357,13 @@ run1_sum <-
     first_100cfuml = dx*max(which(density >= 10**2)),
     first_1000cfuml = dx*max(which(density >= 10**3)),
     first_10000cfuml = dx*max(which(density >= 10**4)),
-    first_1000cfuml_dens = density[max(which(density >= 10**3))])
+    first_1000cfuml_dens = density[max(which(density >= 10**3))],
+    # y - y1 = m (x - x1); m = (y2 - y1)/(x2 - x1) = (y2 - y1)/dx
+    # Rearrange: x = dx * (y - y1)/(y2 - y1) + x1
+    #   (where x, y is any point on that line. Set y = 1000, calc x)
+    first_1000cfuml_interp = dx*(1000 - first_1000cfuml_dens)/
+      (density[(max(which(density >= 10**3)) + 1)] - first_1000cfuml_dens) +
+      first_1000cfuml)
 
 #Make profile plots for each run
 dir.create("./run1_profile_plots", showWarnings = FALSE)
@@ -365,7 +371,7 @@ my_times <- 60*60*c(0, 1, 2, 3, 6, 12, 18, 24)
 if (make_curveplots) {
   for (uniq_run in unique(run1_lng$uniq_run)) {
     tiff(paste("./run1_profile_plots/", uniq_run, ".tiff", sep = ""),
-         width = 6, height = 4, units = "in", res = 200)
+         width = 6, height = 4, units = "in", res = 100)
     print(ggplot(data = run1_lng[run1_lng$time %in% my_times &
                                    run1_lng$uniq_run == uniq_run, ],
                  aes(x = as.numeric(x)*(45000/run1_nx)/10000, y = as.numeric(density)+1)) +
@@ -375,8 +381,8 @@ if (make_curveplots) {
             geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
             geom_point(data = cbind(run1_sum[run1_sum$uniq_run == uniq_run, ],
                                     "pop" = "N"),
-                       aes(x = first_1000cfuml/10000,
-                           y = first_1000cfuml_dens+1)) +
+                       aes(x = first_1000cfuml_interp/10000,
+                           y = 1000+1)) +
             scale_y_continuous(trans = "log10") +
             geom_hline(yintercept = 1, lty = 2) +
             scale_color_manual(name = "Time (hrs)",
@@ -433,7 +439,8 @@ if (make_statplots) {
   
   tiff("./Modeling_plots/run1_contour4.tiff", width = 10, height = 10,
        units = "in", res = 300)
-  ggplot(data = run1_sum, aes(x = chi, y = i, z = first_1000cfuml/(24*1000))) +
+  ggplot(data = run1_sum, 
+         aes(x = chi, y = i, z = first_1000cfuml_interp/(24*1000))) +
     geom_contour_filled() +
     facet_grid(inoc_r_p*c_A ~ c_R,
                labeller = labeller(inoc_r_p = c("0" = "Control", 
@@ -461,14 +468,15 @@ if (make_statplots) {
     tiff(paste("./Modeling_plots/run1_contour4_c_r=", my_c_R, ".tiff", sep = ""),
          width = 10, height = 10, units = "in", res = 300)
     print(ggplot(data = run1_sum[run1_sum$c_R == my_c_R, ], 
-                 aes(x = chi, y = i, z = first_1000cfuml)) +
+                 aes(x = as.numeric(chi), y = as.numeric(i), 
+                     z = as.numeric(first_1000cfuml_interp))) +
             geom_contour_filled() +
             facet_grid(inoc_r_p ~ c_A,
                        labeller = labeller(inoc_r_p = c("0" = "Control", 
                                                         "1425" = "Local", "45000" = "Global"))) +
             scale_y_continuous(trans = "log10") +
             labs(x = "chemotaxis sensitivity", y = "infection rate",
-                 subtitle = "Resource Consumption Rate", 
+                 subtitle = "Attractant Consumption Rate", 
                  title = "Threshold 1000 cfu/mL Percentile"))
     dev.off()
   }
@@ -482,9 +490,9 @@ if (make_statplots) {
 run2_nx <- 100
 if (F) {
   run2 <- run_sims(inoc_r_p = 0,
-                   chi = c(300, 600, 900, 1200),
+                   chi = c(300, 1300, 2300, 3300),
                    c_R = c(2, 4)*10**-11,
-                   c_A = c(4, 8, 12, 16)*10**c(-13),
+                   c_A = c(4, 14, 24, 34)*10**c(-13),
                    i = 10**-12, 
                    nx = run2_nx,
                    D_N = 0)
@@ -515,11 +523,18 @@ run2_sum <-
     percentile_90 = dx*max(which(cumsum(density) < 0.90*tot_dens)),
     first_1000cfuml = dx*max(which(density >= 10**3)),
     first_10000cfuml = dx*max(which(density >= 10**4)),
-    first_1000cfuml_dens = density[max(which(density >= 10**3))])
+    first_1000cfuml_dens = density[max(which(density >= 10**3))],
+    # y - y1 = m (x - x1); m = (y2 - y1)/(x2 - x1) = (y2 - y1)/dx
+    # Rearrange: x = dx * (y - y1)/(y2 - y1) + x1
+    #   (where x, y is any point on that line. Set y = 1000, calc x)
+    first_1000cfuml_interp = dx*(1000 - first_1000cfuml_dens)/
+      (density[(max(which(density >= 10**3)) + 1)] - first_1000cfuml_dens) +
+      first_1000cfuml)
 
 tiff("./Modeling_plots/run2_contour4.tiff", width = 10, height = 10,
      units = "in", res = 300)
-ggplot(data = run2_sum, aes(x = chi, y = c_A, z = first_1000cfuml)) +
+ggplot(data = run2_sum, aes(x = chi, y = c_A, 
+                            z = first_1000cfuml_interp/(24*1000))) +
   geom_contour_filled() +
   facet_grid(~ c_R) +
   # facet_grid(inoc_r_p*c_A ~ c_R,
@@ -527,9 +542,9 @@ ggplot(data = run2_sum, aes(x = chi, y = c_A, z = first_1000cfuml)) +
   #                                             "1425" = "Local", "45000" = "Global"))) +
   # scale_y_continuous(trans = "log10") +
   # scale_x_continuous(trans = "log10") +
-  # labs(x = "chemotaxis sensitivity", y = "infection rate",
-  #      subtitle = "Resource Consumption Rate", 
-  #      title = "Threshold 1000 cfu/mL Percentile")
+  labs(x = "chemotaxis sensitivity", y = "A uptake",
+       subtitle = "Resource Consumption Rate", 
+       title = "Soft agar growth (mm/hr) [1000 cfu threshold]") +
   NULL
 dev.off()
 
@@ -563,3 +578,5 @@ if (make_curveplots) {
     dev.off()
   }
 }
+
+##Run 3
