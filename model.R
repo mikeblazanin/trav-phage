@@ -9,34 +9,48 @@ make_curveplots <- FALSE
 
 #Define function to calculate derivatives ----
 derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
+  #Parms contains:
+  #              D_N, D_P, D_R, D_A,
+  #              chi1, chi2,
+  #              c_A1, c_A2,
+  #              c_R1, c_R2,
+  #              yield,
+  #              k_R, k_A,
+  #              i1, i2, b
+
   with(as.list(parms), {
-    N <- y[1:nx]
-    P <- y[(nx+1):(2*nx)]
-    R <- y[(2*nx+1):(3*nx)]
-    A <- y[(3*nx+1):(4*nx)]
+    N1 <- y[1:nx]
+    N2 <- y[(nx+1):(2*nx)]
+    P <- y[(2*nx+1):(3*nx)]
+    R <- y[(3*nx+1):(4*nx)]
+    A <- y[(4*nx+1):(5*nx)]
     
     #Calculate diffusion & migration (zero gradient at boundaries)
-    flux_N <- -diff(r_end * -D_N * diff(c(N[1], N, N[nx]))/disp_dx)/r_mid/dx -
-      chi*diff(r_end * c(N[1], N) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+    flux_N1 <- -diff(r_end * -D_N * diff(c(N1[1], N1, N1[nx]))/disp_dx)/r_mid/dx -
+      chi1*diff(r_end * c(N1[1], N1) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+    flux_N2 <- -diff(r_end * -D_N * diff(c(N2[1], N2, N2[nx]))/disp_dx)/r_mid/dx -
+      chi2*diff(r_end * c(N2[1], N2) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
     flux_P <- -diff(r_end * -D_P * diff(c(P[1], P, P[nx]))/disp_dx)/r_mid/dx
     flux_R <- -diff(r_end * -D_R * diff(c(R[1], R, R[nx]))/disp_dx)/r_mid/dx
     flux_A <- -diff(r_end * -D_A * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
     
     #Calculate growth and death
-    grow_N <- c_R*yield*R/(R+k_R)*N - i*N*P
-    grow_P <- i*(b-1)*N*P
+    grow_N1 <- c_R1*yield*R/(R+k_R)*N1 - i1*N1*P
+    grow_N2 <- c_R2*yield*R/(R+k_R)*N2 - i2*N2*P
+    grow_P <- i1*(b-1)*N1*P + i2*(b-1)*N2*P
     
     #Calculate consumption
-    cons_R <- c_R*R/(R+k_R)*N
-    cons_A <- c_A*A/(A+k_A)*N
+    cons_R <- c_R1*R/(R+k_R)*N1 + c_R2*R/(R+k_R)*N2
+    cons_A <- c_A1*A/(A+k_A)*N1 + c_A2*A/(A+k_A)*N2
     
     #Change = diffusion&migration + growth&death + consumption
-    dN <- flux_N + grow_N
+    dN <- flux_N1 + grow_N1
+    dN <- flux_N2 + grow_N2
     dP <- flux_P + grow_P
     dR <- flux_R - cons_R
     dA <- flux_A - cons_A
     
-    return(list(c(dN, dP, dR, dA)))
+    return(list(c(dN1, dN2, dP, dR, dA)))
   })
 }
 
