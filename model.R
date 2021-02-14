@@ -179,11 +179,14 @@ if (F) {
 }
 
 #Define function to run simulations across grid of values ----
-run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
-                     init_N_dens = 250000/1425, 
+run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
+                     init_N1_dens = 250000/1425, init_N2_dens = 250000/1425,
                      init_P_dens = 25000/1425,
-                     chi = 300, c_A = 4*10**-13, c_R = 2*10**-11, 
-                     yield = 10**7, i = 10**-12, 
+                     chi1 = 300, chi2 = 300,
+                     c_A1 = 4*10**-13, c_A2 = 4*10**-13,
+                     c_R1 = 2*10**-11, c_R2 = 2*10**-11,
+                     yield = 10**7, 
+                     i1 = 10**-12, i2 = 10**-12, 
                      radius = 45000, nx = 100,
                      times = seq(from = 0, to = 24*60*60, by = 1*60),
                      times_keep = seq(from = 0, to = 24*60*60, by = 15*60),
@@ -202,41 +205,55 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     length(radius) == 1, length(nx) == 1, 
     length(D_N) == 1, length(D_P) == 1, length(D_R) == 1, length(D_A) == 1, 
     length(k_R) == 1, length(k_A) == 1, length(b) == 1,
-    length(init_R_dens) == 1, length(init_A_dens) == 1,
+    length(init_R1_dens) == 1, length(init_R2_dens) == 1,
+    length(init_A_dens) == 1,
     length(times) > 1, all(times_keep %in% times))
   
   #Save parameter value combinations into dataframe
   if (combinatorial == TRUE) {
-  param_combos <- expand.grid(list("inoc_r_n" = inoc_r_n, "inoc_r_p" = inoc_r_p,
-                     "init_N_dens" = init_N_dens, "init_P_dens" = init_P_dens,
-                     "chi" = chi, "c_A" = c_A, "c_R" = c_R, 
-                     "yield" = yield, "i" = i),
-                     stringsAsFactors = FALSE)
-  num_sims <- nrow(param_combos)
+    param_combos <- expand.grid(list(
+      "inoc_r_n1" = inoc_r_n1, "inoc_r_n2" = inoc_r_n2, 
+      "inoc_r_p" = inoc_r_p,
+      "init_N1_dens" = init_N1_dens, "init_N2_dens" = init_N2_dens,
+      "init_P_dens" = init_P_dens,
+      "chi1" = chi1, "chi2" = chi2, 
+      "c_A1" = c_A1, "c_A2" = c_A2, "c_R1" = c_R1, "c_R2" = c_R2,
+      "yield" = yield, "i1" = i1, "i2" = i2),
+      stringsAsFactors = FALSE)
+    num_sims <- nrow(param_combos)
   } else {
-    num_sims <- max(sapply(X = list(inoc_r_n, inoc_r_p, init_N_dens, init_P_dens,
-                                    chi, c_A, c_R, yield, i), FUN = length))
+    num_sims <- max(sapply(X = list(inoc_r_n1, inoc_r_n2, inoc_r_p, 
+                                    init_N1_dens, init_N2_dens, init_P_dens,
+                                    chi1, chi2, c_A1, c_A2, c_R1, c_R2, 
+                                    yield, i1, i2), FUN = length))
     
     #Check for parameter lengths being non-divisible with the
     # number of simulations inferred from the longest parameter length
-    if (!all(num_sims %% sapply(X = list(inoc_r_n, inoc_r_p, 
-                                         init_N_dens, init_P_dens,
-                                         chi, c_A, c_R, yield, i), 
+    if (!all(num_sims %% sapply(X = list(inoc_r_n1, inoc_r_n2, inoc_r_p, 
+                                         init_N1_dens, init_N2_dens, init_P_dens,
+                                         chi1, chi2, c_A1, c_A2, c_R1, c_R2, 
+                                         yield, i1, i2), 
                                 FUN = length) == 0)) {
       warning("Combinatorial=TRUE but longest param vals length is not a multiple of all other param vals lengths")
     }
     
     #Save parameters into dataframe, replicating shorter parameter
     # vectors as needed to reach # of simulations
-    param_combos <- data.frame("inoc_r_n" = rep_len(inoc_r_n, num_sims), 
+    param_combos <- data.frame("inoc_r_n1" = rep_len(inoc_r_n1, num_sims), 
+                               "inoc_r_n2" = rep_len(inoc_r_n2, num_sims), 
                                "inoc_r_p" = rep_len(inoc_r_p, num_sims),
-                               "init_N_dens" = rep_len(init_N_dens, num_sims), 
+                               "init_N1_dens" = rep_len(init_N1_dens, num_sims), 
+                               "init_N2_dens" = rep_len(init_N2_dens, num_sims), 
                                "init_P_dens" = rep_len(init_P_dens, num_sims),
-                               "chi" = rep_len(chi, num_sims), 
-                               "c_A" = rep_len(c_A, num_sims), 
-                               "c_R" = rep_len(c_R, num_sims), 
+                               "chi1" = rep_len(chi1, num_sims), 
+                               "chi2" = rep_len(chi2, num_sims), 
+                               "c_A1" = rep_len(c_A1, num_sims), 
+                               "c_A2" = rep_len(c_A2, num_sims), 
+                               "c_R1" = rep_len(c_R1, num_sims), 
+                               "c_R2" = rep_len(c_R2, num_sims), 
                                "yield" = rep_len(yield, num_sims), 
-                               "i" = rep_len(i, num_sims),
+                               "i1" = rep_len(i1, num_sims),
+                               "i2" = rep_len(i2, num_sims),
                                stringsAsFactors = FALSE)
   }
   
@@ -253,19 +270,25 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     cbind(
       data.frame(
         "uniq_run" = rep(1:nrow(param_combos), each = length(times_keep)),
-        "inoc_r_n" = rep(param_combos$inoc_r_n, each = length(times_keep)), 
+        "inoc_r_n1" = rep(param_combos$inoc_r_n1, each = length(times_keep)), 
+        "inoc_r_n2" = rep(param_combos$inoc_r_n2, each = length(times_keep)), 
         "inoc_r_p" = rep(param_combos$inoc_r_p, each = length(times_keep)),
-        "init_N_dens" = rep(param_combos$init_N_dens, each = length(times_keep)), 
+        "init_N1_dens" = rep(param_combos$init_N1_dens, each = length(times_keep)), 
+        "init_N2_dens" = rep(param_combos$init_N2_dens, each = length(times_keep)), 
         "init_P_dens" = rep(param_combos$init_P_dens, each = length(times_keep)),
-        "chi" = rep(param_combos$chi, each = length(times_keep)), 
-        "c_A" = rep(param_combos$c_A, each = length(times_keep)), 
-        "c_R" = rep(param_combos$c_R, each = length(times_keep)), 
+        "chi1" = rep(param_combos$chi1, each = length(times_keep)), 
+        "chi2" = rep(param_combos$chi2, each = length(times_keep)), 
+        "c_A1" = rep(param_combos$c_A1, each = length(times_keep)), 
+        "c_A2" = rep(param_combos$c_A2, each = length(times_keep)), 
+        "c_R1" = rep(param_combos$c_R1, each = length(times_keep)), 
+        "c_R2" = rep(param_combos$c_R2, each = length(times_keep)), 
         "yield" = rep(param_combos$yield, each = length(times_keep)), 
-        "i" = rep(param_combos$i, each = length(times_keep)),
+        "i1" = rep(param_combos$i, each = length(times_keep)),
+        "i2" = rep(param_combos$i, each = length(times_keep)),
         stringsAsFactors = FALSE),
       as.data.frame(matrix(NA, nrow = length(times_keep)*nrow(param_combos), 
                            ncol = 1+4*nx,
-                           dimnames = list(NULL, c("time", 1:(4*nx))))))
+                           dimnames = list(NULL, c("time", 1:(5*nx))))))
   
   #Print number of simulations that will be run
   if(print_info) {
@@ -279,19 +302,26 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   for (myrun in 1:nrow(param_combos)) {
     #Define parameters vector
     parms <- c(D_N = D_N, D_P = D_P, D_R = D_R, D_A = D_A,
-             chi = param_combos$chi[myrun],
-             c_A = param_combos$c_A[myrun], 
-             c_R = param_combos$c_R[myrun],
-             yield = param_combos$yield[myrun],
-             k_R = k_R, k_A = k_A,
-             i = param_combos$i[myrun], b = b)
+               chi1 = param_combos$chi1[myrun],
+               chi2 = param_combos$chi2[myrun],
+               c_A1 = param_combos$c_A1[myrun], 
+               c_A2 = param_combos$c_A2[myrun],
+               c_R1 = param_combos$c_R1[myrun],
+               c_R2 = param_combos$c_R2[myrun],
+               yield = param_combos$yield[myrun],
+               k_R = k_R, k_A = k_A,
+               i1 = param_combos$i1[myrun], i2 = param_combos$i2[myrun], b = b)
     
     #Define initial conditions
     y_init = matrix(c(
-      #N
-      rep(param_combos$init_N_dens[myrun], 
-          round(param_combos$inoc_r_n[myrun]/dx)),
-      rep(0, nx - round(param_combos$inoc_r_n[myrun]/dx)),
+      #N1
+      rep(param_combos$init_N1_dens[myrun], 
+          round(param_combos$inoc_r_n1[myrun]/dx)),
+      rep(0, nx - round(param_combos$inoc_r_n1[myrun]/dx)),
+      #N2
+      rep(param_combos$init_N2_dens[myrun], 
+          round(param_combos$inoc_r_n2[myrun]/dx)),
+      rep(0, nx - round(param_combos$inoc_r_n2[myrun]/dx)),
       #P
       rep(param_combos$init_P_dens[myrun], 
           round(param_combos$inoc_r_p[myrun]/dx)),
@@ -305,14 +335,14 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
     #Run model
     yout <- as.data.frame(ode.1D(y = y_init, times = times,
                                  func = derivs, parms = parms,
-                                 nspec = 4, names = c("N", "P", "R", "A"),
+                                 nspec = 5, names = c("N1", "N2", "P", "R", "A"),
                                  nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
                                  disp_dx = disp_dx, maxsteps = 25000))
     yout <- yout[yout$time %in% times_keep, ]
     
     #Save results
     bigout[((myrun-1)*length(times_keep)+1):(myrun*length(times_keep)), 
-           11:ncol(bigout)] <- yout
+           17:ncol(bigout)] <- yout
     
     #Print progress update
     if (print_info & myrun %in% progress_seq) {
@@ -324,7 +354,8 @@ run_sims <- function(inoc_r_n = 1425, inoc_r_p = 1425,
   #Rename columns
   #Reorganize
   colnames(bigout)[12:ncol(bigout)] <- 
-    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
+    c(paste(rep("N1", nx), 0:(nx-1), sep = "_"), 
+      paste(rep("N2", nx), 0:(nx-1), sep = "_"), 
       paste(rep("P", nx), 0:(nx-1), sep = "_"),
       paste(rep("R", nx), 0:(nx-1), sep = "_"),
       paste(rep("A", nx), 0:(nx-1), sep = "_"))
