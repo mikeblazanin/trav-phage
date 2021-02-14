@@ -487,15 +487,17 @@ if (make_statplots) {
 # so changes in migration rate aren't proportional to changes in c_A and chi
 
 #Run 2 ----
+#
+#Tested chi up to 3300, c_A up to 33e-13, rate only gets to about 0.5 cm/hr
 run2_nx <- 100
 if (F) {
-  run2 <- run_sims(inoc_r_p = 0,
-                   chi = c(300, 1300, 2300, 3300),
-                   c_R = c(2, 4)*10**-11,
-                   c_A = c(4, 14, 24, 34)*10**c(-13),
-                   i = 10**-12, 
-                   nx = run2_nx,
-                   D_N = 0)
+  run2 <- run_sims(inoc_r_p = c(0, 1425, 45000),
+                   chi = 300,
+                   c_R = 3*10**-11,
+                   c_A = 4*10**c(-13),
+                   i = 10**c(-8, -9, -10, -11, -12),
+                   D_P = 1,
+                   nx = run2_nx)
   write.csv(run2[[1]], "./run2_1.csv", row.names = FALSE, quote = FALSE)
   write.csv(run2[[2]], "./run2_2.csv", row.names = FALSE, quote = FALSE)
 } else {run2 <- list(read.csv("./run2_1.csv", header = TRUE),
@@ -579,4 +581,34 @@ if (make_curveplots) {
   }
 }
 
-##Run 3
+##Run 3 ----
+# run3_nx <- 100
+# if (F) {
+#   run3 <- rbind(run_sims(inoc_r_p = c(0, 1425, 45000),
+#                          chi = c(300, 600, 900, 1200),
+#                          c_R = 2*10**-11,
+#                          c_A = 4*10**c(-13),
+#                          i = 10**c(-8, -9, -10, -11, -12),
+#                          nx = run2_nx,
+#                          D_P = 10,
+#     
+#     run_sims(inoc_r_p = c(0, 1425, 45000),
+#                    chi = 300,
+#                    c_R = 3*10**-11,
+#                    c_A = 4*10**c(-13),
+#                    i = 10**c(-8, -9, -10, -11, -12),
+#                    nx = run2_nx,
+#                    D_N = 0)
+#   write.csv(run3[[1]], "./run3_1.csv", row.names = FALSE, quote = FALSE)
+#   write.csv(run3[[2]], "./run3_2.csv", row.names = FALSE, quote = FALSE)
+# } else {run3 <- list(read.csv("./run3_1.csv", header = TRUE),
+#                      read.csv("./run3_2.csv", header = TRUE))}
+
+
+
+
+
+
+
+
+
