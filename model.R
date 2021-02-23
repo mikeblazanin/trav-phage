@@ -1,5 +1,3 @@
-##TODO: figure out why chi & c_A are still not doing anything
-
 #Import & set global options ----
 library(deSolve)
 library(ggplot2)
@@ -12,8 +10,8 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   #Parms contains:
   #              D_N, D_P, D_R, D_A,
   #              chi1, chi2,
-  #              c_A1, c_A2,
-  #              c_R1, c_R2,
+  #              c1_A, c2_A,
+  #              c1_R, c2_R,
   #              yield,
   #              k_R, k_A,
   #              i1, i2, b
@@ -35,17 +33,17 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     flux_A <- -diff(r_end * -D_A * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
     
     #Calculate growth and death
-    grow_N1 <- c_R1*yield*R/(R+k_R)*N1 - i1*N1*P
-    grow_N2 <- c_R2*yield*R/(R+k_R)*N2 - i2*N2*P
+    grow_N1 <- c1_R*yield*R/(R+k_R)*N1 - i1*N1*P
+    grow_N2 <- c2_R*yield*R/(R+k_R)*N2 - i2*N2*P
     grow_P <- i1*(b-1)*N1*P + i2*(b-1)*N2*P
     
     #Calculate consumption
-    cons_R <- c_R1*R/(R+k_R)*N1 + c_R2*R/(R+k_R)*N2
-    cons_A <- c_A1*A/(A+k_A)*N1 + c_A2*A/(A+k_A)*N2
+    cons_R <- c1_R*R/(R+k_R)*N1 + c2_R*R/(R+k_R)*N2
+    cons_A <- c1_A*A/(A+k_A)*N1 + c2_A*A/(A+k_A)*N2
     
     #Change = diffusion&migration + growth&death + consumption
-    dN <- flux_N1 + grow_N1
-    dN <- flux_N2 + grow_N2
+    dN1 <- flux_N1 + grow_N1
+    dN2 <- flux_N2 + grow_N2
     dP <- flux_P + grow_P
     dR <- flux_R - cons_R
     dA <- flux_A - cons_A
@@ -183,8 +181,8 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
                      init_N1_dens = 250000/1425, init_N2_dens = 250000/1425,
                      init_P_dens = 25000/1425,
                      chi1 = 300, chi2 = 300,
-                     c_A1 = 4*10**-13, c_A2 = 4*10**-13,
-                     c_R1 = 2*10**-11, c_R2 = 2*10**-11,
+                     c1_A = 4*10**-13, c2_A = 4*10**-13,
+                     c1_R = 2*10**-11, c2_R = 2*10**-11,
                      yield = 10**7, 
                      i1 = 10**-12, i2 = 10**-12, 
                      radius = 45000, nx = 100,
@@ -205,8 +203,7 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
     length(radius) == 1, length(nx) == 1, 
     length(D_N) == 1, length(D_P) == 1, length(D_R) == 1, length(D_A) == 1, 
     length(k_R) == 1, length(k_A) == 1, length(b) == 1,
-    length(init_R1_dens) == 1, length(init_R2_dens) == 1,
-    length(init_A_dens) == 1,
+    length(init_R_dens) == 1, length(init_A_dens) == 1,
     length(times) > 1, all(times_keep %in% times))
   
   #Save parameter value combinations into dataframe
@@ -217,21 +214,21 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
       "init_N1_dens" = init_N1_dens, "init_N2_dens" = init_N2_dens,
       "init_P_dens" = init_P_dens,
       "chi1" = chi1, "chi2" = chi2, 
-      "c_A1" = c_A1, "c_A2" = c_A2, "c_R1" = c_R1, "c_R2" = c_R2,
+      "c1_A" = c1_A, "c2_A" = c2_A, "c1_R" = c1_R, "c2_R" = c2_R,
       "yield" = yield, "i1" = i1, "i2" = i2),
       stringsAsFactors = FALSE)
     num_sims <- nrow(param_combos)
   } else {
     num_sims <- max(sapply(X = list(inoc_r_n1, inoc_r_n2, inoc_r_p, 
                                     init_N1_dens, init_N2_dens, init_P_dens,
-                                    chi1, chi2, c_A1, c_A2, c_R1, c_R2, 
+                                    chi1, chi2, c1_A, c2_A, c1_R, c2_R, 
                                     yield, i1, i2), FUN = length))
     
     #Check for parameter lengths being non-divisible with the
     # number of simulations inferred from the longest parameter length
     if (!all(num_sims %% sapply(X = list(inoc_r_n1, inoc_r_n2, inoc_r_p, 
                                          init_N1_dens, init_N2_dens, init_P_dens,
-                                         chi1, chi2, c_A1, c_A2, c_R1, c_R2, 
+                                         chi1, chi2, c1_A, c2_A, c1_R, c2_R, 
                                          yield, i1, i2), 
                                 FUN = length) == 0)) {
       warning("Combinatorial=TRUE but longest param vals length is not a multiple of all other param vals lengths")
@@ -247,10 +244,10 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
                                "init_P_dens" = rep_len(init_P_dens, num_sims),
                                "chi1" = rep_len(chi1, num_sims), 
                                "chi2" = rep_len(chi2, num_sims), 
-                               "c_A1" = rep_len(c_A1, num_sims), 
-                               "c_A2" = rep_len(c_A2, num_sims), 
-                               "c_R1" = rep_len(c_R1, num_sims), 
-                               "c_R2" = rep_len(c_R2, num_sims), 
+                               "c1_A" = rep_len(c1_A, num_sims), 
+                               "c2_A" = rep_len(c2_A, num_sims), 
+                               "c1_R" = rep_len(c1_R, num_sims), 
+                               "c2_R" = rep_len(c2_R, num_sims), 
                                "yield" = rep_len(yield, num_sims), 
                                "i1" = rep_len(i1, num_sims),
                                "i2" = rep_len(i2, num_sims),
@@ -278,16 +275,16 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
         "init_P_dens" = rep(param_combos$init_P_dens, each = length(times_keep)),
         "chi1" = rep(param_combos$chi1, each = length(times_keep)), 
         "chi2" = rep(param_combos$chi2, each = length(times_keep)), 
-        "c_A1" = rep(param_combos$c_A1, each = length(times_keep)), 
-        "c_A2" = rep(param_combos$c_A2, each = length(times_keep)), 
-        "c_R1" = rep(param_combos$c_R1, each = length(times_keep)), 
-        "c_R2" = rep(param_combos$c_R2, each = length(times_keep)), 
+        "c1_A" = rep(param_combos$c1_A, each = length(times_keep)), 
+        "c2_A" = rep(param_combos$c2_A, each = length(times_keep)), 
+        "c1_R" = rep(param_combos$c1_R, each = length(times_keep)), 
+        "c2_R" = rep(param_combos$c2_R, each = length(times_keep)), 
         "yield" = rep(param_combos$yield, each = length(times_keep)), 
-        "i1" = rep(param_combos$i, each = length(times_keep)),
-        "i2" = rep(param_combos$i, each = length(times_keep)),
+        "i1" = rep(param_combos$i1, each = length(times_keep)),
+        "i2" = rep(param_combos$i2, each = length(times_keep)),
         stringsAsFactors = FALSE),
       as.data.frame(matrix(NA, nrow = length(times_keep)*nrow(param_combos), 
-                           ncol = 1+4*nx,
+                           ncol = 1+5*nx,
                            dimnames = list(NULL, c("time", 1:(5*nx))))))
   
   #Print number of simulations that will be run
@@ -304,10 +301,10 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
     parms <- c(D_N = D_N, D_P = D_P, D_R = D_R, D_A = D_A,
                chi1 = param_combos$chi1[myrun],
                chi2 = param_combos$chi2[myrun],
-               c_A1 = param_combos$c_A1[myrun], 
-               c_A2 = param_combos$c_A2[myrun],
-               c_R1 = param_combos$c_R1[myrun],
-               c_R2 = param_combos$c_R2[myrun],
+               c1_A = param_combos$c1_A[myrun], 
+               c2_A = param_combos$c2_A[myrun],
+               c1_R = param_combos$c1_R[myrun],
+               c2_R = param_combos$c2_R[myrun],
                yield = param_combos$yield[myrun],
                k_R = k_R, k_A = k_A,
                i1 = param_combos$i1[myrun], i2 = param_combos$i2[myrun], b = b)
@@ -353,7 +350,7 @@ run_sims <- function(inoc_r_n1 = 1425, inoc_r_n2 = 0, inoc_r_p = 1425,
   
   #Rename columns
   #Reorganize
-  colnames(bigout)[12:ncol(bigout)] <- 
+  colnames(bigout)[18:ncol(bigout)] <- 
     c(paste(rep("N1", nx), 0:(nx-1), sep = "_"), 
       paste(rep("N2", nx), 0:(nx-1), sep = "_"), 
       paste(rep("P", nx), 0:(nx-1), sep = "_"),
