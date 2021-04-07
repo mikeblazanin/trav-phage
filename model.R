@@ -534,17 +534,20 @@ if (make_statplots) {
 run2_nx <- 100
 if (F) {
   run2 <- run_sims(inoc_r_n1 = 1425, inoc_r_n2 = 1425,
-                   inoc_r_p = c(0, 1425, 45000))
+                   inoc_r_p = c(0, 1425, 45000),
+                   i2 = c(10**-12, 10**-18),
+                   chi2 = c(300, 600),
+                   nx = run2_nx)
                    
     
     
-    inoc_r_p = c(0, 1425, 45000),
-                   chi = 300,
-                   c_R = 3*10**-11,
-                   c_A = 4*10**c(-13),
-                   i = 10**c(-8, -9, -10, -11, -12),
-                   D_P = 1,
-                   nx = run2_nx)
+    # inoc_r_p = c(0, 1425, 45000),
+    #                chi = 300,
+    #                c_R = 3*10**-11,
+    #                c_A = 4*10**c(-13),
+    #                i = 10**c(-8, -9, -10, -11, -12),
+    #                D_P = 1,
+    #                nx = run2_nx)
   write.csv(run2[[1]], "./run2_1.csv", row.names = FALSE, quote = FALSE)
   write.csv(run2[[2]], "./run2_2.csv", row.names = FALSE, quote = FALSE)
 } else {run2 <- list(read.csv("./run2_1.csv", header = TRUE),
@@ -553,9 +556,11 @@ if (F) {
 #Pivot to tidy
 run2_lng <- as.data.frame(
   tidyr::pivot_longer(run2[[1]],
-                      cols = -c("uniq_run", "inoc_r_n", "inoc_r_p", 
-                                "init_N_dens", "init_P_dens", "chi", "c_A", 
-                                "c_R", "yield", "i", "time"),
+                      cols = -c("uniq_run", "inoc_r_n1", "inoc_r_n2",
+                                "inoc_r_p", 
+                                "init_N1_dens", "init_N2_dens",
+                                "init_P_dens", "chi1", "chi2", "c1_A", "c2_A",
+                                "c1_R", "c2_R", "yield", "i1", "i2", "time"),
                       names_to = c("pop", "x"),
                       names_sep = "_",
                       values_to = "density"))
@@ -563,9 +568,11 @@ run2_lng <- as.data.frame(
 run2_sum <- 
   dplyr::summarise(
     dplyr::group_by(run2_lng[run2_lng$time == max(run2_lng$time) &
-                               run2_lng$pop == "N", ],
-                    uniq_run, inoc_r_n, inoc_r_p, init_N_dens, init_P_dens,
-                    chi, c_A, c_R, yield, i),
+                               run2_lng$pop %in% c("N1", "N2"), ],
+                    uniq_run, inoc_r_n1, inoc_r_n2, inoc_r_p,
+                    init_N1_dens, init_N2_dens, init_P_dens,
+                    chi1, chi2, c1_A, c2_A, c1_R, c2_R, 
+                    yield, i1, i2, time, pop),
     tot_dens = sum(density),
     dx = 45000/length(unique(x)),
     percentile_95 = dx*max(which(cumsum(density) < 0.95*tot_dens)),
@@ -609,13 +616,14 @@ if (make_curveplots) {
                                    run2_lng$uniq_run == uniq_run, ],
                  aes(x = as.numeric(x)*(45000/run2_nx)/10000, y = as.numeric(density)+1)) +
             facet_wrap(pop ~ ., scales = "free",
-                       labeller = labeller(pop = c("A" = "Attractant", "N" = "Bacteria",
+                       labeller = labeller(pop = c("A" = "Attractant", "N1" = "Bacteria1",
+                                                   "N2" = "Bacteria2",
                                                    "P" = "Phage", "R" = "Resources"))) +
             geom_line(lwd = 1.25, aes(color = as.factor(time/3600))) +
-            geom_point(data = cbind(run2_sum[run2_sum$uniq_run == uniq_run, ],
-                                    "pop" = "N"),
-                       aes(x = first_1000cfuml/10000,
-                           y = first_1000cfuml_dens+1)) +
+            # geom_point(data = cbind(run2_sum[run2_sum$uniq_run == uniq_run, ],
+            #                         "pop" = "N"),
+            #            aes(x = first_1000cfuml/10000,
+            #                y = first_1000cfuml_dens+1)) +
             scale_y_continuous(trans = "log10") +
             geom_hline(yintercept = 1, lty = 2) +
             scale_color_manual(name = "Time (hrs)",
