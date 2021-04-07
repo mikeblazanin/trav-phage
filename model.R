@@ -15,6 +15,11 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   #              yield,
   #              k_R, k_A,
   #              i1, i2, b
+  
+  cen_diff <- function(x) {
+    return(diff(c(x[2], x, x[length(x)-1]),
+                lag = 2))
+  }
 
   with(as.list(parms), {
     N1 <- y[1:nx]
@@ -24,13 +29,13 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     A <- y[(4*nx+1):(5*nx)]
     
     #Calculate diffusion & migration (zero gradient at boundaries)
-    flux_N1 <- -diff(r_end * -D_N * diff(c(N1[1], N1, N1[nx]))/disp_dx)/r_mid/dx -
-      chi1*diff(r_end * c(N1[1], N1) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
-    flux_N2 <- -diff(r_end * -D_N * diff(c(N2[1], N2, N2[nx]))/disp_dx)/r_mid/dx -
-      chi2*diff(r_end * c(N2[1], N2) * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
-    flux_P <- -diff(r_end * -D_P * diff(c(P[1], P, P[nx]))/disp_dx)/r_mid/dx
-    flux_R <- -diff(r_end * -D_R * diff(c(R[1], R, R[nx]))/disp_dx)/r_mid/dx
-    flux_A <- -diff(r_end * -D_A * diff(c(A[1], A, A[nx]))/disp_dx)/r_mid/dx
+    flux_N1 <- -cen_diff(r_end * -D_N * cen_diff(N1)/disp_dx)/r_mid/dx -
+      chi1*cen_diff(r_end * N1 * cen_diff(A)/disp_dx)/r_mid/dx
+    flux_N2 <- -cen_diff(r_end * -D_N * cen_diff(N2)/disp_dx)/r_mid/dx -
+      chi2*cen_diff(r_end * N2 * cen_diff(A)/disp_dx)/r_mid/dx
+    flux_P <- -cen_diff(r_end * -D_P * cen_diff(P)/disp_dx)/r_mid/dx
+    flux_R <- -cen_diff(r_end * -D_R * cen_diff(R)/disp_dx)/r_mid/dx
+    flux_A <- -cen_diff(r_end * -D_A * cen_diff(A)/disp_dx)/r_mid/dx
     
     #Calculate growth and death
     grow_N1 <- c1_R*yield*R/(R+k_R)*N1 - i1*N1*P
