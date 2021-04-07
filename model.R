@@ -533,7 +533,12 @@ if (make_statplots) {
 #Tested chi up to 3300, c_A up to 33e-13, rate only gets to about 0.5 cm/hr
 run2_nx <- 100
 if (F) {
-  run2 <- run_sims(inoc_r_p = c(0, 1425, 45000),
+  run2 <- run_sims(inoc_r_n1 = 1425, inoc_r_n2 = 1425,
+                   inoc_r_p = c(0, 1425, 45000))
+                   
+    
+    
+    inoc_r_p = c(0, 1425, 45000),
                    chi = 300,
                    c_R = 3*10**-11,
                    c_A = 4*10**c(-13),
