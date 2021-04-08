@@ -63,6 +63,33 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   })
 }
 
+##Define functions for sigmoidal initial inoculum ----
+sigmoid <- function(L, k, nx_inoc) {
+  midpnt <- round(nx_inoc/2)
+  return(L - L/(1+exp(-k*(1:nx_inoc-midpnt))))
+}
+
+fit_sigmoid <- function(total_pop, nx_inoc) {
+  sigm_err <- function(par,
+                       k, nx_inoc, total_pop) {
+    midpnt <- round(nx_inoc/2)
+    sigmoid_vals <- (par[1] - par[1]/(1+exp(-k*(1:nx_inoc-midpnt))))
+    err <- abs(total_pop - sum(sigmoid_vals))
+    return(err)
+  }
+  
+  k <- 10/nx_inoc
+  opt <- optim(par = total_pop,
+               fn = sigm_err,
+               k = k, nx_inoc = nx_inoc, total_pop = total_pop,
+               method = "Brent", lower = 0, upper = 10**10)
+  if (opt$value > 0.01 * total_pop) {warning("optim fitting error > 1%")}
+  L <- opt$par
+  
+  return(c("k" = k, "L" = L))
+}
+
+
 #Simple model (for future reference) ----
 if (F) {
   #Calculate physical dimensions
@@ -76,6 +103,9 @@ if (F) {
   inoc_r_n <- 1425*3                  #initial radius
   inoc_r_p <- 1425*3                #initial radius
   
+  inoc_nx_n <- round(inoc_r_n/dx)   #initial number of grid points inoc'd
+  inoc_nx_p <- round(inoc_r_p/dx)
+  
   #Define parameters
   parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
              chi1 = 300, chi2 = 300,
@@ -85,36 +115,27 @@ if (F) {
              k_R = .05, k_A = .001,
              i1 = 10**-12, i2 = 10**-12, b = 50)
   
-  #Define initial population front shape (linear)
-  nx_inoc <- round(inoc_r_n/dx)
-  m <- 250000/sum(1:nx_inoc-(nx_inoc+1))
-  b <- -m*(nx_inoc+1)
-  #sum(m*1:nx_inoc+b)
-  
-  #define initial front (expon decay)
-  nx_inoc <- round(inoc_r_n/dx)
-  m <- -1
-  c <- 2*250000
-  #sum(c*exp(m*1:nx_inoc))
-  
-  #define initial front (sigmoid)
-  nx_inoc <- round(inoc_r_n/dx)
-  L = 250000/4
-  midpnt = round(nx_inoc/2)
-  k = .2
-  #sum(L-L/(1+exp(-k*(1:nx_inoc-midpnt))))
-  #plot(1:nx_inoc, L-L/(1+exp(-k*(1:nx_inoc-midpnt))))
-  
-  #Define init conditions (N1,N2,P,R,A)
+  N1_init <- sigmoid(
+    L = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["L"],
+    k = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["k"],
+    nx_inoc = inoc_nx_n)
+  N2_init <- sigmoid(
+    L = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["L"],
+    k = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["k"],
+    nx_inoc = inoc_nx_n)
+  P_init <- sigmoid(
+    L = fit_sigmoid(total_pop = 25000, nx_inoc = inoc_nx_p)["L"],
+    k = fit_sigmoid(total_pop = 25000, nx_inoc = inoc_nx_p)["k"],
+    nx_inoc = inoc_nx_n)
+                    
+  #Define init conditions matrix (N1,N2,P,R,A)
   y_init = matrix(c(
-    L-L/(1+exp(-k*(1:nx_inoc-midpnt))), rep(0, nx-nx_inoc),
-    rep(0/nx_inoc, nx_inoc), rep(0, nx-nx_inoc),
-    rep(0/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
-    rep(2000/nx, nx),
-    rep(25/nx, nx)),
-    ncol = 4)
-  
-  #phage rep(25000/...)
+    N1_init, rep(0, nx-inoc_nx_n),       #N1
+    rep(0, nx),                          #N2
+    rep(0, nx),                          #P
+    rep(2000/nx, nx),                    #R
+    rep(25/nx, nx)),                     #A
+    ncol = 5)
   
   #Define times (in seconds)
   times = seq(from = 0, to = 24*60*60, by = 15*60)
