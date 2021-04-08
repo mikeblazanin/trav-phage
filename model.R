@@ -28,6 +28,12 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     R <- y[(3*nx+1):(4*nx)]
     A <- y[(4*nx+1):(5*nx)]
     
+    N1[N1 < (250000/(1000000000*nx))] <- 0
+    N2[N2 < (250000/(1000000000*nx))] <- 0
+    P[P < (25000/(1000000000*nx))] <- 0
+    R[R < (2000/(1000000000*nx))] <- 0
+    A[A < (25/(1000000000*nx))] <- 0
+    
     #Calculate diffusion & migration (zero gradient at boundaries)
     flux_N1 <- -cen_diff(r_end * -D_N * cen_diff(N1)/disp_dx)/r_mid/dx -
       chi1*cen_diff(r_end * N1 * cen_diff(A)/disp_dx)/r_mid/dx
@@ -61,14 +67,14 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
 if (F) {
   #Calculate physical dimensions
   radius <- 45000                      #um
-  nx <- 100                            #concentric circles
+  nx <- 500                            #concentric circles
   dx <- radius/nx                      #thickness of each circle
   r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
   r_end <- seq(0,by = dx,len = nx)   #distance from center to end of each layer
   disp_dx <- dx                        #dispersion distances
   
-  inoc_r_n <- 1425                  #initial radius
-  inoc_r_p <- 1425                #initial radius
+  inoc_r_n <- 1425*3                  #initial radius
+  inoc_r_p <- 1425*3                #initial radius
   
   #Define parameters
   parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
@@ -79,10 +85,30 @@ if (F) {
              k_R = .05, k_A = .001,
              i1 = 10**-12, i2 = 10**-12, b = 50)
   
+  #Define initial population front shape (linear)
+  nx_inoc <- round(inoc_r_n/dx)
+  m <- 250000/sum(1:nx_inoc-(nx_inoc+1))
+  b <- -m*(nx_inoc+1)
+  #sum(m*1:nx_inoc+b)
+  
+  #define initial front (expon decay)
+  nx_inoc <- round(inoc_r_n/dx)
+  m <- -1
+  c <- 2*250000
+  #sum(c*exp(m*1:nx_inoc))
+  
+  #define initial front (sigmoid)
+  nx_inoc <- round(inoc_r_n/dx)
+  L = 250000/4
+  midpnt = round(nx_inoc/2)
+  k = .2
+  #sum(L-L/(1+exp(-k*(1:nx_inoc-midpnt))))
+  #plot(1:nx_inoc, L-L/(1+exp(-k*(1:nx_inoc-midpnt))))
+  
   #Define init conditions (N1,N2,P,R,A)
   y_init = matrix(c(
-    rep(250000/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
-    rep(0/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
+    L-L/(1+exp(-k*(1:nx_inoc-midpnt))), rep(0, nx-nx_inoc),
+    rep(0/nx_inoc, nx_inoc), rep(0, nx-nx_inoc),
     rep(0/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
     rep(2000/nx, nx),
     rep(25/nx, nx)),
@@ -91,7 +117,7 @@ if (F) {
   #phage rep(25000/...)
   
   #Define times (in seconds)
-  times = seq(from = 0, to = 6*60*60, by = 1*60)
+  times = seq(from = 0, to = 24*60*60, by = 15*60)
   
   #Run model
   #max_stepsize <- 0.5*dx^4/max(parms[c("D_N", "D_P", "D_R", "D_A")])
@@ -100,7 +126,7 @@ if (F) {
                  nspec = 4, names = c("N", "P", "R", "A"),
                  nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
                  disp_dx = disp_dx, 
-                 maxsteps = 25000, hmax = 0.001*60)
+                 maxsteps = 25000, hmax = 1*60)
   yout_df <- as.data.frame(yout)
   yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
   
@@ -120,30 +146,31 @@ if (F) {
   
   if (make_curveplots) {
     ggplot(data = yout_lng[yout_lng$pop == "N1" &
-                             yout_lng$time %in% c(0, 900, 1800, 10800, 21600), ], 
+                             yout_lng$time %in% c(0, 900, 10800, 
+                                                  21600, 47700, 86400), ], 
            aes(x = as.numeric(x/1000), 
                y = as.numeric(density+1))) +
       #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
       #geom_contour_filled() +
       geom_line() +
       #geom_line(aes(group = x)) +
-      facet_wrap(~time) +
+      facet_wrap(~time, scales = "free_y") +
       scale_y_continuous(trans = "log10") +
       #scale_color_continuous(name = "dens") +
       labs(x="location (mm)") +
       NULL
     
-    ggplot(data = yout_lng[yout_lng$pop == "N1" &
-                             yout_lng$time %in% c(21600), ], 
+    ggplot(data = yout_lng[yout_lng$time %in% c(900, 47700, 86400), ], 
            aes(x = as.numeric(x/1000), 
-               y = as.numeric(density+1))) +
+               y = as.numeric(density+1),
+               color = pop)) +
       #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
       #geom_contour_filled() +
-      geom_line() + geom_point() +
+      geom_line(lwd = 1.5) + #geom_point() +
       #geom_line(aes(group = x)) +
-      facet_wrap(~time) +
+      facet_grid(pop~time, scales = "free_y") +
       scale_y_continuous(trans = "log10") +
-      xlim(0, 5) +
+      xlim(0, 20) +
       geom_hline(yintercept = 1, lty = 2) +
       #scale_color_continuous(name = "dens") +
       labs(x="location (mm)") +
