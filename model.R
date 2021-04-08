@@ -3,7 +3,7 @@ library(deSolve)
 library(ggplot2)
 
 make_statplots <- TRUE
-make_curveplots <- FALSE
+make_curveplots <- TRUE
 
 #Define function to calculate derivatives ----
 derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
@@ -18,7 +18,7 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   
   cen_diff <- function(x) {
     return(diff(c(x[2], x, x[length(x)-1]),
-                lag = 2))
+                lag = 2)/2)
   }
 
   with(as.list(parms), {
@@ -64,43 +64,50 @@ if (F) {
   nx <- 100                            #concentric circles
   dx <- radius/nx                      #thickness of each circle
   r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
-  r_end <- seq(0,by = dx,len = nx+1)   #distance from center to end of each layer
+  r_end <- seq(0,by = dx,len = nx)   #distance from center to end of each layer
   disp_dx <- dx                        #dispersion distances
   
-  inoc_r_n <- 1425
-  inoc_r_p <- 5*1425
+  inoc_r_n <- 1425                  #initial radius
+  inoc_r_p <- 1425                #initial radius
   
   #Define parameters
   parms <- c(D_N = 50, D_P = 0, D_R = 800, D_A = 800,
-             chi = 300,
-             c_A = 4*10**-13, c_R = 2*10**-11,
+             chi1 = 300, chi2 = 300,
+             c1_A = 4*10**-13, c2_A = 4*10**-13,
+             c1_R = 2*10**-11, c2_R = 2*10**-11,
              yield = 10**7,
              k_R = .05, k_A = .001,
-             i = 10**-12, b = 50)
+             i1 = 10**-12, i2 = 10**-12, b = 50)
   
-  #Define init conditions (NPRA)
+  #Define init conditions (N1,N2,P,R,A)
   y_init = matrix(c(
     rep(250000/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
-    rep(25000/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
+    rep(0/round(inoc_r_n/dx), round(inoc_r_n/dx)), rep(0, nx-round(inoc_r_n/dx)),
+    rep(0/round(inoc_r_p/dx), round(inoc_r_p/dx)), rep(0, nx-round(inoc_r_p/dx)),
     rep(2000/nx, nx),
     rep(25/nx, nx)),
     ncol = 4)
   
+  #phage rep(25000/...)
+  
   #Define times (in seconds)
-  times = seq(from = 0, to = 24*60*60, by = 1*60)
+  times = seq(from = 0, to = 6*60*60, by = 1*60)
   
   #Run model
+  #max_stepsize <- 0.5*dx^4/max(parms[c("D_N", "D_P", "D_R", "D_A")])
   yout <- ode.1D(y = y_init, times = times,
                  func = derivs, parms = parms,
                  nspec = 4, names = c("N", "P", "R", "A"),
                  nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
-                 disp_dx = disp_dx, maxsteps = 25000)
+                 disp_dx = disp_dx, 
+                 maxsteps = 25000, hmax = 0.001*60)
   yout_df <- as.data.frame(yout)
   yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
   
   #Reorganize
   colnames(yout_df)[2:ncol(yout_df)] <- 
-    c(paste(rep("N", nx), 0:(nx-1), sep = "_"), 
+    c(paste(rep("N1", nx), 0:(nx-1), sep = "_"), 
+      paste(rep("N2", nx), 0:(nx-1), sep = "_"),
       paste(rep("P", nx), 0:(nx-1), sep = "_"),
       paste(rep("R", nx), 0:(nx-1), sep = "_"),
       paste(rep("A", nx), 0:(nx-1), sep = "_"))
@@ -109,19 +116,39 @@ if (F) {
                                                 names_to = c("pop", "x"),
                                                 names_sep = "_",
                                                 values_to = "density"))
+  yout_lng$x <- as.numeric(yout_lng$x) * dx
   
-  if (F) {
-    ggplot(data = yout_lng[yout_lng$pop == "R", ], 
-           aes(x = as.numeric(time), 
-               y = as.numeric(x), 
-               color = as.numeric(density))) +
+  if (make_curveplots) {
+    ggplot(data = yout_lng[yout_lng$pop == "N1" &
+                             yout_lng$time %in% c(0, 900, 1800, 10800, 21600), ], 
+           aes(x = as.numeric(x/1000), 
+               y = as.numeric(density+1))) +
       #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
       #geom_contour_filled() +
-      geom_point() +
+      geom_line() +
       #geom_line(aes(group = x)) +
-      #facet_grid(~pop) +
+      facet_wrap(~time) +
+      scale_y_continuous(trans = "log10") +
       #scale_color_continuous(name = "dens") +
+      labs(x="location (mm)") +
       NULL
+    
+    ggplot(data = yout_lng[yout_lng$pop == "N1" &
+                             yout_lng$time %in% c(21600), ], 
+           aes(x = as.numeric(x/1000), 
+               y = as.numeric(density+1))) +
+      #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
+      #geom_contour_filled() +
+      geom_line() + geom_point() +
+      #geom_line(aes(group = x)) +
+      facet_wrap(~time) +
+      scale_y_continuous(trans = "log10") +
+      xlim(0, 5) +
+      geom_hline(yintercept = 1, lty = 2) +
+      #scale_color_continuous(name = "dens") +
+      labs(x="location (mm)") +
+      NULL
+    
   }
   
   #Make contour plots
