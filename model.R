@@ -769,7 +769,63 @@ if (make_curveplots) {
 
 
 
-
+derivs2 <- function(function(time, y, parms, nx, dx, disp_dx) {
+  #Parms contains:
+  #              D_N, D_P, D_R, D_A,
+  #              chi1, chi2,
+  #              c1_A, c2_A,
+  #              c1_R, c2_R,
+  #              yield,
+  #              k_R, k_A,
+  #              i1, i2, b
+  
+  #central differences
+  my_diff <- function(x) {
+    return(diff(c(x[2], x, x[length(x)-1]),
+                lag = 2)/2)
+  }
+  
+  with(as.list(parms), {
+    N1 <- y[1:nx]
+    N2 <- y[(nx+1):(2*nx)]
+    P <- y[(2*nx+1):(3*nx)]
+    R <- y[(3*nx+1):(4*nx)]
+    A <- y[(4*nx+1):(5*nx)]
+    
+    N1[N1 < (250000/(1000000000*nx))] <- 0
+    N2[N2 < (250000/(1000000000*nx))] <- 0
+    P[P < (25000/(1000000000*nx))] <- 0
+    R[R < (2000/(1000000000*nx))] <- 0
+    A[A < (25/(1000000000*nx))] <- 0
+    
+    #Calculate diffusion & migration (zero gradient at boundaries)
+    flux_N1 <- -my_diff(-D_N * my_diff(N1)/disp_dx)/dx -
+      chi1*my_diff(N1 * my_diff(A)/disp_dx)/dx
+    flux_N2 <- -my_diff(-D_N * my_diff(N2)/disp_dx)/dx -
+      chi2*my_diff(N2 * my_diff(A)/disp_dx)/dx
+    flux_P <- -my_diff(-D_P * my_diff(P)/disp_dx)/dx
+    flux_R <- -my_diff(-D_R * my_diff(R)/disp_dx)/dx
+    flux_A <- -my_diff(-D_A * my_diff(A)/disp_dx)/dx
+    
+    #Calculate growth and death
+    grow_N1 <- c1_R*yield*R/(R+k_R)*N1 - i1*N1*P
+    grow_N2 <- c2_R*yield*R/(R+k_R)*N2 - i2*N2*P
+    grow_P <- i1*(b-1)*N1*P + i2*(b-1)*N2*P
+    
+    #Calculate consumption
+    cons_R <- c1_R*R/(R+k_R)*N1 + c2_R*R/(R+k_R)*N2
+    cons_A <- c1_A*A/(A+k_A)*N1 + c2_A*A/(A+k_A)*N2
+    
+    #Change = diffusion&migration + growth&death + consumption
+    dN1 <- flux_N1 + grow_N1
+    dN2 <- flux_N2 + grow_N2
+    dP <- flux_P + grow_P
+    dR <- flux_R - cons_R
+    dA <- flux_A - cons_A
+    
+    return(list(c(dN1, dN2, dP, dR, dA)))
+  })
+}
 
 
 
