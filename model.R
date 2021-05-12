@@ -16,11 +16,25 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
   #              k_R, k_A,
   #              i1, i2, b
   
-  cen_diff <- function(x) {
+  #forwards differences (doesn't work)
+  # my_diff <- function(x) {
+  #   return(diff(c(x, x[length(x)]), lag = 1))
+  # }
+  
+  #central differences
+  my_diff <- function(x) {
     return(diff(c(x[2], x, x[length(x)-1]),
                 lag = 2)/2)
   }
-
+  
+  #central differences using avg of 2 previous & 2 next vals
+  # (even worse fluctuations than central differences, incl neg vals now)
+  # my_diff <- function(x) {
+  #   c(0, 0, 
+  #     (x[4:(length(x)-1)]+x[5:length(x)]-x[2:(length(x)-3)]-x[1:(length(x)-4)])/6,
+  #     0, 0)
+  # }
+  
   with(as.list(parms), {
     N1 <- y[1:nx]
     N2 <- y[(nx+1):(2*nx)]
@@ -34,14 +48,27 @@ derivs <- function(time, y, parms, nx, r_mid, r_end, dx, disp_dx) {
     R[R < (2000/(1000000000*nx))] <- 0
     A[A < (25/(1000000000*nx))] <- 0
     
+    #Calculate rolling averages (span = 3)
+    # makes things so much worse, don't do
+    # roll_avg <- function(x) {
+    #   x <- as.numeric(x)
+    #   return(c((2*x[1]+x[2]),
+    #            (x[1:(length(x)-2)] + x[2:(length(x)-1)] + x[3:(length(x))]),
+    #            (x[length(x)-1]+2*x[length(x)]))/3)}
+    # N1 <- roll_avg(N1)
+    # N2 <- roll_avg(N2)
+    # P <- roll_avg(P)
+    # R <- roll_avg(R)
+    # A <- roll_avg(A)
+    
     #Calculate diffusion & migration (zero gradient at boundaries)
-    flux_N1 <- -cen_diff(r_end * -D_N * cen_diff(N1)/disp_dx)/r_mid/dx -
-      chi1*cen_diff(r_end * N1 * cen_diff(A)/disp_dx)/r_mid/dx
-    flux_N2 <- -cen_diff(r_end * -D_N * cen_diff(N2)/disp_dx)/r_mid/dx -
-      chi2*cen_diff(r_end * N2 * cen_diff(A)/disp_dx)/r_mid/dx
-    flux_P <- -cen_diff(r_end * -D_P * cen_diff(P)/disp_dx)/r_mid/dx
-    flux_R <- -cen_diff(r_end * -D_R * cen_diff(R)/disp_dx)/r_mid/dx
-    flux_A <- -cen_diff(r_end * -D_A * cen_diff(A)/disp_dx)/r_mid/dx
+    flux_N1 <- -my_diff(r_end * -D_N * my_diff(N1)/disp_dx)/r_mid/dx -
+      chi1*my_diff(r_end * N1 * my_diff(A)/disp_dx)/r_mid/dx
+    flux_N2 <- -my_diff(r_end * -D_N * my_diff(N2)/disp_dx)/r_mid/dx -
+      chi2*my_diff(r_end * N2 * my_diff(A)/disp_dx)/r_mid/dx
+    flux_P <- -my_diff(r_end * -D_P * my_diff(P)/disp_dx)/r_mid/dx
+    flux_R <- -my_diff(r_end * -D_R * my_diff(R)/disp_dx)/r_mid/dx
+    flux_A <- -my_diff(r_end * -D_A * my_diff(A)/disp_dx)/r_mid/dx
     
     #Calculate growth and death
     grow_N1 <- c1_R*yield*R/(R+k_R)*N1 - i1*N1*P
