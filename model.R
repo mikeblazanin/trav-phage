@@ -1,3 +1,24 @@
+#TODO
+#Tried linear space - didn't help
+#Tried shrinking dx to 45 um for full-plate size (45 mm), helped but didn't fix it
+#Tried shrinking dx to 20 um and only 20 mm plate size, desolve never solves it/errors out
+#Tried reducing timestep size - didn't change anything
+
+#Run w/ full plate & nx = 1000, quality & runtime:
+#vode - same as lsoda 19s
+#lsode - same as lsoda 54s
+#lsoda - alright 76s
+#lsodar - same as lsoda 74s
+#daspk - took too long
+#lsodes - same as lsoda (after setting lrw = 104208) 14s
+#impAdams - same as lsoda 35s
+#radau - took too long
+#euler - bad
+#rk4 - bad
+#ode23 - same as lsoda 6s, going up to nx = 2000 didn't improve any additional
+#ode45 - same as lsoda 9s
+#adams - same as lsoda 10s
+
 #Import & set global options ----
 library(deSolve)
 library(ggplot2)
@@ -121,14 +142,18 @@ fit_sigmoid <- function(total_pop, nx_inoc) {
 if (F) {
   #Calculate physical dimensions
   radius <- 45000                      #um
-  nx <- 500                            #concentric circles
+  nx <- 2000                            #concentric circles
   dx <- radius/nx                      #thickness of each circle
-  r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
-  r_end <- seq(0,by = dx,len = nx)   #distance from center to end of each layer
+  #r_mid <- seq(dx/2,by = dx,len = nx)  #distance from center to ea mid-layer
+  r_mid <- 1
+  #r_end <- seq(0,by = dx,len = nx)   #distance from center to end of each layer
+  r_end <- 1
   disp_dx <- dx                        #dispersion distances
   
-  inoc_r_n <- 1425*3                  #initial radius
-  inoc_r_p <- 1425*3                #initial radius
+  inoc_r_n <- 1425*1                  #initial radius
+  #inoc_r_n <- 142.5
+  inoc_r_p <- 1425*1                #initial radius
+  #inoc_r_p <- 142.5
   
   inoc_nx_n <- round(inoc_r_n/dx)   #initial number of grid points inoc'd
   inoc_nx_p <- round(inoc_r_p/dx)
@@ -145,6 +170,8 @@ if (F) {
   N1_init <- sigmoid(
     L = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["L"],
     k = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["k"],
+    # L = fit_sigmoid(total_pop = 25000, nx_inoc = inoc_nx_n)["L"],
+    # k = fit_sigmoid(total_pop = 25000, nx_inoc = inoc_nx_n)["k"],
     nx_inoc = inoc_nx_n)
   N2_init <- sigmoid(
     L = fit_sigmoid(total_pop = 250000, nx_inoc = inoc_nx_n)["L"],
@@ -160,23 +187,28 @@ if (F) {
     N1_init, rep(0, nx-inoc_nx_n),       #N1
     rep(0, nx),                          #N2
     rep(0, nx),                          #P
-    rep(2000/nx, nx),                    #R
-    rep(25/nx, nx)),                     #A
+    # rep(2000/nx, nx),                    #R
+    # rep(25/nx, nx)),                     #A
+    rep(2000/10/nx, nx),                    #R
+    rep(25/10/nx, nx)),                     #A
     ncol = 5)
   
   #Define times (in seconds)
-  times = seq(from = 0, to = 24*60*60, by = 15*60)
+  times = seq(from = 0, to = 24*60*60, by = 30*60)
   
   #Run model
   #max_stepsize <- 0.5*dx^4/max(parms[c("D_N", "D_P", "D_R", "D_A")])
-  yout <- ode.1D(y = y_init, times = times,
-                 func = derivs, parms = parms,
-                 nspec = 4, names = c("N", "P", "R", "A"),
-                 nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
-                 disp_dx = disp_dx, 
-                 maxsteps = 25000, hmax = 1*60)
+  system.time({yout <- ode.1D(y = y_init, times = times,
+                              func = derivs, parms = parms,
+                              method = "ode23",
+                              nspec = 5, names = c("N1", "N2", "P", "R", "A"),
+                              nx = nx, dx=dx, r_mid = r_mid, r_end = r_end, 
+                              disp_dx = disp_dx, maxsteps = 25000, 
+                              hmax = 30*60)})
   yout_df <- as.data.frame(yout)
   yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0, ]
+  # yout_df <- yout_df[as.numeric(yout_df$time) %% (15*60) == 0 &
+  #                      as.numeric(yout_df$x) %% (nx/100) == 0, ]
   
   #Reorganize
   colnames(yout_df)[2:ncol(yout_df)] <- 
@@ -186,6 +218,12 @@ if (F) {
       paste(rep("R", nx), 0:(nx-1), sep = "_"),
       paste(rep("A", nx), 0:(nx-1), sep = "_"))
   
+  # roll_avg <- function(x) {
+  #   x <- as.numeric(x)
+  #   return(c((2*x[1]+x[2]),
+  #            (x[1:(length(x)-2)] + x[2:(length(x)-1)] + x[3:(length(x))]),
+  #            (x[length(x)-1]+2*x[length(x)]))/3)}
+  
   yout_lng <- as.data.frame(tidyr::pivot_longer(yout_df, cols = -time,
                                                 names_to = c("pop", "x"),
                                                 names_sep = "_",
@@ -194,8 +232,9 @@ if (F) {
   
   if (make_curveplots) {
     ggplot(data = yout_lng[yout_lng$pop == "N1" &
-                             yout_lng$time %in% c(0, 900, 10800, 
-                                                  21600, 47700, 86400), ], 
+                             yout_lng$time %in% c(0, 1800, 9000, 
+                                                  21600, 28800, 36000, 
+                                                  48600, 63000, 86400), ], 
            aes(x = as.numeric(x/1000), 
                y = as.numeric(density+1))) +
       #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
@@ -206,25 +245,28 @@ if (F) {
       scale_y_continuous(trans = "log10") +
       #scale_color_continuous(name = "dens") +
       labs(x="location (mm)") +
+      xlim(NA, 20) +
       NULL
     
-    ggplot(data = yout_lng[yout_lng$time %in% c(900, 47700, 86400), ], 
+    ggplot(data = yout_lng[yout_lng$time %in% c(21600, 28800, 36000), ], 
            aes(x = as.numeric(x/1000), 
                y = as.numeric(density+1),
                color = pop)) +
       #color = log10(as.numeric(ifelse(density>0, density, 0)+10)))) +
       #geom_contour_filled() +
-      geom_line(lwd = 1.5) + #geom_point() +
+      geom_line(lwd = 1) + #geom_point() +
       #geom_line(aes(group = x)) +
       facet_grid(pop~time, scales = "free_y") +
       scale_y_continuous(trans = "log10") +
-      xlim(0, 20) +
+      xlim(0, 5) +
       geom_hline(yintercept = 1, lty = 2) +
       #scale_color_continuous(name = "dens") +
       labs(x="location (mm)") +
       NULL
-    
   }
+  
+  #Attempt smoothing
+  
   
   #Make contour plots
   if (F) {
