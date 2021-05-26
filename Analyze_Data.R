@@ -16,7 +16,7 @@ scales::show_col(my_cols)
 
 #Global options
 make_curveplots <- FALSE
-make_statplots <- FALSE
+make_statplots <- TRUE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
@@ -57,29 +57,37 @@ exper_evol_summ <- summarize(exper_evol_migr,
 if (make_statplots) {
   my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
   
-  ggplot(data = exper_evol_summ, aes(x = Timepoint, y = radius_mm_hr_mean,
-                                     color = Treat)) +
-    geom_point(position = position_dodge(0.2)) + 
-    geom_line(size = 1.2, position = position_dodge(0.2)) +
-    theme_bw() +
-    theme(axis.text.y = element_text(size = 11), axis.text.x = element_text(size = 11),
-          legend.text = element_text(size = 16)) +
-    facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-    geom_errorbar(aes(ymax = radius_mm_hr_mean+radius_mm_hr_sd, 
-                      ymin = radius_mm_hr_mean-radius_mm_hr_sd),
-                  width=1, size = .7, position=position_dodge(0.2)) +
-    labs(x = "Transfer", 
-         y = expression(paste("Soft Agar Growth (mm/hr)"))) + 
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                    labels = c("Control", "Local", "Global"),
-                    values = my_cols[c(8, 2, 6)]) +
-    scale_x_continuous(breaks = c(0, 7, 14)) +
-    NULL
+  tiff("./Output_figures/Exper_evol_migr_nopops.tiff",
+       width = 7, height = 4, units = "in", res = 300)
+  print(ggplot(data = exper_evol_summ, aes(x = Timepoint, y = radius_mm_hr_mean,
+                                           color = Treat)) +
+          #geom_point(position = position_dodge(0.2)) + 
+          geom_line(size = 2, position = position_dodge(0.2)) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          # geom_errorbar(aes(ymax = radius_mm_hr_mean+radius_mm_hr_sd, 
+          #                   ymin = radius_mm_hr_mean-radius_mm_hr_sd),
+          #               width=1, size = .7, position=position_dodge(0.2)) +
+          labs(x = "Transfer", 
+               y = expression(paste("Bacterial Growth (mm/hr)"))) + 
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_x_continuous(breaks = c(0, 7, 14)) +
+          scale_y_continuous(limits = c(0, NA), breaks = c(0, 0.5, 1)) +
+          theme_bw() +
+          theme(axis.text.y = element_text(size = 12), 
+                axis.text.x = element_text(size = 12),
+                axis.title = element_text(size = 15),
+                legend.text = element_text(size = 14), 
+                legend.title = element_text(size = 15),
+                strip.text = element_text(size = 15)) +
+          NULL)
+  dev.off()
 
   #Make plot with both summarized and non-summarized data
   tiff("./Output_figures/Exper_evol_migr.tiff",
        width = 7, height = 4, units = "in", res = 300)
-  ggplot(data = exper_evol_migr,
+  print(ggplot(data = exper_evol_migr,
                  aes(x = Timepoint, y = radius_mm_hr, 
                      group = paste(Treat, Pop),
                      color = Treat)) +
@@ -103,12 +111,12 @@ if (make_statplots) {
           legend.text = element_text(size = 13), 
           legend.title = element_text(size = 14),
           strip.text = element_text(size = 14)) +
-    NULL
+    NULL)
   dev.off()
   
   tiff("./Output_figures/Exper_evol_migr_stacked.tiff",
        width = 7, height = 4, units = "in", res = 300)
-  ggplot(data = exper_evol_migr,
+  print(ggplot(data = exper_evol_migr,
          aes(x = Timepoint, y = radius_mm_hr, 
              group = paste(Treat, Pop),
              color = Treat)) +
@@ -132,7 +140,7 @@ if (make_statplots) {
           legend.text = element_text(size = 13), 
           legend.title = element_text(size = 14),
           strip.text = element_text(size = 14)) +
-    NULL
+    NULL)
   dev.off()
 }
 
@@ -245,6 +253,40 @@ isol_migration_temp <- group_by(isol_migration_temp,
                            Proj, Pop, Treat)
 isol_migr_sum <- summarize(isol_migration_temp,
                            radius_mm_hr_rel_avg = mean(radius_mm_hr_rel))
+
+#Make plot of only pop-level data
+if (make_statplots) {
+  tiff("./Output_figures/Isol_migration_rel_stacked_pops.tiff",
+       width = 4, height = 4, units = "in", res = 300)
+  print(ggplot(isol_migr_sum[isol_migr_sum$Treat != "Anc", ], 
+               aes(x = Treat, y = radius_mm_hr_rel_avg, 
+                   color = Treat, fill = Treat)) +
+          geom_point(alpha = 0.6, size = 3) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          labs(y = "Evolved Change in Soft Agar Growth (mm/hr)",
+               x = "Treatment") +
+          geom_hline(yintercept = 0, lty = 2) +
+          scale_x_discrete(breaks = c("C", "L", "G"),
+                           labels = c("Control", "Local", "Global")) +
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                            labels = c("Control", "Local", "Global"),
+                            values = my_cols[c(8, 2, 6)]) +
+          theme_bw() + 
+          theme(legend.position = "none",
+                axis.text.y = element_text(size = 11), 
+                axis.text.x = element_text(size = 11),
+                axis.title.y = element_text(size = 12.5),
+                axis.title.x = element_text(size = 14),
+                legend.text = element_text(size = 13), 
+                legend.title = element_text(size = 14),
+                strip.text = element_text(size = 14)) +
+          NULL)
+  dev.off()
+}
+
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -370,8 +412,50 @@ resis_data_temp <- resis_data[resis_data$approach == "new", ]
 resis_data_temp <- group_by(resis_data_temp,
                             Proj, Pop, Treat)
 resis_data_sum <- summarize(resis_data_temp,
-                            EOP_avg = mean(EOP),
+                            EOP_avg = 10**mean(log10(EOP)),
                             EOP_bd = any(bd))
+
+#Make plot of pop-level data
+if (make_statplots) {
+  tiff("./Output_figures/Isol_resis_stacked_pops.tiff", width = 4, height = 4,
+       units = "in", res = 300)
+  print(ggplot(resis_data_sum[resis_data_sum$Treat != "Anc", ],
+               aes(x = Treat, y = EOP_avg, 
+                   color = Treat, fill = Treat)) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          geom_point(alpha = 0.6, size = 3, 
+                     position = position_dodge(width = .15),
+                     aes(group = Pop)) +
+          scale_size_manual(values = c(2, 2.5)) +
+          scale_alpha_manual(values = c(0.6, 1)) +
+          scale_x_discrete(breaks = c("C", "L", "G"),
+                           labels = c("Control", "Local", "Global")) +
+          scale_y_continuous(trans = "log10",
+                             breaks = 10**(c(0, -2, -4, -6)),
+                             labels = c(1, expression(10^-2), expression(10^-4),
+                                        expression(10^-6))) +
+          geom_hline(yintercept = 1, lty = 2) +
+          geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                            labels = c("Control", "Local", "Global"),
+                            values = my_cols[c(8, 2, 6)]) +
+          labs(x = "Treatment", y = "Susceptibility to Phage") +
+          theme_bw() +
+          theme(legend.position = "none",
+                axis.text.y = element_text(size = 11), 
+                axis.text.x = element_text(size = 11),
+                axis.title.y = element_text(size = 12.5),
+                axis.title.x = element_text(size = 14),
+                legend.text = element_text(size = 13), 
+                legend.title = element_text(size = 14),
+                strip.text = element_text(size = 14)) +
+          NULL)
+  dev.off()
+}
+
 
 ##Isolate growth curves: read & find peaks ----
 
