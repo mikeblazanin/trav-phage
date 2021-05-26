@@ -1456,21 +1456,24 @@ if (F) {
 
 #Check how fit results compare to local extrema results
 if (make_statplots) {
-  ggplot(data = gc_summarized,
-         aes(x = max_percap_gr_rate, y = fit2_r)) +
-    geom_point() +
-    scale_x_continuous(trans = "log10") +
-    scale_y_continuous(trans = "log10")
-  ggplot(data = gc_summarized,
-         aes(x = pseudo_K, y = fit2_k, color = Proj, shape = Media)) +
-    geom_point() +
-    scale_x_continuous(trans = "log10") +
-    scale_y_continuous(trans = "log10")
-  ggplot(data = gc_summarized,
-         aes(x = fit2_d0, y = first_min)) +
-    geom_point() +
-    scale_y_continuous(trans = "log10") +
-    scale_x_continuous(trans = "log10")
+  print(ggplot(data = gc_summarized,
+               aes(x = max_percap_gr_rate, y = fit2_r)) +
+          geom_point() +
+          scale_x_continuous(trans = "log10") +
+          scale_y_continuous(trans = "log10") +
+          geom_abline(slope = 1, intercept = 0, lty = 2))
+  print(ggplot(data = gc_summarized,
+               aes(x = pseudo_K, y = fit2_k, color = Proj, shape = Media)) +
+          geom_point() +
+          scale_x_continuous(trans = "log10") +
+          scale_y_continuous(trans = "log10") +
+          geom_abline(slope = 1, intercept = 0, lty = 2))
+  print(ggplot(data = gc_summarized,
+               aes(x = fit2_d0, y = first_min)) +
+          geom_point() +
+          scale_y_continuous(trans = "log10") +
+          scale_x_continuous(trans = "log10") +
+          geom_abline(slope = 1, intercept = 0, lty = 2))
   hist(gc_summarized$fit_err)
 }     
 
@@ -2089,6 +2092,150 @@ if(make_statplots) {
                   axis.text.y = element_text(size = 20),
                   axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
     ncol = 4, rel_widths = c(1, 1, 1, 1)))
+  dev.off()
+}
+
+#Make simple plots of r, k, lagtime, v for talks
+if(make_statplots) {
+  my_facet_labels <- c("7x" = "Weak Phage", 
+                       "125" = "Strong Phage",
+                       "C" = "Control", "G" = "Global", "L" = "Local",
+                       "A" = "WT",
+                       "Rich" = "Rich", "Orig" = "Orig")
+  
+  temp1 <- gc_sum_pops[gc_sum_pops$Pop != "Anc" &
+                         gc_sum_pops$Media == "Orig", ]
+  temp1$Title <- "r"
+  temp1$Media_title <- "Media"
+  rplot <-
+    ggplot(data = temp1,
+           aes(x = Treat, y = fit2_r_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    facet_nested(Proj ~ ., scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Evolved Change in Growth Rate (/hr)", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(rplot)
+  
+  temp2 <- gc_sum_pops[gc_sum_pops$Pop != "Anc" &
+                         gc_sum_pops$Media == "Orig", ]
+  temp2$Title <- "k"
+  temp2$Media_title <- "Media"
+  kplot <-
+    ggplot(data = temp2,
+           aes(x = Treat, y = fit2_k_avg_rel_avg/10**8, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    facet_nested(Proj ~., scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = expression(paste("Evolved Change in Diauxic Shift Density (x ",
+                              10^8, " cfu/mL)")), 
+         x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(kplot)
+
+  temp3 <- gc_sum_pops[gc_sum_pops$Pop != "Anc" &
+                         gc_sum_pops$Media == "Orig", ]
+  temp3$Title <- "lag time"
+  temp3$Media_title <- "Media"
+  lagplot <-
+    ggplot(data = temp3,
+           aes(x = Treat, y = fit2_lagtime_hrs_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    facet_nested(Proj ~., scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Evolved Change in Lag Time (hrs)", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(lagplot)
+  
+  temp4 <- gc_sum_pops[gc_sum_pops$Pop != "Anc" &
+                         gc_sum_pops$Media == "Orig", ]
+  temp4$Title <- "v"
+  temp4$Media_title <- "Media"
+  vplot <-
+    ggplot(data = temp4,
+           aes(x = Treat, y = fit2_v_log10_avg_rel_avg, group = Pop,
+               color = Treat)) +
+    geom_point(size = 5, alpha = 0.65) +
+    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                       labels = c("Control", "Local", "Global"),
+                       values = my_cols[c(8, 2, 6)]) +
+    scale_x_discrete(breaks = c("C", "L", "G"),
+                     labels = c("Control", "Local", "Global")) +
+    facet_nested(Proj ~., scales = "free_y",
+                 labeller = labeller(Proj = my_facet_labels)) +
+    geom_hline(yintercept = 0, lty = 2) +
+    labs(y = "Change in Deceleration Parameter", x = "Treatment") +
+    theme_bw() +
+    NULL
+  #print(vplot)
+  
+  tiff("./Growth_curve_variables_plots_pops/r_only.tiff",
+       width = 5, height = 6, units = "in", res = 100)
+  print(
+    rplot + 
+      theme(legend.position = "none", 
+            strip.text = element_text(size = 18),
+            axis.title = element_text(size = 18),
+            axis.text.y = element_text(size = 16),
+            axis.text.x = element_text(angle = 45, size = 18, hjust = 1)))
+  dev.off()
+  
+  tiff("./Growth_curve_variables_plots_pops/k_only.tiff",
+       width = 5, height = 6, units = "in", res = 100)
+  print(
+    kplot +
+      theme(legend.position = "none", 
+            strip.text = element_text(size = 18),
+            axis.title = element_text(size = 16),
+            axis.text.y = element_text(size = 16),
+            axis.text.x = element_text(angle = 45, size = 18, hjust = 1),
+            plot.margin = unit(c(0.7, 0.15, 0.15, 0.15), "in")))
+  dev.off()
+  
+  tiff("./Growth_curve_variables_plots_pops/lag_only.tiff",
+       width = 5, height = 6, units = "in", res = 100)
+  print(
+    lagplot + 
+      theme(legend.position = "none", 
+            strip.text = element_text(size = 18),
+            axis.title = element_text(size = 18),
+            axis.text.y = element_text(size = 16),
+            axis.text.x = element_text(angle = 45, size = 18, hjust = 1)))
+  dev.off()
+  
+  tiff("./Growth_curve_variables_plots_pops/v_only.tiff",
+       width = 5, height = 6, units = "in", res = 100)
+  print(
+    vplot +
+      theme(legend.position = "none", 
+            strip.text = element_text(size = 18),
+            axis.title = element_text(size = 18),
+            axis.text.y = element_text(size = 16),
+            axis.text.x = element_text(angle = 45, size = 18, hjust = 1)))
   dev.off()
 }
 
