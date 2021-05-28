@@ -16,7 +16,7 @@ scales::show_col(my_cols)
 
 #Global options
 make_curveplots <- FALSE
-make_statplots <- TRUE
+make_statplots <- FALSE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
@@ -1663,6 +1663,38 @@ if (make_curveplots) {
                color = "black", size = 7, alpha = 0.7)
   dev.off()
   
+  my_well <- temp$uniq_well[1]
+  t_vals <- temp$Time_s
+  sum_row <- which(gc_summarized$uniq_well == my_well)
+  temp$pred_vals_fit2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+                             k = gc_summarized[sum_row, "fit2_k"],
+                             v = gc_summarized[sum_row, "fit2_v"],
+                             q0 = gc_summarized[sum_row, "fit2_q0"],
+                             m = gc_summarized[sum_row, "fit2_m"],
+                             d0 = gc_summarized[sum_row, "fit2_d0"],
+                             t_vals = t_vals)
+  
+  
+  tiff("./Example_curve_plots/gc_plot12.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot13.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    geom_line(aes(y = pred_vals_fit2), color = "red", lwd = 3, alpha = 0.5) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
 }
 
 #Isolate growth curves: summarize reps into isols, view variable data & distributions ----
