@@ -2021,7 +2021,7 @@ if(make_statplots) {
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
-    labs(y = "Relative Maximum Per Capita Growth Rate (r) (/hr)", x = "Treatment") +
+    labs(y = "Evolved Change in Growth Rate (r) (/hr)", x = "Treatment") +
     theme_bw() +
     NULL
   #print(rplot)
@@ -2043,7 +2043,7 @@ if(make_statplots) {
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
-    labs(y = expression(paste("Relative Density at Diauxic Shift (k) (",
+    labs(y = expression(paste("Evolved Change in Diauxic Shift Density (k) (",
                               10^8, " cfu/mL)")), 
          x = "Treatment") +
     theme_bw() +
@@ -2067,7 +2067,7 @@ if(make_statplots) {
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
-    labs(y = "Relative Lag Time (hrs)", x = "Treatment") +
+    labs(y = "Evolved Change in Lag Time (hrs)", x = "Treatment") +
     theme_bw() +
     NULL
   #print(lagplot)
@@ -2089,7 +2089,7 @@ if(make_statplots) {
                  labeller = labeller(Proj = my_facet_labels,
                                      Media = my_facet_labels)) +
     geom_hline(yintercept = 0, lty = 2) +
-    labs(y = "Relative Deceleration Parameter (v)", x = "Treatment") +
+    labs(y = "Evolved Change in Deceleration Parameter (v)", x = "Treatment") +
     theme_bw() +
     NULL
   #print(vplot)
@@ -2268,6 +2268,35 @@ if(make_statplots) {
             axis.title = element_text(size = 18),
             axis.text.y = element_text(size = 16),
             axis.text.x = element_text(angle = 45, size = 18, hjust = 1)))
+  dev.off()
+  
+  tiff("./Growth_curve_variables_plots_pops/r_k_lag_combined.tiff",
+       width = 8, height = 9, units = "in", res = 300)
+  print(cowplot::plot_grid(
+    lagplot + theme(legend.position = "none",
+                    strip.background.y = element_blank(), 
+                    strip.text.y = element_blank(),
+                    strip.text = element_text(size = 18),
+                    axis.title = element_text(size = 22),
+                    axis.text.y = element_text(size = 20),
+                    axis.text.x = element_text(angle = 45, size = 18, hjust = 1)) +
+      xlab(""),
+    rplot + theme(legend.position = "none", 
+                  strip.background.y = element_blank(), 
+                  strip.text.y = element_blank(),
+                  strip.text.x = element_text(size = 18),
+                  axis.title = element_text(size = 22),
+                  axis.text.y = element_text(size = 20),
+                  axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
+    kplot + theme(legend.position = "none",
+                  strip.background.y = element_blank(), 
+                  strip.text.y = element_blank(),
+                  strip.text.x = element_text(size = 18),
+                  axis.title = element_text(size = 22),
+                  axis.text.y = element_text(size = 20),
+                  axis.text.x = element_text(angle = 45, size = 18, hjust = 1)) +
+      xlab(""),
+    ncol = 3, rel_widths = c(1, 1, 1)))
   dev.off()
 }
 
