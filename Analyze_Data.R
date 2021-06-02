@@ -2289,14 +2289,14 @@ if(make_statplots) {
                   axis.text.y = element_text(size = 20),
                   axis.text.x = element_text(angle = 45, size = 18, hjust = 1)),
     kplot + theme(legend.position = "none",
-                  strip.background.y = element_blank(), 
-                  strip.text.y = element_blank(),
+                  #strip.background.y = element_blank(), 
+                  strip.text.y = element_text(size = 18),
                   strip.text.x = element_text(size = 18),
                   axis.title = element_text(size = 22),
                   axis.text.y = element_text(size = 20),
                   axis.text.x = element_text(angle = 45, size = 18, hjust = 1)) +
       xlab(""),
-    ncol = 3, rel_widths = c(1, 1, 1)))
+    ncol = 3, rel_widths = c(.85, .85, 1)))
   dev.off()
 }
 
