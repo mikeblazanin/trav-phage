@@ -336,6 +336,28 @@ eop_limit <- max(resis_data$EOP[resis_data$bd &
                                   resis_data$approach == "new"])
 resis_data$EOP[resis_data$EOP < eop_limit] <- eop_limit
 
+#Calculate Ancestral EOP range
+Anc_EOP <- data.frame(Proj = rep(c("7x", "125"), each = 3),
+                      Treat = rep(c("C", "L", "G"), times = 2),
+                      min_EOP = rep(c(
+                        min(resis_data$EOP[resis_data$Treat == "Anc" &
+                                                           resis_data$approach == "new" &
+                                                           resis_data$Proj == "7x"]),
+                        min(resis_data$EOP[resis_data$Treat == "Anc" &
+                                             resis_data$approach == "new" &
+                                             resis_data$Proj == "125"])),
+                        each = 3),
+                      max_EOP = rep(c(
+                        max(resis_data$EOP[resis_data$Treat == "Anc" &
+                                             resis_data$approach == "new" &
+                                             resis_data$Proj == "7x"]),
+                        max(resis_data$EOP[resis_data$Treat == "Anc" &
+                                             resis_data$approach == "new" &
+                                             resis_data$Proj == "125"])),
+                        each = 3))
+Anc_EOP$Proj <- factor(Anc_EOP$Proj, levels = c("7x", "125"))
+Anc_EOP$Treat <- factor(Anc_EOP$Treat, levels = c("C", "L", "G"))
+
 #Assign facet labels
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
@@ -384,6 +406,11 @@ if (make_statplots) {
              shape = bd)) +
     facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
                                                   Treat = my_facet_labels)) +
+    geom_rect(data = Anc_EOP,
+              aes(x = NULL, y = NULL, color = NULL, fill = NULL, shape = NULL,
+                  xmin = "A", xmax = "E",
+                  ymin = min_EOP, ymax = max_EOP),
+              alpha = 0.3) +
     geom_point(aes(size = bd, alpha = bd)) +
     scale_size_manual(values = c(2, 2.5)) +
     scale_alpha_manual(values = c(0.6, 1)) +
