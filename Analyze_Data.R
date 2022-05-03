@@ -1722,6 +1722,31 @@ if (make_curveplots) {
     theme(axis.text = element_text(size = 16),
           axis.title = element_text(size = 30)) 
   dev.off()
+  
+  temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Rich", ]
+  my_well <- temp$uniq_well[1]
+  sum_row <- which(gc_summarized$uniq_well == my_well)
+  temp <- temp[temp$Time_s <= gc_summarized$pseudo_K_time[sum_row], ]
+  t_vals <- temp$Time_s
+  temp$pred_vals_fit2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+                                      k = gc_summarized[sum_row, "fit2_k"],
+                                      v = gc_summarized[sum_row, "fit2_v"],
+                                      q0 = gc_summarized[sum_row, "fit2_q0"],
+                                      m = gc_summarized[sum_row, "fit2_m"],
+                                      d0 = gc_summarized[sum_row, "fit2_d0"],
+                                      t_vals = t_vals)
+  
+  tiff("./Example_curve_plots/gc_plot13.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    geom_line(aes(y = pred_vals_fit2), color = "red", lwd = 3, alpha = 0.5) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
 }
 
 #Isolate growth curves: summarize reps into isols, view variable data & distributions ----
