@@ -1,3 +1,9 @@
+##This was an attempt at modeling the diffusion-migration-infection
+##in R. Unfortunately, the R solver couldn't seem to handle the
+##conditions we wanted to simulate, so we gave it up and implemented
+##the model in Matlab instead
+
+
 #TODO
 #Tried linear space - didn't help
 #Tried shrinking dx to 45 um for full-plate size (45 mm), helped but didn't fix it
@@ -811,7 +817,7 @@ if (make_curveplots) {
 
 
 
-derivs2 <- function(function(time, y, parms, nx, dx, disp_dx) {
+derivs2 <- function(time, y, parms, nx, dx, disp_dx) {
   #Parms contains:
   #              D_N, D_P, D_R, D_A,
   #              chi1, chi2,
