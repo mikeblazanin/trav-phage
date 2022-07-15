@@ -1165,7 +1165,7 @@ baranyi_func2 <- function(r, k, v, q0, d0, t_vals) {
 #Seeing what the Baranyi curve looks like
 if (F) {
   temp_t <- seq(from = 0, to = 100000, by = 1)
-  temp_d <- baranyi_func(r = 1.5, k = 10**10, v = 1, q0 = 0.25, m = 2,
+  temp_d <- baranyi_func(r = 0.5, k = 10**10, v = 1, q0 = 0.05, m = 1.5,
                          d0 = 10**7, t_vals = temp_t)
   ggplot(data = data.frame(time = temp_t, dens = temp_d), aes(x = time, y = dens)) +
     geom_line() + scale_y_continuous(trans = "log10")
@@ -1324,13 +1324,13 @@ for (sum_row in 1:nrow(gc_summarized)) {
                  "fit2_q0" = temp2$par["q0"],
                  "fit2_m" = temp2$par["m"],
                  "fit2_d0" = 10**temp2$par["logd0"],
-                 "fit2_err" = temp2$value,
-                 "fit3_r" = temp2$par["r"], 
-                 "fit3_k" = 10**temp2$par["logk"],
-                 "fit3_v" = temp2$par["v"], 
-                 "fit3_q0" = temp2$par["q0"],
-                 "fit3_d0" = 10**temp2$par["logd0"],
-                 "fit3_err" = temp2$value)
+                 "fit2_err" = temp3$value,
+                 "fit3_r" = temp3$par["r"], 
+                 "fit3_k" = 10**temp3$par["logk"],
+                 "fit3_v" = temp3$par["v"], 
+                 "fit3_q0" = temp3$par["q0"],
+                 "fit3_d0" = 10**temp3$par["logd0"],
+                 "fit3_err" = temp3$value)
   }
 }
 
@@ -1372,21 +1372,20 @@ if(make_curveplots) {
   for (sum_row in 1:nrow(gc_summarized)) {
     my_well <- gc_summarized$uniq_well[sum_row]
     t_vals <- gc_data$Time_s[gc_data$uniq_well == my_well]
-    pred_vals1 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
+    pred_vals2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
                                 k = gc_summarized[sum_row, "fit2_k"],
                                 v = gc_summarized[sum_row, "fit2_v"],
                                 q0 = gc_summarized[sum_row, "fit2_q0"],
                                 m = gc_summarized[sum_row, "fit2_m"],
                                 d0 = gc_summarized[sum_row, "fit2_d0"],
                                 t_vals = t_vals)
-    pred_vals2 <- baranyi_func2(r = gc_summarized[sum_row, "fit2_r"],
-                               k = gc_summarized[sum_row, "fit2_k"],
-                               v = gc_summarized[sum_row, "fit2_v"],
-                               q0 = gc_summarized[sum_row, "fit2_q0"],
-                               #m = gc_summarized[sum_row, "fit2_m"],
-                               d0 = gc_summarized[sum_row, "fit2_d0"],
+    pred_vals3 <- baranyi_func2(r = gc_summarized[sum_row, "fit3_r"],
+                               k = gc_summarized[sum_row, "fit3_k"],
+                               v = gc_summarized[sum_row, "fit3_v"],
+                               q0 = gc_summarized[sum_row, "fit3_q0"],
+                               d0 = gc_summarized[sum_row, "fit3_d0"],
                                t_vals = t_vals)
-    start_vals1 <- baranyi_func("k" = gc_summarized$pseudo_K[sum_row],
+    start_vals2 <- baranyi_func("k" = gc_summarized$pseudo_K[sum_row],
                                 "d0" = gc_data$cfu_ml[which(gc_data$uniq_well == my_well)[2]],
                                 "r" = gc_summarized$max_percap_gr_rate[sum_row],
                                 "v" = 1, 
@@ -1401,7 +1400,7 @@ if(make_curveplots) {
                                  #  exp(-gc_summarized$max_percap_gr_rate[sum_row]*
                                  #        gc_summarized$max_percap_gr_time[sum_row]),
                                t_vals = t_vals)
-    start_vals2 <- baranyi_func2("k" = gc_summarized$pseudo_K[sum_row],
+    start_vals3 <- baranyi_func2("k" = gc_summarized$pseudo_K[sum_row],
                                  "d0" = gc_data$cfu_ml[which(gc_data$uniq_well == my_well)[2]],
                                  "r" = gc_summarized$max_percap_gr_rate[sum_row],
                                  "v" = 1, 
@@ -1425,18 +1424,18 @@ if(make_curveplots) {
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
                  aes(x = Time_s, y = cfu_ml)) +
             geom_point(size = 0.5) +
-            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals1),
-                      mapping = aes(x = Time_s, y = pred_dens),
-                      color = "red", alpha = 0.3, lty = 3) +
-            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals1),
-                      mapping = aes(x = Time_s, y = pred_dens),
-                      color = "red", alpha = 0.7) +
             geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals2),
                       mapping = aes(x = Time_s, y = pred_dens),
-                      color = "blue", alpha = 0.3, lty = 3) +
+                      color = "red", alpha = 0.3, lty = 3) +
             geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals2),
                       mapping = aes(x = Time_s, y = pred_dens),
-                      color = "blue", alpha = 0.5, lwd = 2) +
+                      color = "red", alpha = 0.7) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = start_vals3),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "blue", alpha = 0.3, lty = 3) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals3),
+                      mapping = aes(x = Time_s, y = pred_dens),
+                      color = "blue", alpha = 0.7) +
             scale_y_continuous(trans = "log10") +
             geom_vline(aes(xintercept = gc_summarized$first_min_time[
               gc_summarized$uniq_well == my_well]), lty = 2) +
@@ -1749,6 +1748,34 @@ if (make_curveplots) {
   
 }
 
+##Explore rep well variation ----
+dir.create("./Growth_curve_rep_plots/", showWarnings = FALSE)
+if(make_statplots) {
+  for (col_i in grep("fit2_", colnames(gc_summarized))) {
+    for (proj in unique(gc_summarized$Proj)) {
+      for (media in unique(gc_summarized$Media)) {
+        temp <- gc_summarized[gc_summarized$Proj == proj &
+                                gc_summarized$Media == media, ]
+        tiff(paste(
+          "./Growth_curve_rep_plots/",
+          proj, "_", media,"_", names(gc_summarized)[col_i], ".tiff", 
+          sep = ""), 
+          width = 4, height = 5, units = "in", res = 150)
+        print(
+          ggplot(data = temp,
+                 aes_string(x = "Isol", 
+                            y = names(gc_summarized)[col_i])) +
+            geom_point(aes(color = Date)) +
+            facet_grid(Pop ~ Treat) +
+            ggtitle(paste(proj, media)))
+        dev.off()
+      }
+    }
+  }
+}
+
+
+
 #Isolate growth curves: summarize reps into isols, view variable data & distributions ----
 
 #Summarize replicate wells
@@ -1807,6 +1834,24 @@ gc_sum_isols <- as.data.frame(gc_sum_isols)
 # }
 
 #Generally, sd's between reps are small relative to the values themselves
+
+dir.create("./Growth_curve_rep_plots_isols/", showWarnings = FALSE)
+if(make_statplots) {
+  for (col_i in grep("fit2_.*_sd", colnames(gc_sum_isols))) {
+    temp <- gc_sum_isols
+    tiff(paste(
+      "./Growth_curve_rep_plots_isols/", names(gc_sum_isols)[col_i], ".tiff", 
+      sep = ""), 
+      width = 5, height = 5, units = "in", res = 150)
+    print(ggplot(data = temp, 
+                 aes_string(x = "Pop", y = names(gc_sum_isols)[col_i], 
+                            color = "Isol")) +
+            geom_point() +
+            facet_grid(Proj*Media ~ Treat, scales = "free_y"))
+    dev.off()
+  }
+}
+
 
 #View all the isols by variable
 my_facet_labels <- c("7x" = "Weak Phage", 
