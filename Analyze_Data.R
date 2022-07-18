@@ -521,10 +521,46 @@ gc_data <- gc_data[order(gc_data$uniq_well, gc_data$Time_s), ]
 #Add number (for easy reference)
 gc_data$uniq_well_num <- match(gc_data$uniq_well, unique(gc_data$uniq_well))
 
+#Smooth data
+gc_data$sm_loess_25k <- NA
+gc_data$sm_loess_3600 <- NA
+for (my_well in unique(gc_data$uniq_well)) {
+  #(leaving out the first half hour of data)
+  my_rows <- which(gc_data$uniq_well == my_well &
+                     gc_data$Time_s > 1800)
+  #Based on later checking, wells 13 and 201 need slight curation
+  if (my_well == "2017-A_7x_Anc_Anc_Anc_1_Orig") {
+    my_rows <- which(gc_data$uniq_well == my_well &
+                       gc_data$Time_s > 10000)
+  }
+  if (my_well == "2017-E_7x_C_L_E_1_Orig") {
+    my_rows <- which(gc_data$uniq_well == my_well &
+                       gc_data$Time_s > 4000)
+  }
+  
+  #Calculate the median timestep (timesteps actually vary slightly in
+  # the number of seconds they were recorded as differing by)
+  med_timestep <- median(gc_data$Time_s[my_rows[2]:my_rows[length(my_rows)]]-
+                   gc_data$Time_s[my_rows[1]:my_rows[(length(my_rows)-1)]])
+  
+  #Smooth with loess (based on window of ~7 hrs, or span of ~0.4)
+  gc_data$sm_loess_25k[my_rows] <- 
+    loess(cfu_ml ~ Time_s, 
+          data = gc_data[my_rows, ],
+          span = ((25000/med_timestep)+1)/length(my_rows),
+          degree = 2)$fitted
+  #(based on window of 60 mins)
+  gc_data$sm_loess_3600[my_rows] <- 
+    loess(cfu_ml ~ Time_s, 
+          data = gc_data[my_rows, ],
+          span = ((3600/med_timestep)+1)/length(my_rows),
+          degree = 1)$fitted
+}
+
 #Define function that calculates derivatives
 calc_deriv <- function(density, percapita = FALSE,
-                          subset_by = NULL, time = NULL,
-                          time_normalize = NULL) {
+                       subset_by = NULL, time = NULL,
+                       time_normalize = NULL) {
   #Note! density values must be sorted sequentially into their unique sets already
   
   #Provided a vector of density values, this function returns (by default) the
@@ -566,42 +602,6 @@ calc_deriv <- function(density, percapita = FALSE,
     ans[subset_by[2:length(subset_by)] != subset_by[1:(length(subset_by)-1)]] <- NA
   }
   return(c(ans, NA))
-}
-
-#Smooth data
-gc_data$sm_loess_25k <- NA
-gc_data$sm_loess_3600 <- NA
-for (my_well in unique(gc_data$uniq_well)) {
-  #(leaving out the first half hour of data)
-  my_rows <- which(gc_data$uniq_well == my_well &
-                     gc_data$Time_s > 1800)
-  #Based on later checking, wells 13 and 201 need slight curation
-  if (my_well == "2017-A_7x_Anc_Anc_Anc_1_Orig") {
-    my_rows <- which(gc_data$uniq_well == my_well &
-                       gc_data$Time_s > 10000)
-  }
-  if (my_well == "2017-E_7x_C_L_E_1_Orig") {
-    my_rows <- which(gc_data$uniq_well == my_well &
-                       gc_data$Time_s > 4000)
-  }
-  
-  #Calculate the median timestep (timesteps actually vary slightly in
-  # the number of seconds they were recorded as differing by)
-  med_timestep <- median(gc_data$Time_s[my_rows[2]:my_rows[length(my_rows)]]-
-                   gc_data$Time_s[my_rows[1]:my_rows[(length(my_rows)-1)]])
-  
-  #Smooth with loess (based on window of ~7 hrs, or span of ~0.4)
-  gc_data$sm_loess_25k[my_rows] <- 
-    loess(cfu_ml ~ Time_s, 
-          data = gc_data[my_rows, ],
-          span = ((25000/med_timestep)+1)/length(my_rows),
-          degree = 2)$fitted
-  #(based on window of 60 mins)
-  gc_data$sm_loess_3600[my_rows] <- 
-    loess(cfu_ml ~ Time_s, 
-          data = gc_data[my_rows, ],
-          span = ((3600/med_timestep)+1)/length(my_rows),
-          degree = 1)$fitted
 }
 
 #Calculate growth per hour from loess curve
