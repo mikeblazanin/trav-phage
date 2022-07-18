@@ -1140,7 +1140,7 @@ logis_fit_err <- function(params, t_vals, dens_vals, t_offset) {
   err <- sum((log10(pred_vals) - log10(dens_vals))**2)
   if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
 }
-
+  
 baranyi_func <- function(r, k, v, q0, m, d0, t_vals) {
   #Copied from Ram et al 2019
   if (anyNA(c(r, k, v, q0, m, d0, t_vals))) {return(NA)}
@@ -1159,6 +1159,15 @@ baranyi_func2 <- function(r, k, v, q0, d0, t_vals) {
   t_vals_hrs <- t_vals/3600
   a <- t_vals_hrs + 1/r*log((exp(-r*t_vals_hrs)+q0)/(1+q0))
   d <- k/(1-(1-((k/d0)**v))*exp(-r*v*a))**(1/v)
+  return(d)
+}
+
+baranyi_func3 <- function(r, k, v, d0, t_vals) {
+  #Modified from Ram et al 2019 where a(t) = 1
+  # (reducing to logistic with decel param)
+  if (anyNA(c(r, k, v, d0, t_vals))) {return(NA)}
+  t_vals_hrs <- t_vals/3600
+  d <- k/((1-(1-((k/d0)**v))*exp(-r*v*t_vals_hrs))**(1/v))
   return(d)
 }
 
@@ -1201,6 +1210,18 @@ baranyi_fit2_err <- function(params, t_vals, dens_vals) {
   if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
 }
 
+baranyi_fit3_err <- function(params, t_vals, dens_vals) {
+  #params <- c("logk" = ..., "logd0" = ..., "r" = ..., "v" = ...)
+  pred_vals <- baranyi_func3(r = params["r"],
+                             k = 10**params["logk"],
+                             v = params["v"],
+                             d0 = 10**params["logd0"],
+                             t_vals = t_vals)
+  pred_vals[pred_vals < 0] <- 0
+  err <- sum((log10(pred_vals) - log10(dens_vals))**2)
+  if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
+}
+
 #Do fitting
 gc_summarized <- cbind(gc_summarized,
                        data.frame("fit_r" = as.numeric(NA), 
@@ -1220,7 +1241,12 @@ gc_summarized <- cbind(gc_summarized,
                                   "fit3_v" = as.numeric(NA), 
                                   "fit3_q0" = as.numeric(NA),
                                   "fit3_d0" = as.numeric(NA),
-                                  "fit3_err" = as.numeric(NA)))
+                                  "fit3_err" = as.numeric(NA),
+                                  "fit4_r" = as.numeric(NA), 
+                                  "fit4_k" = as.numeric(NA),
+                                  "fit4_v" = as.numeric(NA), 
+                                  "fit4_d0" = as.numeric(NA),
+                                  "fit4_err" = as.numeric(NA)))
 for (sum_row in 1:nrow(gc_summarized)) {
   if (!is.na(gc_summarized$pseudo_K[sum_row])) {
     my_well <- gc_summarized$uniq_well[sum_row]
@@ -1307,12 +1333,24 @@ for (sum_row in 1:nrow(gc_summarized)) {
                    dens_vals = gc_data$cfu_ml[myrows2],
                    t_vals = gc_data$Time_s[myrows2],
                    method = "BFGS")
+    temp4 <- optim(par = c("logk" = log10(my_pseudo_K),
+                           "logd0" = log10(my_d0),
+                           "r" = my_r,
+                           "v" = 1),
+                   fn = baranyi_fit3_err,
+                   dens_vals = gc_data$cfu_ml[myrows1],
+                   t_vals = gc_data$Time_s[myrows1],
+                   method = "L-BFGS-B",
+                   #logk, logd0, r, v, m, q0
+                   lower = c(5, 4, 0, 0),
+                   upper = c(11, 10, 10, 50))
     gc_summarized[sum_row, 
                   c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err",
                     "fit2_r", "fit2_k", "fit2_v", "fit2_q0",
                     "fit2_m", "fit2_d0", "fit2_err",
                     "fit3_r", "fit3_k", "fit3_v", "fit3_q0",
-                    "fit3_d0", "fit3_err")] <-
+                    "fit3_d0", "fit3_err",
+                    "fit4_r", "fit4_k", "fit4_v", "fit4_d0", "fit4_err")] <-
       data.frame("fit_r" = temp1$par["r"], 
                  "fit_k" = 10**temp1$par["logk"],
                  "fit_d0" = temp1$par["d0"], 
@@ -1330,7 +1368,12 @@ for (sum_row in 1:nrow(gc_summarized)) {
                  "fit3_v" = temp3$par["v"], 
                  "fit3_q0" = temp3$par["q0"],
                  "fit3_d0" = 10**temp3$par["logd0"],
-                 "fit3_err" = temp3$value)
+                 "fit3_err" = temp3$value,
+                 "fit4_r" = temp4$par["r"], 
+                 "fit4_k" = 10**temp4$par["logk"],
+                 "fit4_v" = temp4$par["v"], 
+                 "fit4_d0" = 10**temp4$par["logd0"],
+                 "fit4_err" = temp4$value)
   }
 }
 
@@ -1346,16 +1389,24 @@ if(make_curveplots) {
       gc_summarized[sum_row, c("fit_r", "fit_k", "fit_d0", "fit_delta", "fit_err")]),
       fit_k/(1+(((fit_k-fit_d0)/fit_d0)*
                   exp(-fit_r*(t_vals_hrs-offset_hrs)))))
+    pred_vals4 <- baranyi_func3(r = gc_summarized[sum_row, "fit4_r"],
+                               k = gc_summarized[sum_row, "fit4_k"],
+                               v = gc_summarized[sum_row, "fit4_v"],
+                               d0 = gc_summarized[sum_row, "fit4_d0"],
+                               t_vals = t_vals)
     
     png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
         width = 4, height = 4, units = "in", res = 300)
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
                  aes(x = Time_s, y = sm_loess_25k)) +
-            geom_line(lwd = 1.5) +
+            geom_line(alpha = 0.5) +
             geom_point(size = 0.5, aes(y = cfu_ml)) +
-            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+            # geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
+            #           mapping = aes(x = Time_s, y = pred_dens),
+            #           color = "red", alpha = 0.5) +
+            geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals4),
                       mapping = aes(x = Time_s, y = pred_dens),
-                      color = "red") +
+                      color = "blue", alpha = 0.5) +
             scale_y_continuous(trans = "log10") +
             geom_vline(aes(xintercept = gc_summarized$max_percap_gr_time[
               gc_summarized$uniq_well == my_well]), lty = 2) +
@@ -1501,6 +1552,12 @@ if (make_statplots) {
           scale_x_continuous(trans = "log10") +
           geom_abline(slope = 1, intercept = 0, lty = 2))
   hist(gc_summarized$fit_err)
+  print(ggplot(data = gc_summarized,
+               aes(x = fit3_r, y = fit2_r)) +
+          geom_point() +
+          scale_x_continuous(trans = "log10") +
+          scale_y_continuous(trans = "log10") +
+          geom_abline(slope = 1, intercept = 0, lty = 2))
 }     
 
 #Calculate lag time
