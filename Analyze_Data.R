@@ -442,6 +442,9 @@ resis_data_sum <- summarize(resis_data_temp,
                             EOP_avg = 10**mean(log10(EOP)),
                             EOP_bd = any(bd))
 
+resis_data_temp <- 
+  resis_data_temp[, c("Proj", "Pop", "Treat", "Isol", "EOP", "bd")]
+
 #Make plot of pop-level data
 if (make_statplots) {
   tiff("./Output_figures/Isol_resis_stacked_pops.tiff", width = 4, height = 4,
@@ -1256,6 +1259,11 @@ if(make_curveplots) {
 #In all cases, the other rep well worked well and so these wells
 #can just be excluded from future analyses.
 
+rows <- which(gc_summarized$uniq_well_num %in%
+                c(29, 38, 89, 128, 145, 181, 182, 185, 193,
+                  204, 261, 361, 369, 398, 427))
+gc_summarized[rows, grep("fit4_", colnames(gc_summarized))] <- NA
+
 #Make plots of baranyi fits
 dir.create("./Growth_curve_plots_fits2", showWarnings = F)
 if(make_curveplots) {
@@ -1647,7 +1655,7 @@ if (make_curveplots) {
 ##Explore rep well variation ----
 dir.create("./Growth_curve_rep_plots/", showWarnings = FALSE)
 if(make_statplots) {
-  for (col_i in grep("fit2_", colnames(gc_summarized))) {
+  for (col_i in grep("fit4_", colnames(gc_summarized))) {
     for (proj in unique(gc_summarized$Proj)) {
       for (media in unique(gc_summarized$Media)) {
         temp <- gc_summarized[gc_summarized$Proj == proj &
@@ -1659,16 +1667,39 @@ if(make_statplots) {
           width = 4, height = 5, units = "in", res = 150)
         print(
           ggplot(data = temp,
-                 aes_string(x = "Isol", 
+                 aes_string(x = "Date", 
                             y = names(gc_summarized)[col_i])) +
-            geom_point(aes(color = Date)) +
+            geom_point(aes(color = Isol)) +
             facet_grid(Pop ~ Treat) +
-            ggtitle(paste(proj, media)))
+            ggtitle(paste(proj, media)) +
+            theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)))
         dev.off()
       }
     }
   }
 }
+
+#Flagging isols for variance in r
+#7x A C C Orig
+#7x A L E Orig
+#7x B C C Orig
+#7x C L E Orig
+#7x D G B Orig
+#7x Anc A Rich
+#7x Anc B Rich
+#7x C C A Rich
+#7x D G B Rich
+#7x E L B Rich
+#125 B C B Orig
+#125 B C E Orig
+#125 B L A Orig
+#125 B L B Orig
+#125 B L D Orig
+#125 B C E Rich
+#125 C C E Rich
+#125 D G C Rich
+#
+
 
 
 
@@ -1677,24 +1708,56 @@ if(make_statplots) {
 #Summarize replicate wells
 gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
                           Isol, Media)
-gc_sum_isols <- summarize_at(gc_summarized,
-                            .funs = c(avg = mean, sd = sd),
-                            .vars = c(
-                              "first_min",
-                              "max_percap_gr_rate",
-                              "max_percap_gr_dens",
-                              "max_percap_gr_timesincemin",
-                              "pseudo_K",
-                              "pseudo_K_timesincemin",
-                              "pseudo_K_timesince_maxpercap",
-                              "fit_r",
-                              "fit_k",
-                              "fit_d0",
-                              "fit2_r", "fit2_k", "fit2_v", "fit2_v_log10", 
-                              "fit2_q0", "fit2_m", "fit2_d0", "fit2_lagtime_hrs",
-                              "fit3_r", "fit3_k", "fit3_v", 
-                              "fit3_q0", "fit3_d0"))
+gc_sum_isols <- summarize_at(
+  gc_summarized,
+  .funs = c(avg = function(x) {mean(x, na.rm = TRUE)}, 
+            sd = function(x) {sd(x, na.rm = TRUE)}),
+  .vars = c(
+    "first_min",
+    "max_percap_gr_rate",
+    "max_percap_gr_dens",
+    "max_percap_gr_time",
+    "pseudo_K",
+    "pseudo_K_time",
+    "fit4_r",
+    "fit4_k",
+    "fit4_v",
+    "fit4_d0",
+    "fit4_err"))
+# "fit2_r", "fit2_k", "fit2_v", "fit2_v_log10", 
+# "fit2_q0", "fit2_m", "fit2_d0", "fit2_lagtime_hrs",
+# "fit3_r", "fit3_k", "fit3_v", 
+# "fit3_q0", "fit3_d0"))
 gc_sum_isols <- as.data.frame(gc_sum_isols)
+
+for (proj in unique(gc_sum_isols$Proj)) {
+  for (media in unique(gc_sum_isols$Media)) {
+    temp <- gc_sum_isols[gc_sum_isols$Proj == proj &
+                           gc_sum_isols$Media == media, 
+                         c(1:6, 24)]
+    temp$grpnm <- paste(temp$Date, temp$Proj, temp$Pop, temp$Treat, temp$Isol, temp$Media,
+                    sep = "_")
+    temp <- temp[order(-temp$fit4_r_sd), ]
+    print(temp[1:10, c(7, 8)])
+  }
+}
+
+#Taking a look at what to cut out:
+#for 7x Orig, would like to cut top 7 (above 0.13 sd)
+#for 7x Rich would like to cut top 5 (above 0.12 sd)
+#for 125 Orig would like to cut top 6 (above 0.16 sd)
+#for 125 Rich would like to cut top 5 (above 0.14 sd)
+#Will use 0.12 as 7x cutoff, .14 as 125 cutoff
+
+gc_sum_isols[(gc_sum_isols$Proj == "7x" & 
+                !is.na(gc_sum_isols$fit4_r_sd) &
+                gc_sum_isols$fit4_r_sd > 0.12),
+             grep("fit4_", colnames(gc_sum_isols))] <- NA
+gc_sum_isols[gc_sum_isols$Proj == "125" & 
+               !is.na(gc_sum_isols$fit4_r_sd) &
+               gc_sum_isols$fit4_r_sd > 0.14,
+             grep("fit4_", colnames(gc_sum_isols))] <- NA
+
 
 #Take a look at the standard deviations between replicate wells
 # Just raw sd vals (w/ red line for mean avg value)
@@ -1733,7 +1796,7 @@ gc_sum_isols <- as.data.frame(gc_sum_isols)
 
 dir.create("./Growth_curve_rep_plots_isols/", showWarnings = FALSE)
 if(make_statplots) {
-  for (col_i in grep("fit2_.*_sd", colnames(gc_sum_isols))) {
+  for (col_i in grep("fit_.*_sd", colnames(gc_sum_isols))) {
     temp <- gc_sum_isols
     tiff(paste(
       "./Growth_curve_rep_plots_isols/", names(gc_sum_isols)[col_i], ".tiff", 
@@ -1757,38 +1820,42 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 dir.create("./Growth_curve_variables_plots/", showWarnings = FALSE)
 if (make_statplots) {
-  my_vars <- c("first_min_", 
+  my_vars <- c(
+    #"first_min_", 
                #"first_min_time_", 
-               "max_percap_gr_rate_", 
+               #"max_percap_gr_rate_", 
                #"max_percap_gr_time_", 
                #"max_percap_gr_dens_", 
                #"max_percap_gr_timesincemin_",
-               "pseudo_K_", 
+               #"pseudo_K_", 
                #"pseudo_K_time_", 
                #"pseudo_K_timesincemin_",
                #"pseudo_K_timesince_maxpercap_",
                #"fit_r_", "fit_k_", "fit_d0_",
-               "fit2_r_", "fit2_k_", "fit2_v_", "fit2_v_log10_",
-               "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_"
+               # "fit2_r_", "fit2_k_", "fit2_v_", "fit2_v_log10_",
+               # "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_"
                #"fit3_r_", "fit3_k_", "fit3_v_", 
                #"fit3_q0_", "fit3_d0_"
+    "fit4_r_", "fit4_k_", "fit4_v_", "fit4_d0_"
                )
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
-    var_name <- c("First minimum density (cfu/mL)",
-                  "Maximum per-capita growth rate",
+    var_name <- c(
+      #"First minimum density (cfu/mL)",
+                  #"Maximum per-capita growth rate",
                   #"Density at maximum per-capita growth rate",
                   #"Time until maximum per-capita growth rate",
-                  "Density at diauxic shift (cfu/mL)",
+                  #"Density at diauxic shift (cfu/mL)",
                   #"Time until diauxic shift (from min)",
                   #"Time until diauxic shift (from max percap)",
                   #"Fit r", "Fit carrying capacity", "Fit init density",
-                  "Maximum Per Capita Growth Rate (r) (/hr)", 
-                  "Density at Diauxic Shift (k) (cfu/mL)", 
-                  "Deceleration Parameter (v)", 
-                  "Deceleration Parameter (log10(v))", 
-                  "Fit 2 q0", "Fit 2 m", "fit 2 d0", 
-                  "Lag time (hrs)")[i]
+                  #"Maximum Per Capita Growth Rate (r) (/hr)", 
+                  #"Density at Diauxic Shift (k) (cfu/mL)", 
+                  #"Deceleration Parameter (v)", 
+                  #"Deceleration Parameter (log10(v))", 
+                  #"Fit 2 q0", "Fit 2 m", "fit 2 d0", 
+                  #"Lag time (hrs)"
+      "r", "k", "v", "d0")[i]
     var <- paste(var_root, "avg", sep = "")
     var_sd <- paste(var_root, "sd", sep = "")
     tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
@@ -1911,6 +1978,49 @@ if (make_statplots) {
 # points to normalize by ancestor
 # and it doesn't make any others do anything weird
 #So we should move forward only with relative variables
+
+gc_sum_isols$PPT <- 
+  paste(gc_sum_isols$Proj,gc_sum_isols$Pop, gc_sum_isols$Treat, sep = "_")
+gc_sum_isols$PPTI <- 
+  paste(gc_sum_isols$Proj, gc_sum_isols$Pop, gc_sum_isols$Treat, 
+        gc_sum_isols$Isol, sep = "_")
+
+library(lme4)
+
+mixed_model1 = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
+                   data = gc_sum_isols[gc_sum_isols$Proj == "7x" &
+                                         gc_sum_isols$Media == "Orig",])
+mixed_model2 = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
+                   data = gc_sum_isols[gc_sum_isols$Proj == "7x" &
+                                         gc_sum_isols$Media == "Rich",])
+mixed_model3 = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
+                   data = gc_sum_isols[gc_sum_isols$Proj == "125" &
+                                         gc_sum_isols$Media == "Orig",])
+mixed_model4 = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
+                   data = gc_sum_isols[gc_sum_isols$Proj == "125" &
+                                         gc_sum_isols$Media == "Rich",])
+
+gc_isols_merged <- dplyr::full_join(gc_sum_isols, resis_data_temp)
+gc_isols_merged$resis_cat <-
+  ifelse(gc_isols_merged$bd, "Resis",
+         ifelse(gc_isols_merged$EOP > 0.1,
+                "Sens", "Part Resis"))
+gc_isols_merged$resis_cat <- factor(gc_isols_merged$resis_cat,
+                                    levels = c("Sens", "Part Resis", "Resis"))
+
+mixed_model5 = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
+                                             gc_isols_merged$Media == "Orig",])
+mixed_model6 = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
+                                             gc_isols_merged$Media == "Rich",])
+mixed_model7 = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
+                                             gc_isols_merged$Media == "Orig",])
+mixed_model8 = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
+                                             gc_isols_merged$Media == "Rich",])
+
 
 ##Isolate growth curves: summarize isols into pops, add resis & migr data ----
 
