@@ -524,6 +524,8 @@ gc_data$uniq_well_num <- match(gc_data$uniq_well, unique(gc_data$uniq_well))
 #Smooth data
 gc_data$sm_loess_25k <- NA
 gc_data$sm_loess_3600 <- NA
+gc_data$sm_movmed_3 <- NA
+gc_data$sm_movmed_3_loess_3600 <- NA
 for (my_well in unique(gc_data$uniq_well)) {
   #(leaving out the first half hour of data)
   my_rows <- which(gc_data$uniq_well == my_well &
@@ -555,6 +557,16 @@ for (my_well in unique(gc_data$uniq_well)) {
           data = gc_data[my_rows, ],
           span = ((3600/med_timestep)+1)/length(my_rows),
           degree = 1)$fitted
+  gc_data$sm_movmed_3[my_rows] <- 
+    gcplyr::moving_median(cfu_ml ~ Time_s,
+                          data = gc_data[my_rows, ],
+                          window_width_n = 3)
+  gc_data$sm_movmed_3_loess_3600[my_rows] <- 
+    c(NA, loess(sm_movmed_3 ~ Time_s, 
+          data = gc_data[my_rows, ],
+          span = ((3600/med_timestep)+1)/length(my_rows),
+          degree = 1)$fitted,
+      NA)
 }
 
 #Define function that calculates derivatives
@@ -605,17 +617,35 @@ calc_deriv <- function(density, percapita = FALSE,
 }
 
 #Calculate growth per hour from loess curve
+gc_data$deriv_sm_loess_3600 <- calc_deriv(gc_data$sm_loess_3600,
+                                         subset_by = gc_data$uniq_well,
+                                         time = gc_data$Time_s,
+                                         time_normalize = 3600)
 gc_data$deriv_sm_loess_25k <- calc_deriv(gc_data$sm_loess_25k,
                                      subset_by = gc_data$uniq_well,
                                      time = gc_data$Time_s,
                                      time_normalize = 3600)
+gc_data$deriv_sm_movmed_3_loess_3600 <- calc_deriv(gc_data$sm_movmed_3_loess_3600,
+                                         subset_by = gc_data$uniq_well,
+                                         time = gc_data$Time_s,
+                                         time_normalize = 3600)
 
 #Calculate per capita growth per hour from loess curve
+gc_data$percap_deriv_sm_loess_3600 <- calc_deriv(gc_data$sm_loess_3600,
+                                                percapita = TRUE,
+                                                subset_by = gc_data$uniq_well,
+                                                time = gc_data$Time_s,
+                                                time_normalize = 3600)
 gc_data$percap_deriv_sm_loess_25k <- calc_deriv(gc_data$sm_loess_25k,
                                             percapita = TRUE,
                                             subset_by = gc_data$uniq_well,
                                             time = gc_data$Time_s,
                                             time_normalize = 3600)
+gc_data$percap_deriv_sm_movmed_3_loess_3600 <- calc_deriv(gc_data$sm_movmed_3_loess_3600,
+                                                percapita = TRUE,
+                                                subset_by = gc_data$uniq_well,
+                                                time = gc_data$Time_s,
+                                                time_normalize = 3600)
   
 #View samples of original & smoothed curves
 # as well as derivatives (per cap & not) of both orig and smoothed curves
@@ -649,237 +679,24 @@ if (make_curveplots) {
   }
 }
 
-find_local_extrema <- function(values, 
-                               return_maxima = TRUE,
-                               return_minima = TRUE,
-                               width_limit = NULL,
-                               height_limit = NULL,
-                               remove_endpoints = TRUE,
-                               na.rm = FALSE) {
-  #Takes a vector of values and returns a vector of the indices
-  # of all local value extrema (by default, returns both maxima and minima)
-  # To only return maxima or minima, change return_maxima/return_minima to FALSE
-
-  #width_limit and/or height_limit must be provided
-  #Width is how wide the window will be to look for a maxima/minima
-  # Narrower width will be more sensitive to narrow local maxima/minima
-  # Wider width will be less sensitive to narrow local maxima/minima
-  #Height is how high or low a single step is allowed to take
-  # e.g. a maxima-finding function will not pass a valley deeper
-  # than height_limit
-  #Note that this also limits approaches to extrema, so if set too small
-  # function may converge on non-peaks
-  #If both width_limit and height_limit are provided, steps are limited
-  # conservatively (a single step must meet both criteria)
-  
-  #This function is designed to be compatible with dplyr::group_by and summarize
-  
-  #Check inputs
-  if (!return_maxima & !return_minima) {
-    stop("Both return_maxima and return_minima are FALSE, at least one must be TRUE")
-  }
-  if (is.null(width_limit) & is.null(height_limit)) {
-    stop("Either width_limit or height_limit must be provided")
-  }
-  if (!is.null(width_limit)) {
-    if (width_limit%%2 == 0) {
-      warning("width_limit must be odd, will use ", width_limit-1, " as width_limit")
-      width_limit <- width_limit - 1
-    }
-  }
-  if (is.null(width_limit) & !is.null(height_limit)) {
-    warning("height_limit alone tends to be sensitive to height_limit parameter, use with caution")
-  }
-  if (na.rm == TRUE & sum(is.na(values)) > 0) {
-    if (!all(is.na(values[(1+length(values)-sum(is.na(values))):length(values)]))) {
-      warning("Removing NAs found within values vector, returned indices will refer to non-NA values")
-    }
-    values <- values[!is.na(values)]
-  } else if(any(is.na(values))) {
-    stop("Some provided values are NA and na.rm = FALSE")
-  }
-  
-  #Define sub-function to find limits of the window
-  get_window_limits <- function(cnt_pos,
-                                width_limit = NULL,
-                                height_limit = NULL,
-                                looking_for = c("minima", "maxima"),
-                                values = NULL) {
-    #Check inputs
-    if (length(looking_for) > 1) {stop("looking_for must be specified")}
-    if (!is.null(height_limit) & is.null(values)) {
-        stop("height_limit is specified, but no values are provided")
-    }
-    if (is.null(width_limit) & is.null(height_limit)) {
-      stop("Either width_limit or height_limit must be provided")
-    }
-    
-    #Define window limits
-    window_start <- c(NA, NA)
-    if (!is.null(width_limit)) { #using width limit
-      window_start[1] <- max(c(1, cnt_pos-floor(width_limit/2)))
-    }
-    if (!is.null(height_limit)) { #using height limig
-      #For startpoint height, we want the latest point that is
-      #behind of our current point and
-      #either:
-      # below current height - height limit
-      # or above current height + height limit
-      #Then we move one place forward 
-      # (so it's the last value w/in height limit)
-        window_start[2] <- max(c(1,
-                                 1+which(1:length(values) < cnt_pos &
-                                         (values >= (values[cnt_pos] + height_limit) |
-                                            values <= (values[cnt_pos] - height_limit)))))
-        #Make sure we're going at least 1 point backwards
-        if(window_start[2] >= cnt_pos) {window_start[2] <- cnt_pos-1}
-    }
-    window_end <- c(NA, NA)
-    if (!is.null(width_limit)) { #using width limit
-      window_end[1] <- min(c(length(values), cnt_pos+floor(width_limit/2)))
-    }
-    if (!is.null(height_limit)) { #using height limit
-        #For endpoint height, we want the earliest point that is
-        #forward of our current point and
-        #either:
-        # below current height - height limit
-        # or above current height + height limit
-        #Then we move one place back 
-        # (so it's the last value w/in height limit)
-        window_end[2] <- min(c(length(values),
-                               -1+which(1:length(values) > cnt_pos & #not backwards
-                                    (values <= (values[cnt_pos] - height_limit) |
-                                      values >= (values[cnt_pos] + height_limit)))))
-        #Make sure we're going at least one point forwards
-        if (window_end[2] <= cnt_pos) {window_end[2] <- cnt_pos+1}
-    }
-    return(c(max(window_start, na.rm = T), min(window_end, na.rm = T)))
-  }
-  
-  find_next_extrema <- function(cnt_pos, values,
-                        width_limit = NULL,
-                        height_limit = NULL,
-                        looking_for = c("minima", "maxima")) {
-    if (cnt_pos == length(values)) {best_pos <- cnt_pos-1
-    } else {best_pos <- cnt_pos+1}
-    
-    #Save the starting position so we never go backwards
-    start_pos <- cnt_pos
-    
-    ##Looking for next maxima
-    if(looking_for == "maxima") {
-      while (cnt_pos != best_pos) {
-        #Move the previous best pointer to current pointer location
-        best_pos <- cnt_pos
-        #Get next window limits
-        window_lims <- get_window_limits(cnt_pos = cnt_pos,
-                                         width_limit = width_limit,
-                                         height_limit = height_limit,
-                                         looking_for = "maxima",
-                                         values = values)
-        #Make sure we're not going backwards
-        window_lims <- c(max(start_pos, window_lims[1]),
-                         max(start_pos, window_lims[2]))
-        #Then move current pointer to highest point within window
-        # (making sure not to check non-integer indices, or indices below 1 or
-        #  higher than the length of the vector)
-        cnt_pos <- window_lims[1]-1+which.max(values[window_lims[1]:window_lims[2]])
-      }
-    ##Looking for next minima
-    } else if (looking_for == "minima") {
-      while (cnt_pos != best_pos) {
-        #Move the previous best pointer to current pointer location
-        best_pos <- cnt_pos
-        #Get next window limits
-        window_lims <- get_window_limits(cnt_pos = cnt_pos,
-                                         width_limit = width_limit,
-                                         height_limit = height_limit,
-                                         looking_for = "minima",
-                                         values = values)
-        #Make sure we're not going backwards
-        window_lims <- c(max(start_pos, window_lims[1]),
-                         max(start_pos, window_lims[2]))
-        #Then move current pointer to lowest point within window
-        # (making sure not to check non-integer indices, or indices below 1 or
-        #  higher than the length of the vector)
-        cnt_pos <- window_lims[1]-1+which.min(values[window_lims[1]:window_lims[2]])
-      }
-    }
-    return(best_pos)
-  }
-  
-  cnt_pos <- 1
-  ##Find first maxima
-  maxima_list <- c(find_next_extrema(cnt_pos, values,
-                                     width_limit = width_limit,
-                                     height_limit = height_limit,
-                                     looking_for = "maxima"))
-  ##Find first minima
-  minima_list <- c(find_next_extrema(cnt_pos, values,
-                                     width_limit = width_limit,
-                                     height_limit = height_limit,
-                                     looking_for = "minima"))
-  
-  ##Check for next extrema until...
-  while (TRUE) {
-    #we're finding repeats
-    if (any(duplicated(c(minima_list, maxima_list)))) {break}
-    #or we hit the end of the values
-    if (length(values) %in% c(maxima_list, minima_list)) {
-      break
-    }
-    #Since maxima & minima must alternate, always start with furthest one 
-    # we've found so far
-    cnt_pos <- max(c(minima_list, maxima_list))
-    #we're looking for a maxima next
-    if (cnt_pos %in% minima_list) {
-      maxima_list <- c(maxima_list,
-                       find_next_extrema(cnt_pos, values,
-                                         width_limit = width_limit,
-                                         height_limit = height_limit,
-                                         looking_for = "maxima"))
-      #we're looking for a minima next
-    } else if (cnt_pos %in% maxima_list) {
-      minima_list <- c(minima_list,
-                       find_next_extrema(cnt_pos, values,
-                                         width_limit = width_limit,
-                                         height_limit = height_limit,
-                                         looking_for = "minima"))
-    }
-  }
-  
-  #Combine maxima & minima values & remove duplicates
-  output <- c()
-  if (return_maxima) {output <- c(output, maxima_list)}
-  if (return_minima) {output <- c(output, minima_list)}
-  #If remove endpoints is true, remove first or last values from return
-  if (remove_endpoints) {
-    if (1 %in% output) {output <- output[-which(output == 1)]}
-    if (length(values) %in% output) {
-      output <- output[-which(output == length(values))]}
-  }
-  #Remove duplicates
-  output <- unique(output)
-  #Order
-  output <- output[order(output)]
-  
-  return(output)
-}
-
 #Group data by unique wells
 gc_data <- group_by(gc_data, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
                     uniq_well, uniq_well_num)
 
-# at max percap growth rate, find:
-#     per capita growth rate (r)
-#     density
-#     time since some low density (lag time)
-# at first local minima of non-percap growth rate after max growth rate 
-#   (pseudo carrying capacity)
-#   at pseudo K, find:
-#     density (carrying capacity)
-#     time since max percap growth rate
-#     time since low density
+#For later fitting of functions to the data, we just need to identify:
+# at first min
+#   density
+#   time
+# at max percap growth rate
+#   rate (r)
+#   density
+#   time
+# at first local minima of non-percap growth rate after max growth rate
+#  (density of diauxic shift, aka pseudo carrying capacity)
+#   density
+#   time
+
+find_local_extrema <- gcplyr::find_local_extrema
 
 #Define the window widths (sensitivity) for local extrema search
 first_min_time_window <- 7200
@@ -889,108 +706,91 @@ pseudo_K_time_window <- 7200
 
 #Summarize data (note: message is for grouping of **output**)
 gc_summarized <- dplyr::summarize(gc_data,
-  #we know all the added nas are at start, derivs have extra na's at the end
-  # but those don't exist in the sm_loess itself
-  num_nas = sum(is.na(sm_loess_3600)),
   #Find the first minima in total density
    first_min_index = (find_local_extrema(sm_loess_3600,
+                                         x = Time_s,
+                                         width_limit = first_min_time_window,
                                         return_maxima = FALSE,
-                                        width_limit = (first_min_time_window/
-                                                         (Time_s[2]-Time_s[1])) + 1,
-                                        na.rm = T,
-                                        remove_endpoints = FALSE)[1]+num_nas),
+                                        return_endpoints = TRUE,
+                                        na.rm = TRUE)[1]),
    first_min = sm_loess_3600[first_min_index],
    first_min_time = Time_s[first_min_index],
-  #find peaks in per capita growth rate
-  max_percap_index =
-    #first find all peaks
-   (find_local_extrema(percap_deriv_sm_loess_25k,
-                                        return_minima = FALSE,
-                                        width_limit = (max_percap_time_window/
-                                                         (Time_s[2]-Time_s[1])) + 1,
-                                        na.rm = T,
-                                        remove_endpoints = F)[
-     #But save/use the first one that follows the minimum density
-     match(TRUE, find_local_extrema(percap_deriv_sm_loess_25k,
-                                    return_minima = FALSE,
-                                    width_limit = (max_percap_time_window/
-                                                     (Time_s[2]-Time_s[1])) + 1,
-                                    na.rm = T,
-                                    remove_endpoints = F) >= first_min_index)]+num_nas),
-  max_percap_gr_rate = percap_deriv_sm_loess_25k[max_percap_index],
+  #find max per capita growth rate
+  max_percap_index = 
+    #min(which(percap_deriv_sm_movmed_3_loess_3600 >= 0.5)),
+    ifelse(any(percap_deriv_sm_movmed_3_loess_3600 >= 0.5, na.rm = TRUE),
+           min(which(percap_deriv_sm_movmed_3_loess_3600 >= 0.5)),
+           min(which(percap_deriv_sm_movmed_3_loess_3600 >= 0.4))),
+  max_percap_gr_rate = percap_deriv_sm_movmed_3_loess_3600[max_percap_index],
   max_percap_gr_time = Time_s[max_percap_index],
-  max_percap_gr_dens = sm_loess_25k[max_percap_index],
-  max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
+  max_percap_gr_dens = sm_movmed_3_loess_3600[max_percap_index],
+  true_max_percap = max(percap_deriv_sm_movmed_3_loess_3600, na.rm = TRUE),
 
   #find the local minimas in total grow rate (slope of total density)
   #(which is the point when the diauxic shift occurs)
   pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
+                                       x = Time_s,
+                                       width_limit = pseudo_K_time_window,
                                       return_maxima = FALSE,
-                                      width_limit = (pseudo_K_time_window/
-                                                       (Time_s[2]-Time_s[1])) + 1,
-                                      na.rm = T,
-                                      remove_endpoints = T)[1]+num_nas),
+                                      return_endpoints = FALSE,
+                                      na.rm = T)[1]),
   pseudo_K = sm_loess_25k[pseudo_K_index],
   pseudo_K_time = Time_s[pseudo_K_index],
-  pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index],
-  pseudo_K_timesincemin = pseudo_K_time - first_min_time,
-  pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
+  pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index]
 )
 
-#Fix run 185
-temp <- gc_data[gc_data$uniq_well == "2017-E_7x_B_C_E_1_Orig", ]
-temp <- group_by(temp, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
-                    uniq_well, uniq_well_num)
-gc_summarized[which(gc_summarized$uniq_well == "2017-E_7x_B_C_E_1_Orig"), ] <- 
-  dplyr::summarize(
-    temp,
-    #we know all the added nas are at start, derivs have extra na's at the end
-    # but those don't exist in the sm_loess itself
-    num_nas = sum(is.na(sm_loess_3600)),
-    #Find the first minima in total density
-    first_min_index = (find_local_extrema(sm_loess_3600,
-                                          return_maxima = FALSE,
-                                          width_limit = (first_min_time_window/
-                                                           (Time_s[2]-Time_s[1])) + 1,
-                                          na.rm = T,
-                                          remove_endpoints = FALSE)[1]+num_nas),
-    first_min = sm_loess_3600[first_min_index],
-    first_min_time = Time_s[first_min_index],
-    #find peaks in per capita growth rate
-    max_percap_index =
-      #first find all peaks
-      (find_local_extrema(percap_deriv_sm_loess_25k,
-                          return_minima = FALSE,
-                          width_limit = (max_percap_time_window/
-                                           (Time_s[2]-Time_s[1])) + 1,
-                          na.rm = T,
-                          remove_endpoints = F)[
-                            #But save/use the first one that follows the minimum density
-                            match(TRUE, find_local_extrema(percap_deriv_sm_loess_25k,
-                                                           return_minima = FALSE,
-                                                           width_limit = (max_percap_time_window/
-                                                                            (Time_s[2]-Time_s[1])) + 1,
-                                                           na.rm = T,
-                                                           remove_endpoints = F) >= first_min_index)]+num_nas),
-    max_percap_gr_rate = percap_deriv_sm_loess_25k[max_percap_index],
-    max_percap_gr_time = Time_s[max_percap_index],
-    max_percap_gr_dens = sm_loess_25k[max_percap_index],
-    max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
-    
-    #find the local minimas in total grow rate (slope of total density)
-    #(which is the point when the diauxic shift occurs)
-    pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
-                                         return_maxima = FALSE,
-                                         width_limit = (pseudo_K_time_window/
-                                                          (Time_s[2]-Time_s[1])) + 1,
-                                         na.rm = T,
-                                         remove_endpoints = T)[2]+num_nas),
-    pseudo_K = sm_loess_25k[pseudo_K_index],
-    pseudo_K_time = Time_s[pseudo_K_index],
-    pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index],
-    pseudo_K_timesincemin = pseudo_K_time - first_min_time,
-    pseudo_K_timesince_maxpercap = pseudo_K_time - max_percap_gr_time
-  )
+# #Fix run 185
+# temp <- gc_data[gc_data$uniq_well == "2017-E_7x_B_C_E_1_Orig", ]
+# temp <- group_by(temp, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
+#                     uniq_well, uniq_well_num)
+# gc_summarized[which(gc_summarized$uniq_well == "2017-E_7x_B_C_E_1_Orig"), ] <- 
+#   dplyr::summarize(
+#     temp,
+#     #we know all the added nas are at start, derivs have extra na's at the end
+#     # but those don't exist in the sm_loess itself
+#     num_nas = sum(is.na(sm_loess_3600)),
+#     #Find the first minima in total density
+#     first_min_index = (find_local_extrema(sm_loess_3600,
+#                                           return_maxima = FALSE,
+#                                           width_limit = (first_min_time_window/
+#                                                            (Time_s[2]-Time_s[1])) + 1,
+#                                           na.rm = T,
+#                                           remove_endpoints = FALSE)[1]+num_nas),
+#     first_min = sm_loess_3600[first_min_index],
+#     first_min_time = Time_s[first_min_index],
+#     #find peaks in per capita growth rate
+#     max_percap_index =
+#       #first find all peaks
+#       (find_local_extrema(percap_deriv_sm_loess_25k,
+#                           return_minima = FALSE,
+#                           width_limit = (max_percap_time_window/
+#                                            (Time_s[2]-Time_s[1])) + 1,
+#                           na.rm = T,
+#                           remove_endpoints = F)[
+#                             #But save/use the first one that follows the minimum density
+#                             match(TRUE, find_local_extrema(percap_deriv_sm_loess_25k,
+#                                                            return_minima = FALSE,
+#                                                            width_limit = (max_percap_time_window/
+#                                                                             (Time_s[2]-Time_s[1])) + 1,
+#                                                            na.rm = T,
+#                                                            remove_endpoints = F) >= first_min_index)]+num_nas),
+#     max_percap_gr_rate = percap_deriv_sm_loess_25k[max_percap_index],
+#     max_percap_gr_time = Time_s[max_percap_index],
+#     max_percap_gr_dens = sm_loess_25k[max_percap_index],
+#     max_percap_gr_timesincemin = max_percap_gr_time - first_min_time,
+#     
+#     #find the local minimas in total grow rate (slope of total density)
+#     #(which is the point when the diauxic shift occurs)
+#     pseudo_K_index = (find_local_extrema(deriv_sm_loess_25k,
+#                                          return_maxima = FALSE,
+#                                          width_limit = (pseudo_K_time_window/
+#                                                           (Time_s[2]-Time_s[1])) + 1,
+#                                          na.rm = T,
+#                                          remove_endpoints = T)[2]+num_nas),
+#     pseudo_K = sm_loess_25k[pseudo_K_index],
+#     pseudo_K_time = Time_s[pseudo_K_index],
+#     pseudo_K_deriv = deriv_sm_loess_25k[pseudo_K_index]
+#     )
 
 #Change to data frame for cleanliness
 gc_summarized <- as.data.frame(gc_summarized)
@@ -1004,7 +804,9 @@ if (make_curveplots) {
   #484- nok, drop it (other rep is good)
   #496- nok, drop it (other rep is good)
   
-  wells_check <- c("2017-A_7x_Anc_Anc_Anc_1_Orig", "2017-E_7x_C_L_E_1_Orig")
+  wells_check <- gc_summarized$uniq_well[
+    is.na(gc_summarized$max_percap_index) | is.na(gc_summarized$pseudo_K_index)]
+    #c("2017-A_7x_Anc_Anc_Anc_1_Orig", "2017-E_7x_C_L_E_1_Orig")
   #This is the old bad wells:
   # wells_check <- c("2017-B_7x_C_L_B_1_Orig",
   #                  "2017-A_7x_Anc_Anc_Anc_1_Orig",
@@ -1044,10 +846,12 @@ if (make_curveplots) {
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = cfu_ml)) +
         geom_line(color = "red", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_3600),
+        geom_line(aes(y = sm_loess_3600),
                   color = "blue", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_25k),
+        geom_line(aes(y = sm_loess_25k),
                   color = "green", lwd = 0.5, alpha = 0.5) +
+        geom_line(aes(y = sm_movmed_3_loess_3600),
+                  color = "brown", alpha = 0.5) +
         ggtitle(gc_data[my_rows[1], "uniq_well"]) +
         #Add point for first minima
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
@@ -1057,19 +861,22 @@ if (make_curveplots) {
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
+        geom_line(color = "green") +
+        geom_line(aes(y = deriv_sm_loess_3600), color = "blue", alpha = 0.5) +
+        geom_line(aes(y = deriv_sm_movmed_3_loess_3600), 
+                  color = "brown", alpha = 0.5) +
         #Add point for pseudo K
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = pseudo_K_time, y = pseudo_K_deriv),
                    color = "green", size = 3) +
-        #Add point for pseudo K2
-        # geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
-        #            aes(x = pseudo_K_time2, y = pseudo_K_deriv2),
-        #            color = "dark green", size = 2) +
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = percap_deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
+        geom_line(color = "green") +
+        geom_line(aes(y = percap_deriv_sm_loess_3600), 
+                  color = "blue", alpha = 0.5) +
+        geom_line(aes(y = percap_deriv_sm_movmed_3_loess_3600), 
+                  color = "brown", alpha = 0.5) +
         #Add point for max growth rate
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = max_percap_gr_time, y = max_percap_gr_rate),
@@ -1095,10 +902,12 @@ if (make_curveplots) {
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = cfu_ml)) +
         geom_line(color = "red", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_3600),
+        geom_line(aes(y = sm_loess_3600),
                   color = "blue", lwd = 1, alpha = 0.5) +
-        geom_line(aes(x = Time_s, y = sm_loess_25k),
+        geom_line(aes(y = sm_loess_25k),
                   color = "green", lwd = 0.5, alpha = 0.5) +
+        geom_line(aes(y = sm_movmed_3_loess_3600),
+                  color = "brown", alpha = 0.5) +
         ggtitle(gc_data[my_rows[1], "uniq_well"]) +
         #Add point for first minima
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
@@ -1108,7 +917,10 @@ if (make_curveplots) {
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
+        geom_line(color = "green") +
+        geom_line(aes(y = deriv_sm_loess_3600), color = "blue", alpha = 0.5) +
+        geom_line(aes(y = deriv_sm_movmed_3_loess_3600), 
+                  color = "brown", alpha = 0.5) +
         #Add point for pseudo K
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = pseudo_K_time, y = pseudo_K_deriv),
@@ -1116,7 +928,11 @@ if (make_curveplots) {
         NULL,
       ggplot(data = gc_data[my_rows, ],
              aes(x = Time_s, y = percap_deriv_sm_loess_25k)) +
-        geom_line(color = "blue") +
+        geom_line(color = "green") +
+        geom_line(aes(y = percap_deriv_sm_loess_3600), 
+                  color = "blue", alpha = 0.5) +
+        geom_line(aes(y = percap_deriv_sm_movmed_3_loess_3600), 
+                  color = "brown", alpha = 0.5) +
         #Add point for max growth rate
         geom_point(data = gc_summarized[gc_summarized$uniq_well == my_well, ],
                    aes(x = max_percap_gr_time, y = max_percap_gr_rate),
@@ -1248,13 +1064,16 @@ gc_summarized <- cbind(gc_summarized,
                                   "fit4_d0" = as.numeric(NA),
                                   "fit4_err" = as.numeric(NA)))
 for (sum_row in 1:nrow(gc_summarized)) {
-  if (!is.na(gc_summarized$pseudo_K[sum_row])) {
+  #if (!is.na(gc_summarized$pseudo_K[sum_row])) {
     my_well <- gc_summarized$uniq_well[sum_row]
+    if(is.na(gc_summarized$pseudo_K_time[sum_row])) {
+      pseudo_K_time <- max(gc_data$Time_s[gc_data$uniq_well == my_well])
+    } else {pseudo_K_time <- gc_summarized$pseudo_K_time[sum_row]}
     myrows1 <- which(gc_data$uniq_well == my_well &
-                      gc_data$Time_s <= gc_summarized$pseudo_K_time[sum_row] &
+                      gc_data$Time_s <= pseudo_K_time &
                       gc_data$Time_s >= gc_summarized$max_percap_gr_time[sum_row])
     myrows2 <- which(gc_data$uniq_well == my_well &
-                       gc_data$Time_s <= (gc_summarized$pseudo_K_time[sum_row] + 45*60) &
+                       gc_data$Time_s <= (pseudo_K_time + 45*60) &
                        gc_data$Time_s >= gc_summarized$first_min_time[sum_row])
     
     #Get initial values
@@ -1374,7 +1193,6 @@ for (sum_row in 1:nrow(gc_summarized)) {
                  "fit4_v" = temp4$par["v"], 
                  "fit4_d0" = 10**temp4$par["logd0"],
                  "fit4_err" = temp4$value)
-  }
 }
 
 #Make plots of pure logistic fits
@@ -1395,10 +1213,12 @@ if(make_curveplots) {
                                d0 = gc_summarized[sum_row, "fit4_d0"],
                                t_vals = t_vals)
     
-    png(paste("./Growth_curve_plots_fits/", my_well, ".png", sep = ""),
+    png(paste("./Growth_curve_plots_fits/", 
+              gc_summarized$uniq_well_num[sum_row], "_",
+              my_well, ".png", sep = ""),
         width = 4, height = 4, units = "in", res = 300)
     print(ggplot(data = gc_data[gc_data$uniq_well == my_well, ],
-                 aes(x = Time_s, y = sm_loess_25k)) +
+                 aes(x = Time_s, y = sm_movmed_3_loess_3600)) +
             geom_line(alpha = 0.5) +
             geom_point(size = 0.5, aes(y = cfu_ml)) +
             # geom_line(data.frame(Time_s = t_vals, pred_dens = pred_vals),
@@ -1416,6 +1236,25 @@ if(make_curveplots) {
     dev.off()
   }
 }
+
+#Ones that don't work so great w/ 0.5 (or 0.4) cutoff:
+# 29 - toss
+# 38 - toss
+# 89 - toss
+# 128 - toss
+# 145 - toss
+# 181 - toss 
+# 182 - toss bc other rep is better
+# 185 - toss
+# 193 - toss
+# 204 - toss
+# 261 - toss
+# 361 - toss
+# 369 - toss
+# 398 - toss
+# 427 - toss
+#In all cases, the other rep well worked well and so these wells
+#can just be excluded from future analyses.
 
 #Make plots of baranyi fits
 dir.create("./Growth_curve_plots_fits2", showWarnings = F)
