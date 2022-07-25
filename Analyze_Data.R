@@ -1,9 +1,3 @@
-##TODO: 
-##      check rep wells that are very dift from ea other?
-##        (does it matter since it gets averaged out anyway?)
-##      Test for differences in variance between treats
-##        maybe using Bayesian?
-
 ## Load packages and color scale ----
 library("ggplot2")
 library("dplyr")
@@ -14,7 +8,7 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 scales::show_col(my_cols)
 
-#Global options
+#Global options (set these to TRUE & run script to have plots output to files)
 make_curveplots <- FALSE
 make_statplots <- FALSE
 
@@ -37,15 +31,6 @@ exper_evol_migr$radius_mm_hr <-
   10*(exper_evol_migr$Width_cm+exper_evol_migr$Height_cm)/
   (2*exper_evol_migr$time_since_inoc)
 
-#Make plot of all pops
-if (make_statplots) {
-  ggplot(data = exper_evol_migr,
-         aes(x = Timepoint, y = radius_mm_hr,
-             group = paste(Pop, Treat), color = Treat)) +
-    geom_line() +
-    facet_grid(~Proj)
-}
-  
 #Summarize
 exper_evol_migr <- group_by(exper_evol_migr, Proj, Treat, Timepoint)
 exper_evol_summ <- summarize(exper_evol_migr,
@@ -53,16 +38,16 @@ exper_evol_summ <- summarize(exper_evol_migr,
                              radius_mm_hr_mean = mean(radius_mm_hr),
                              radius_mm_hr_sd = sd(radius_mm_hr))
 
-#Make plot of summarized data
 if (make_statplots) {
   my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
   
+  #Make plot of summarized data
   tiff("./Output_figures/Exper_evol_migr_nopops.tiff",
        width = 7, height = 4, units = "in", res = 300)
   print(ggplot(data = exper_evol_summ, aes(x = Timepoint, y = radius_mm_hr_mean,
                                            color = Treat)) +
           #geom_point(position = position_dodge(0.2)) + 
-          geom_line(size = 2, position = position_dodge(0.2)) +
+          geom_line(size = 2, position = position_dodge(0.2), alpha = 0.8) +
           facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
           # geom_errorbar(aes(ymax = radius_mm_hr_mean+radius_mm_hr_sd, 
           #                   ymin = radius_mm_hr_mean-radius_mm_hr_sd),
@@ -86,35 +71,6 @@ if (make_statplots) {
 
   #Make plot with both summarized and non-summarized data
   tiff("./Output_figures/Exper_evol_migr.tiff",
-       width = 7, height = 4, units = "in", res = 300)
-  print(ggplot(data = exper_evol_migr,
-                 aes(x = Timepoint, y = radius_mm_hr, 
-                     group = paste(Treat, Pop),
-                     color = Treat)) +
-  #  geom_point(size = 0.5, alpha = 0.5) +
-           geom_line(alpha = 0.5, lwd = .4) +
-           facet_grid(~Proj, labeller = labeller(Proj = my_facet_labels)) +
-    geom_line(data = exper_evol_summ,
-              aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
-                  group = Treat),
-              size = 1.3) +
-    labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_x_continuous(breaks = c(0, 7, 14)) +
-    ylim(0, NA) +
-    theme_bw() +
-    theme(axis.text.y = element_text(size = 11), 
-          axis.text.x = element_text(size = 11),
-          axis.title = element_text(size = 14),
-          legend.text = element_text(size = 13), 
-          legend.title = element_text(size = 14),
-          strip.text = element_text(size = 14)) +
-    NULL)
-  dev.off()
-  
-  tiff("./Output_figures/Exper_evol_migr_stacked.tiff",
        width = 7, height = 4, units = "in", res = 300)
   print(ggplot(data = exper_evol_migr,
          aes(x = Timepoint, y = radius_mm_hr, 
