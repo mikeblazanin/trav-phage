@@ -225,6 +225,9 @@ if (make_statplots) {
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
                        stringsAsFactors = F)
 
+#Remove data collected using older approach (which was superceded)
+resis_data <- resis_data[grep("2017-[ABCDE]", resis_data$Date, invert = TRUE), ]
+
 #Reorder projects
 resis_data$Proj <- factor(resis_data$Proj,
                           levels = c("7x", "125"))
@@ -236,7 +239,7 @@ resis_data$Treat <- factor(resis_data$Treat,
 #calculate EOP for ea isol
 resis_data$EOP <- NA
 resis_data$bd <- F
-#First Handle below-detection points
+#First, handle below-detection points
 my_rows <- which(resis_data$PFU == 0)
 resis_data$pfu_ml[my_rows] <- 1*resis_data$dilution[my_rows]
 resis_data$bd[my_rows] <- T
@@ -247,26 +250,8 @@ for (i in 1:nrow(resis_data)) {
     mean(my_sub[my_sub$Treat == "Anc",]$pfu_ml)
 }
 
-#Add flag for old vs new approach
-resis_data$approach <- NA
-resis_data$approach[1:70] <- "old"
-resis_data$approach[71:nrow(resis_data)] <- "new"
-
-if (make_statplots) {
-  #Make plot with both old and new approach
-  ggplot(resis_data[resis_data$Treat != "Anc", ], 
-         aes(x = Treat, y = EOP, color = Pop,
-             shape = bd, group = Pop)) +
-    facet_grid(Proj~approach) +
-    geom_point(position = position_dodge(width = 0.5),
-               alpha = 0.7) +
-    scale_y_continuous(trans = "log10") +
-    theme_bw()
-}
-
 #Calculate EOP limit & adjust values below limit
-eop_limit <- max(resis_data$EOP[resis_data$bd &
-                                  resis_data$approach == "new"])
+eop_limit <- max(resis_data$EOP[resis_data$bd])
 resis_data$EOP[resis_data$EOP < eop_limit] <- eop_limit
 
 #Calculate Ancestral EOP range
@@ -274,18 +259,14 @@ Anc_EOP <- data.frame(Proj = rep(c("7x", "125"), each = 3),
                       Treat = rep(c("C", "L", "G"), times = 2),
                       min_EOP = rep(c(
                         min(resis_data$EOP[resis_data$Treat == "Anc" &
-                                                           resis_data$approach == "new" &
-                                                           resis_data$Proj == "7x"]),
+                                             resis_data$Proj == "7x"]),
                         min(resis_data$EOP[resis_data$Treat == "Anc" &
-                                             resis_data$approach == "new" &
                                              resis_data$Proj == "125"])),
                         each = 3),
                       max_EOP = rep(c(
                         max(resis_data$EOP[resis_data$Treat == "Anc" &
-                                             resis_data$approach == "new" &
                                              resis_data$Proj == "7x"]),
                         max(resis_data$EOP[resis_data$Treat == "Anc" &
-                                             resis_data$approach == "new" &
                                              resis_data$Proj == "125"])),
                         each = 3))
 Anc_EOP$Proj <- factor(Anc_EOP$Proj, levels = c("7x", "125"))
@@ -299,41 +280,9 @@ my_facet_labels <- c("7x" = "Weak Phage",
 
 if (make_statplots) {
   #Nice plot
-  tiff("./Output_figures/Isol_resis.tiff", width = 6, height = 4,
+  tiff("./Output_figures/Isol_resis.tiff", width = 5, height = 4,
        units = "in", res = 300)
-  print(ggplot(resis_data[resis_data$Treat != "Anc" &
-                      resis_data$approach == "new", ],
-         aes(x = Pop, y = EOP, 
-             color = Treat, fill = Treat,
-             shape = bd)) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    geom_point(aes(size = bd, alpha = bd)) +
-    scale_size_manual(values = c(2, 2.5)) +
-    scale_alpha_manual(values = c(0.6, 1)) +
-    scale_y_continuous(trans = "log10",
-                       breaks = 10**(c(0, -2, -4, -6)),
-                       labels = c(1, expression(10^-2), expression(10^-4),
-                                  expression(10^-6))) +
-    theme_bw() +
-    geom_hline(yintercept = 1, lty = 2) +
-    geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                      labels = c("Control", "Local", "Global"),
-                      values = my_cols[c(8, 2, 6)]) +
-    scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
-    labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
-    theme(legend.position = "none") +
-    NULL)
-  dev.off()
-  
-  tiff("./Output_figures/Isol_resis_stacked.tiff", width = 5, height = 4,
-       units = "in", res = 300)
-  print(ggplot(resis_data[resis_data$Treat != "Anc" &
-                      resis_data$approach == "new", ],
+  print(ggplot(resis_data[resis_data$Treat != "Anc", ],
          aes(x = Pop, y = EOP, 
              color = Treat, fill = Treat,
              shape = bd)) +
@@ -341,7 +290,7 @@ if (make_statplots) {
                                                   Treat = my_facet_labels)) +
     geom_rect(data = Anc_EOP,
               aes(x = NULL, y = NULL, color = NULL, fill = NULL, shape = NULL,
-                  xmin = "A", xmax = "E",
+                  xmin = 0, xmax = 6,
                   ymin = min_EOP, ymax = max_EOP),
               alpha = 0.3) +
     geom_point(aes(size = bd, alpha = bd)) +
@@ -352,7 +301,7 @@ if (make_statplots) {
                        labels = c(1, expression(10^-2), expression(10^-4),
                                   expression(10^-6))) +
     theme_bw() +
-    geom_hline(yintercept = 1, lty = 2) +
+    #geom_hline(yintercept = 1, lty = 2) +
     geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                        labels = c("Control", "Local", "Global"),
@@ -367,25 +316,18 @@ if (make_statplots) {
   dev.off()
 }
 
-#Summarize for later inclusion w/ gc data
-resis_data_temp <- resis_data[resis_data$approach == "new", ]
-resis_data_temp <- group_by(resis_data_temp,
-                            Proj, Pop, Treat)
-resis_data_sum <- summarize(resis_data_temp,
+#Summarize
+resis_data_isols <- summarize(group_by(resis_data_temp, Proj, Pop, Treat, Isol),
+                              EOP_avg = 10**mean(log10(EOP)),
+                              EOP_bd = any(bd))
+
+resis_data_sum <- summarize(group_by(resis_data, Proj, Pop, Treat),
                             EOP_avg = 10**mean(log10(EOP)),
                             EOP_bd = any(bd))
 
-resis_data_temp <- group_by(resis_data_temp,
-                            Proj, Pop, Treat, Isol)
-resis_data_isols <- summarize(resis_data_temp,
-                              EOP_avg = 10**mean(log10(EOP)),
-                              EOP_bd = any(bd))
-resis_data_isols <- 
-  resis_data_isols[, c("Proj", "Pop", "Treat", "Isol", "EOP_avg", "EOP_bd")]
-
 #Make plot of pop-level data
 if (make_statplots) {
-  tiff("./Output_figures/Isol_resis_stacked_pops.tiff", width = 4, height = 4,
+  tiff("./Output_figures/Isol_resis_pops.tiff", width = 4, height = 4,
        units = "in", res = 300)
   print(ggplot(resis_data_sum[resis_data_sum$Treat != "Anc", ],
                aes(x = Treat, y = EOP_avg, 
@@ -1925,7 +1867,10 @@ gc_sum_isols$PPTI <-
 
 library(lme4)
 
-gc_isols_merged <- dplyr::left_join(gc_sum_isols, resis_data_isols)
+gc_isols_merged <- 
+  dplyr::left_join(gc_sum_isols, 
+                   resis_data_isols[, c("Proj", "Pop", "Treat", 
+                                        "Isol", "EOP_avg", "EOP_bd")])
 gc_isols_merged$resis_cat <-
   ifelse(gc_isols_merged$EOP_bd, "Resis",
          ifelse(gc_isols_merged$EOP_avg > 0.1,
