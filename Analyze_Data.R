@@ -116,11 +116,11 @@ isol_migration$radius_mm_hr <-
   10*(isol_migration$Width_cm+isol_migration$Height_cm)/
   (2*isol_migration$time_since_inoc)
 
-#Calculate relative values to same-day ancestor
+#Calculate normalized "delta" values against same-day ancestor
 # (note that first batch of isols had no same-day ancestor to normalize to)
 ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
 
-isol_migration$radius_mm_hr_rel <-
+isol_migration$radius_mm_hr_del <-
   isol_migration$radius_mm_hr - ancestors$radius_mm_hr[
     match(as.Date(isol_migration$end_timestamp),
           as.Date(ancestors$end_timestamp))]
@@ -129,10 +129,10 @@ isol_migration$radius_mm_hr_rel <-
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
+                     "Anc" = "Ancestor")
 
 if (make_statplots) {
-  #radius
+  #Raw unnormalized radius
   tiff("./Output_figures/Isol_migration.tiff",
        width = 6, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration, 
@@ -140,7 +140,8 @@ if (make_statplots) {
              color = Treat, fill = Treat)) +
     geom_point(position = position_dodge(0.5), alpha = 0.6,
                size = 2) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
+    facet_grid(Proj ~ Treat, scales = "free",
+                 labeller = labeller(Proj = my_facet_labels,
                                                   Treat = my_facet_labels)) +
     theme_bw() + 
     labs(y = "Soft Agar Growth (mm/hr)",
@@ -155,41 +156,18 @@ if (make_statplots) {
     NULL)
   dev.off()
   
-  #Relative radius
-  tiff("./Output_figures/Isol_migration_rel.tiff",
-       width = 6, height = 4, units = "in", res = 300)
-  print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = radius_mm_hr_rel, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_nested(~Proj+Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = "Soft Agar Growth Relative to Ancestor (mm/hr)",
-         x = "Population") +
-    geom_hline(yintercept = 0, lty = 2) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                      labels = c("Control", "Local", "Global"),
-                      values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL)
-  dev.off()
-  
-  tiff("./Output_figures/Isol_migration_rel_stacked.tiff",
+  #Delta radius
+  tiff("./Output_figures/Isol_migration_del.tiff",
        width = 5, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = radius_mm_hr_rel, 
+         aes(x = Pop, y = radius_mm_hr_del, 
              color = Treat, fill = Treat)) +
     geom_point(position = position_dodge(0.5), alpha = 0.6,
                size = 2) +
     facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
                                                   Treat = my_facet_labels)) +
     theme_bw() + 
-    labs(y = "Soft Agar Growth Relative to Ancestor (mm/hr)",
+    labs(y = paste("\u0394", "Soft Agar Growth (mm/hr)", sep = ""),
          x = "Population") +
     geom_hline(yintercept = 0, lty = 2) +
     scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
@@ -203,23 +181,22 @@ if (make_statplots) {
   dev.off()
 }
 
-#Summarize for later inclusion w/ gc data
-isol_migration_temp <- isol_migration[!is.na(isol_migration$radius_mm_hr_rel), ]
-isol_migration_temp <- group_by(isol_migration_temp,
-                           Proj, Pop, Treat)
-isol_migr_sum <- summarize(isol_migration_temp,
-                           radius_mm_hr_rel_avg = mean(radius_mm_hr_rel))
+#Summarize
+isol_migr_sum <- 
+  summarize(group_by(isol_migration[!is.na(isol_migration$radius_mm_hr_del), ],
+                     Proj, Pop, Treat),
+            radius_mm_hr_del_avg = mean(radius_mm_hr_del))
 
 #Make plot of only pop-level data
 if (make_statplots) {
-  tiff("./Output_figures/Isol_migration_rel_stacked_pops.tiff",
+  tiff("./Output_figures/Isol_migration_del_pops.tiff",
        width = 4, height = 4, units = "in", res = 300)
   print(ggplot(isol_migr_sum[isol_migr_sum$Treat != "Anc", ], 
-               aes(x = Treat, y = radius_mm_hr_rel_avg, 
+               aes(x = Treat, y = radius_mm_hr_del_avg, 
                    color = Treat, fill = Treat)) +
           geom_point(alpha = 0.6, size = 3) +
           facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-          labs(y = "Evolved Change in Soft Agar Growth (mm/hr)",
+          labs(y = paste("\u0394", "Soft Agar Growth (mm/hr)", sep = ""),
                x = "Treatment") +
           geom_hline(yintercept = 0, lty = 2) +
           scale_x_discrete(breaks = c("C", "L", "G"),
