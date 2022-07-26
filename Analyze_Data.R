@@ -540,6 +540,140 @@ if (make_curveplots) {
   }
 }
 
+#Isolate growth curves: Make example plots (eg for talks) ----
+dir.create("./Example_curve_plots/", showWarnings = FALSE)
+if (make_curveplots) {
+  temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
+  
+  tiff("./Example_curve_plots/gc_plot1.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot2.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    geom_line(aes(y = sm_movmed3_loess3600), color = "blue", lwd = 3, alpha = 0.6) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot3.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_movmed3_loess25k)) +
+    geom_line(color = "green", lwd = 3) +
+    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot4.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_movmed3_loess3600)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) 
+  dev.off()
+  
+  #Now add the points
+  temp2 <- gc_summarized[gc_summarized$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
+  
+  tiff("./Example_curve_plots/gc_plot5.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_movmed3_loess25k)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_vline(data = temp2, aes(xintercept = diauxie_time/3600), lty = 2, lwd = 2)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot6.tiff", width = 10, height = 10, units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_vline(data = temp2, aes(xintercept = diauxie_time/3600), lty = 2, lwd = 2)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot7.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_movmed3_loess3600)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_vline(data = temp2, aes(xintercept = threshold_percap_gr_time/3600), 
+               lty = 2, lwd = 2)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot8.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = sm_movmed3_loess3600)) +
+    geom_line(color = "blue", lwd = 3) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30)) +
+    geom_vline(data = temp2, aes(xintercept = diauxie_time/3600), lty = 2, lwd = 2) +
+    geom_vline(data = temp2, aes(xintercept = threshold_percap_gr_time/3600), 
+               lty = 2, lwd = 2)
+  dev.off()
+  
+  my_well <- "2017-C_7x_Anc_Anc_Anc_1_Orig"
+  t_vals <- temp$Time_s
+  sum_row <- which(gc_summarized$uniq_well == my_well)
+  temp$pred_vals_fit <- baranyi_func(r = gc_summarized[sum_row, "fit_r"],
+                                      k = gc_summarized[sum_row, "fit_k"],
+                                      v = gc_summarized[sum_row, "fit_v"],
+                                      d0 = gc_summarized[sum_row, "fit_d0"],
+                                      t_vals = t_vals)
+  
+  
+  tiff("./Example_curve_plots/gc_plot9.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    geom_line(aes(y = pred_vals_fit), color = "red", lwd = 3, alpha = 0.5) +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30))  +
+    geom_vline(data = temp2, aes(xintercept = diauxie_time/3600), lty = 2, lwd = 2) +
+    geom_vline(data = temp2, aes(xintercept = threshold_percap_gr_time/3600), 
+               lty = 2, lwd = 2)
+  dev.off()
+  
+  tiff("./Example_curve_plots/gc_plot10.tiff", width = 10, height = 10, 
+       units = "in", res = 300)
+  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
+    geom_point(size = 4) +
+    geom_line(aes(y = pred_vals_fit), color = "red", lwd = 3, alpha = 0.5) +
+    scale_y_continuous(trans = "log10") +
+    labs(y = "Bacterial Density", x = "Time (hr)") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 16),
+          axis.title = element_text(size = 30))  +
+    geom_vline(data = temp2, aes(xintercept = diauxie_time/3600), lty = 2, lwd = 2) +
+    geom_vline(data = temp2, aes(xintercept = threshold_percap_gr_time/3600), 
+               lty = 2, lwd = 2)
+  dev.off()
+}
+
 ##Isolate growth curves: Fit curves to data ----
 baranyi_func <- function(r, k, v, d0, t_vals) {
   #Modified from Ram et al 2019 with a(t) = 1
@@ -687,266 +821,26 @@ gc_summarized[which(gc_summarized$uniq_well_num %in%
                         44, 53, 160, 238, 243, 370, 354, 334, 242, 46)),
               grep("fit_", colnames(gc_summarized))] <- NA
 
-rows <- which(gc_summarized$uniq_well_num %in%
-                c(29, 38, 89, 128, 145, 181, 182, 185, 193,
-                  204, 261, 361, 369, 398, 427))
-gc_summarized[rows, grep("fit4_", colnames(gc_summarized))] <- NA
+##Isolate growth curves: summarize reps into isols ----
+gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
+                          Isol, Media)
+gc_sum_isols <- summarize_at(
+  gc_summarized,
+  .funs = c(avg = function(x) {mean(x, na.rm = TRUE)}, 
+            sd = function(x) {sd(x, na.rm = TRUE)}),
+  .vars = c("threshold_percap_gr_time",
+            "diauxie_time",
+            "fit_r",
+            "fit_k",
+            "fit_v",
+            "fit_d0",
+            "fit_err"))
+gc_sum_isols <- as.data.frame(gc_sum_isols)
 
-##Calculate lag time ----
-gc_summarized$fit_lagtime_hrs <- NA
-for (sum_row in 1:nrow(gc_summarized)) {
-  
-
-
-#Calculate lag time
-gc_summarized <- as.data.frame(gc_summarized)
-gc_summarized$fit2_lagtime_hrs <- NA
-for (sum_row in 1:nrow(gc_summarized)) {
-  if (all(!is.na(gc_summarized[sum_row,
-                               c("fit2_r", "fit2_k", "fit2_v",
-                                 "fit2_q0", "fit2_m", "fit2_d0")]))) {
-    my_well <- gc_summarized$uniq_well[sum_row]
-    t_vals <- seq(from = 0, to = max(gc_data$Time_s[gc_data$uniq_well == my_well]),
-                  by = 1)
-    pred_vals1 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
-                               k = gc_summarized[sum_row, "fit2_k"],
-                               v = gc_summarized[sum_row, "fit2_v"],
-                               q0 = gc_summarized[sum_row, "fit2_q0"],
-                               m = gc_summarized[sum_row, "fit2_m"],
-                               d0 = gc_summarized[sum_row, "fit2_d0"],
-                               t_vals = t_vals)
-    pred_deriv <- calc_deriv(density = pred_vals1)
-    exp_grow_index <- which.max(pred_deriv)
-    gc_summarized[sum_row, "fit2_lagtime_hrs"] <- 
-      (((gc_summarized[sum_row, "fit2_d0"] - pred_vals1[exp_grow_index])/
-         pred_deriv[exp_grow_index]) + t_vals[exp_grow_index])/3600
-    
-    if (F) {
-      print(ggplot(data = data.frame(time = t_vals, dens = pred_vals1), 
-                   aes(x = t_vals, y = dens)) + geom_line() + 
-              #scale_y_continuous(trans = "log10") +
-              # geom_vline(xintercept = exp_grow_time) +
-              # geom_vline(xintercept = exp_grow_time2, lty = 2) +
-              geom_vline(xintercept = 3600*gc_summarized[sum_row, "lagtime_hrs"], 
-                         lty = 2) +
-              geom_hline(yintercept = gc_summarized[sum_row, "fit2_d0"], lty = 2) +
-              geom_abline(slope = pred_deriv[exp_grow_index],
-                          intercept = pred_vals1[exp_grow_index] - 
-                            pred_deriv[exp_grow_index]*t_vals[exp_grow_index]) +
-              NULL)
-      print(ggplot(data = data.frame(time = t_vals, 
-                                     dNds = calc_deriv(density = pred_vals1)), 
-                   aes(x = t_vals, y = dNds)) + geom_line() + 
-              scale_y_continuous(trans = "log10") +
-              geom_vline(xintercept = exp_grow_time) +
-              NULL)
-      print(ggplot(data = data.frame(time = t_vals, 
-                                     dNdsdN = calc_deriv(density = pred_vals1,
-                                                         percapita = T)), 
-                   aes(x = t_vals, y = dNdsdN)) + geom_line() + 
-              scale_y_continuous(trans = "log10") +
-              geom_vline(xintercept = exp_grow_time) +
-              NULL)
-    }
-  }
-}
-
-#Make log-transformed v
-gc_summarized$fit2_v_log10 <- log10(gc_summarized$fit2_v)
-
-#Isolate growth curves: Make example plots (eg for talks) ----
-if (make_curveplots) {
-  temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
-  
-  tiff("./Example_curve_plots/gc_plot1.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
-    geom_line(color = "red", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot2.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
-    geom_line(color = "red", lwd = 3, alpha = 0.6) +
-    geom_line(aes(y = sm_loess_25k), color = "blue", lwd = 3, alpha = 0.6) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot3.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot4.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  #Now add the points
-  temp2 <- gc_summarized[gc_summarized$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Orig", ]
-  
-  tiff("./Example_curve_plots/gc_plot5.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot6.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = deriv_sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Change in Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K_deriv),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot7.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot8.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = percap_deriv_sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Per-capita Change in Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
-                                 y = max_percap_gr_rate),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot9.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
-               color = "black", size = 10) +
-    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
-                                 y = max_percap_gr_dens),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot10.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
-               color = "black", size = 10)
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot11.tiff", width = 10, height = 10, units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = sm_loess_25k)) +
-    geom_line(color = "blue", lwd = 3) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) +
-    geom_point(data = temp2, aes(x = pseudo_K_time/3600, y = pseudo_K),
-               color = "black", size = 10) +
-    geom_point(data = temp2, aes(x = max_percap_gr_time/3600, 
-                                 y = max_percap_gr_dens),
-               color = "black", size = 7, alpha = 0.7) +
-    geom_point(data = temp2, aes(x = first_min_time/3600, y = first_min),
-               color = "black", size = 7, alpha = 0.7)
-  dev.off()
-  
-  my_well <- temp$uniq_well[1]
-  t_vals <- temp$Time_s
-  sum_row <- which(gc_summarized$uniq_well == my_well)
-  temp$pred_vals_fit2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
-                             k = gc_summarized[sum_row, "fit2_k"],
-                             v = gc_summarized[sum_row, "fit2_v"],
-                             q0 = gc_summarized[sum_row, "fit2_q0"],
-                             m = gc_summarized[sum_row, "fit2_m"],
-                             d0 = gc_summarized[sum_row, "fit2_d0"],
-                             t_vals = t_vals)
-  
-  
-  tiff("./Example_curve_plots/gc_plot12.tiff", width = 10, height = 10, 
-       units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
-    geom_point(size = 4) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  tiff("./Example_curve_plots/gc_plot13.tiff", width = 10, height = 10, 
-       units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
-    geom_point(size = 4) +
-    geom_line(aes(y = pred_vals_fit2), color = "red", lwd = 3, alpha = 0.5) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-  temp <- gc_data[gc_data$uniq_well == "2017-C_7x_Anc_Anc_Anc_1_Rich", ]
-  my_well <- temp$uniq_well[1]
-  sum_row <- which(gc_summarized$uniq_well == my_well)
-  temp <- temp[temp$Time_s <= gc_summarized$pseudo_K_time[sum_row], ]
-  t_vals <- temp$Time_s
-  temp$pred_vals_fit2 <- baranyi_func(r = gc_summarized[sum_row, "fit2_r"],
-                                      k = gc_summarized[sum_row, "fit2_k"],
-                                      v = gc_summarized[sum_row, "fit2_v"],
-                                      q0 = gc_summarized[sum_row, "fit2_q0"],
-                                      m = gc_summarized[sum_row, "fit2_m"],
-                                      d0 = gc_summarized[sum_row, "fit2_d0"],
-                                      t_vals = t_vals)
-  
-  tiff("./Example_curve_plots/gc_plot13.tiff", width = 10, height = 10, 
-       units = "in", res = 300)
-  ggplot(data = temp, aes(x = Time_s/3600, y = cfu_ml)) +
-    geom_point(size = 4) +
-    geom_line(aes(y = pred_vals_fit2), color = "red", lwd = 3, alpha = 0.5) +
-    labs(y = "Bacterial Density", x = "Time (hr)") +
-    theme_bw() +
-    theme(axis.text = element_text(size = 16),
-          axis.title = element_text(size = 30)) 
-  dev.off()
-  
-}
-
-##Explore rep well variation ----
+##Isolate growth curves: evaluate rep well variation & exclude isols ----
 dir.create("./Growth_curve_rep_plots/", showWarnings = FALSE)
 if(make_statplots) {
-  for (col_i in grep("fit4_", colnames(gc_summarized))) {
+  for (col_i in grep("fit_", colnames(gc_summarized))) {
     for (proj in unique(gc_summarized$Proj)) {
       for (media in unique(gc_summarized$Media)) {
         temp <- gc_summarized[gc_summarized$Proj == proj &
@@ -968,142 +862,37 @@ if(make_statplots) {
       }
     }
   }
-}
-
-#Flagging isols for variance in r
-#7x A C C Orig
-#7x A L E Orig
-#7x B C C Orig
-#7x C L E Orig
-#7x D G B Orig
-#7x Anc A Rich
-#7x Anc B Rich
-#7x C C A Rich
-#7x D G B Rich
-#7x E L B Rich
-#125 B C B Orig
-#125 B C E Orig
-#125 B L A Orig
-#125 B L B Orig
-#125 B L D Orig
-#125 B C E Rich
-#125 C C E Rich
-#125 D G C Rich
-#
-
-
-
-
-#Isolate growth curves: summarize reps into isols, view variable data & distributions ----
-
-#Summarize replicate wells
-gc_summarized <- group_by(gc_summarized, Date, Proj, Pop, Treat,
-                          Isol, Media)
-gc_sum_isols <- summarize_at(
-  gc_summarized,
-  .funs = c(avg = function(x) {mean(x, na.rm = TRUE)}, 
-            sd = function(x) {sd(x, na.rm = TRUE)}),
-  .vars = c(
-    "first_min",
-    "max_percap_gr_rate",
-    "max_percap_gr_dens",
-    "max_percap_gr_time",
-    "pseudo_K",
-    "pseudo_K_time",
-    "fit4_r",
-    "fit4_k",
-    "fit4_v",
-    "fit4_d0",
-    "fit4_err"))
-# "fit2_r", "fit2_k", "fit2_v", "fit2_v_log10", 
-# "fit2_q0", "fit2_m", "fit2_d0", "fit2_lagtime_hrs",
-# "fit3_r", "fit3_k", "fit3_v", 
-# "fit3_q0", "fit3_d0"))
-gc_sum_isols <- as.data.frame(gc_sum_isols)
-
-for (proj in unique(gc_sum_isols$Proj)) {
-  for (media in unique(gc_sum_isols$Media)) {
-    temp <- gc_sum_isols[gc_sum_isols$Proj == proj &
-                           gc_sum_isols$Media == media, 
-                         c(1:6, 24)]
-    temp$grpnm <- paste(temp$Date, temp$Proj, temp$Pop, temp$Treat, temp$Isol, temp$Media,
-                    sep = "_")
-    temp <- temp[order(-temp$fit4_r_sd), ]
-    print(temp[1:10, c(7, 8)])
+  
+  for (proj in unique(gc_sum_isols$Proj)) {
+    for (media in unique(gc_sum_isols$Media)) {
+      temp <- gc_sum_isols[gc_sum_isols$Proj == proj &
+                             gc_sum_isols$Media == media, 
+                           c(1:6, 16)]
+      temp$grpnm <- paste(temp$Date, temp$Proj, temp$Pop, temp$Treat, temp$Isol, temp$Media,
+                          sep = "_")
+      temp <- temp[order(-temp$fit_r_sd), ]
+      print(temp[1:10, c(7, 8)])
+    }
   }
 }
 
 #Taking a look at what to cut out:
-#for 7x Orig, would like to cut top 7 (above 0.13 sd)
-#for 7x Rich would like to cut top 5 (above 0.12 sd)
-#for 125 Orig would like to cut top 6 (above 0.16 sd)
-#for 125 Rich would like to cut top 5 (above 0.14 sd)
+#for 7x Orig, would like to cut top 7 (above 0.08/0.13 sd)
+#for 7x Rich would like to cut top 5 (above 0.1/0.12 sd)
+#for 125 Orig would like to cut top 6 (above 0.11/0.40 sd)
+#for 125 Rich would like to cut top 4 (above 0.13/0.14 sd)
 #Will use 0.12 as 7x cutoff, .14 as 125 cutoff
 
 gc_sum_isols[(gc_sum_isols$Proj == "7x" & 
-                !is.na(gc_sum_isols$fit4_r_sd) &
-                gc_sum_isols$fit4_r_sd > 0.12),
-             grep("fit4_", colnames(gc_sum_isols))] <- NA
+                !is.na(gc_sum_isols$fit_r_sd) &
+                gc_sum_isols$fit_r_sd > 0.12),
+             grep("fit_", colnames(gc_sum_isols))] <- NA
 gc_sum_isols[gc_sum_isols$Proj == "125" & 
-               !is.na(gc_sum_isols$fit4_r_sd) &
-               gc_sum_isols$fit4_r_sd > 0.14,
-             grep("fit4_", colnames(gc_sum_isols))] <- NA
+               !is.na(gc_sum_isols$fit_r_sd) &
+               gc_sum_isols$fit_r_sd > 0.14,
+             grep("fit_", colnames(gc_sum_isols))] <- NA
 
-
-#Take a look at the standard deviations between replicate wells
-# Just raw sd vals (w/ red line for mean avg value)
-# if (make_statplots) {
-#   for (var in c("first_min_", "first_min_time_", 
-#                 "max_percap_gr_rate_", "max_percap_gr_time_", 
-#                 "max_percap_gr_dens_", 
-#                 "max_percap_gr_timesincemin_",
-#                 "pseudo_K_", "pseudo_K_time_", 
-#                 "pseudo_K_timesincemin_", 
-#                 "pseudo_K_timesince_maxpercap_")) {
-#     my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
-#     my_avg <- mean(gc_sum_isols[, paste(var, "avg", sep = "")])
-#     hist(my_sd, main = var, 
-#          xlim = c(min(my_sd, my_avg, na.rm = T), max(my_sd, my_avg, na.rm = T)))
-#     abline(v = my_avg, col = "red", lwd = 2)
-#   }
-# }
-# Sd vals divided by matching avg value (so 1 is the reference)
-#if (make_statplots) {
-#   for (var in c("first_min_", "first_min_time_", 
-#                 "max_percap_gr_rate_", "max_percap_gr_time_", 
-#                 "max_percap_gr_dens_", 
-#                 "max_percap_gr_timesincemin_",
-#                 "pseudo_K_", "pseudo_K_time_", 
-#                 "pseudo_K_timesincemin_", 
-#                 "pseudo_K_timesince_maxpercap_")) {
-#     my_sd <- gc_sum_isols[, paste(var, "sd", sep = "")]
-#     my_avg <- gc_sum_isols[, paste(var, "avg", sep = "")]
-#     hist(my_sd/my_avg, main = var, xlim = c(0, max(my_sd/my_avg, 1, na.rm = T)))
-#     abline(v = 1, col = "red", lwd = 2)
-#   }
-# }
-
-#Generally, sd's between reps are small relative to the values themselves
-
-dir.create("./Growth_curve_rep_plots_isols/", showWarnings = FALSE)
-if(make_statplots) {
-  for (col_i in grep("fit_.*_sd", colnames(gc_sum_isols))) {
-    temp <- gc_sum_isols
-    tiff(paste(
-      "./Growth_curve_rep_plots_isols/", names(gc_sum_isols)[col_i], ".tiff", 
-      sep = ""), 
-      width = 5, height = 5, units = "in", res = 150)
-    print(ggplot(data = temp, 
-                 aes_string(x = "Pop", y = names(gc_sum_isols)[col_i], 
-                            color = "Isol")) +
-            geom_point() +
-            facet_grid(Proj*Media ~ Treat, scales = "free_y"))
-    dev.off()
-  }
-}
-
-
-#View all the isols by variable
+##Isolate growth curves: plot all isols ----
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
@@ -1111,54 +900,23 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 dir.create("./Growth_curve_variables_plots/", showWarnings = FALSE)
 if (make_statplots) {
-  my_vars <- c(
-    #"first_min_", 
-               #"first_min_time_", 
-               #"max_percap_gr_rate_", 
-               #"max_percap_gr_time_", 
-               #"max_percap_gr_dens_", 
-               #"max_percap_gr_timesincemin_",
-               #"pseudo_K_", 
-               #"pseudo_K_time_", 
-               #"pseudo_K_timesincemin_",
-               #"pseudo_K_timesince_maxpercap_",
-               #"fit_r_", "fit_k_", "fit_d0_",
-               # "fit2_r_", "fit2_k_", "fit2_v_", "fit2_v_log10_",
-               # "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_"
-               #"fit3_r_", "fit3_k_", "fit3_v_", 
-               #"fit3_q0_", "fit3_d0_"
-    "fit4_r_", "fit4_k_", "fit4_v_", "fit4_d0_"
-               )
+  my_vars <- c("fit_r", "fit_k", "fit_v")
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
-    var_name <- c(
-      #"First minimum density (cfu/mL)",
-                  #"Maximum per-capita growth rate",
-                  #"Density at maximum per-capita growth rate",
-                  #"Time until maximum per-capita growth rate",
-                  #"Density at diauxic shift (cfu/mL)",
-                  #"Time until diauxic shift (from min)",
-                  #"Time until diauxic shift (from max percap)",
-                  #"Fit r", "Fit carrying capacity", "Fit init density",
-                  #"Maximum Per Capita Growth Rate (r) (/hr)", 
-                  #"Density at Diauxic Shift (k) (cfu/mL)", 
-                  #"Deceleration Parameter (v)", 
-                  #"Deceleration Parameter (log10(v))", 
-                  #"Fit 2 q0", "Fit 2 m", "fit 2 d0", 
-                  #"Lag time (hrs)"
-      "r", "k", "v", "d0")[i]
-    var <- paste(var_root, "avg", sep = "")
-    var_sd <- paste(var_root, "sd", sep = "")
-    tiff(paste("./Growth_curve_variables_plots/", var, ".tiff", sep = ""),
+    var_name <- c("Maximum Per Capita Growth Rate (r) (/hr)", 
+                  "Density at Diauxic Shift (k) (cfu/mL)", 
+                  "Deceleration Parameter (v)")[i]
+    var <- paste(var_root, "_avg", sep = "")
+    var_sd <- paste(var_root, "_sd", sep = "")
+    tiff(paste("./Growth_curve_variables_plots/", var_root, ".tiff", sep = ""),
          width = 5, height = 5, units = "in", res = 300)
     print(ggplot(data = gc_sum_isols,
                  aes(x = Pop, y = get(var), group = Pop, color = Treat)) +
             geom_point(position = position_dodge(0.6)) +
-            facet_nested(Proj ~ Media+Treat, scales = "free_y",
+            facet_nested(Proj ~ Media+Treat, scales = "free",
                          labeller = labeller(Proj = my_facet_labels,
                                              Treat = my_facet_labels,
                                              Media = my_facet_labels)) +
-            scale_x_discrete(limits = c("Anc", LETTERS[1:5])) +
             scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
                                labels = c("Ancestor", "Control", "Local", "Global"),
                                values = my_cols[c(3, 8, 2, 6)]) +
@@ -1176,99 +934,11 @@ if (make_statplots) {
   }
 }
 
-#Note however how some curves have super high sds between
-# rep wells
 
-#Also Noted a weird clustering in 7x Rich C of low max percap rates
-#Looking at the plots, there's nothing I can see that's wrong
-# with those curves. It might be a media batch effect
 
-#Let's normalize by same-plate ancestor
-ancestors <- gc_sum_isols[gc_sum_isols$Isol == "Anc", ]
-for (var in c("first_min_avg",
-              "max_percap_gr_rate_avg",
-              "max_percap_gr_dens_avg",
-              "max_percap_gr_timesincemin_avg",
-              "pseudo_K_avg",
-              "pseudo_K_timesincemin_avg",
-              "pseudo_K_timesince_maxpercap_avg",
-              "fit_r_avg", "fit_k_avg", "fit_d0_avg",
-              "fit2_r_avg", "fit2_k_avg", "fit2_v_log10_avg", 
-              "fit2_q0_avg", "fit2_m_avg", "fit2_d0_avg", "fit2_lagtime_hrs_avg")) {
-  new_var <- paste(var, "_rel", sep = "")
-  gc_sum_isols[, new_var] <- gc_sum_isols[, var] -
-    ancestors[match(paste(gc_sum_isols$Date, gc_sum_isols$Media), 
-                    paste(ancestors$Date, ancestors$Media)), var]
-}
 
-#Now view the relative variables
-my_facet_labels <- c("7x" = "Weak Phage", 
-                     "125" = "Strong Phage",
-                     "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT",
-                     "Rich" = "Rich Media", "Orig" = "Original Media")
-dir.create("./Growth_curve_variables_plots_relative/", showWarnings = F)
-if (make_statplots) {
-  my_vars <- c("first_min_", 
-                  "max_percap_gr_rate_", 
-                  #"max_percap_gr_dens_", 
-                  #"max_percap_gr_timesincemin_",
-                  "pseudo_K_", 
-                  #"pseudo_K_timesincemin_",
-                  #"pseudo_K_timesince_maxpercap_",
-                  #"fit_r_", "fit_k_", "fit_d0_",
-                  "fit2_r_", "fit2_k_", "fit2_v_log10_", 
-                  "fit2_q0_", "fit2_m_", "fit2_d0_", "fit2_lagtime_hrs_")
-  for (i in 1:length(my_vars)) {
-    var_root <- my_vars[i]
-    var <- paste(var_root, "avg_rel", sep = "")
-    var_name <- c("Relative first minimum density",
-                  "Relative maximum per-capita growth rate",
-                  #"Relative density at maximum per-capita growth rate",
-                  #"Relative time until maximum per-capita growth rate",
-                  "Relative density at diauxic shift",
-                  #"Relative time until diauxic shift (from min)",
-                  #"Relative time until diauxic shift (from max percap)",
-                  #"Relative Fit r", "Relative Fit carrying capacity", 
-                  #"Relative Fit init density",
-                  "Relative Fit 2 r", "Relative Fit 2 k", "Relative Fit 2 v", 
-                  "Relative Fit 2 q0", "Relative Fit 2 m", "Relative fit 2 d0",
-                  "Relative Fit 2 lag time")[i]
-    #Note: if you want to view the sd's between wells of
-    # Ancestor-normalized values, you'll have to go back to
-    # gc_summarized and calculate the relative values there
-    # then re-calculate sd. Have not implemented this
-    tiff(paste("./Growth_curve_variables_plots_relative/", var, ".tiff", sep = ""),
-         width = 5, height = 5, units = "in", res = 300)
-    print(ggplot(data = gc_sum_isols[gc_sum_isols$Pop != "Anc", ],
-                 aes(x = Pop, y = get(var), group = Pop,
-                     color = Treat)) +
-            geom_point(position = position_dodge(0.6)) +
-            facet_nested(Proj ~ Media+Treat, scales = "free_y",
-                       labeller = labeller(Proj = my_facet_labels,
-                                           Treat = my_facet_labels,
-                                           Media = my_facet_labels)) +
-            scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                               labels = c("Control", "Local", "Global"),
-                               values = my_cols[c(8, 2, 6)]) +
-            geom_hline(yintercept = 0, lty = 2) +
-            labs(y = var_name, x = "Population") +
-            theme_bw() +
-            theme(legend.position = "none") +
-            # geom_errorbar(aes(x = Treat, ymin = get(var)-get(var_sd),
-            #                   ymax = get(var)+get(var_sd)),
-            #               position = position_dodge(0.6),
-            #               width = 0.2)
-            NULL
-    )
-    dev.off()
-  }
-}
+##Isolate growth curves: plot all isols ----
 
-#After looking at those, it definitely improves some of the
-# points to normalize by ancestor
-# and it doesn't make any others do anything weird
-#So we should move forward only with relative variables
 
 gc_sum_isols$PPT <- 
   paste(gc_sum_isols$Proj,gc_sum_isols$Pop, gc_sum_isols$Treat, sep = "_")
