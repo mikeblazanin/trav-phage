@@ -1,7 +1,8 @@
 ## Load packages and color scale ----
-library("ggplot2")
-library("dplyr")
-library("ggh4x")
+library(ggplot2)
+library(dplyr)
+library(ggh4x)
+library(lme4)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -186,6 +187,10 @@ isol_migr_sum <-
   summarize(group_by(isol_migration[!is.na(isol_migration$radius_mm_hr_del), ],
                      Proj, Pop, Treat),
             radius_mm_hr_del_avg = mean(radius_mm_hr_del))
+isol_migr_sum_isols <-
+  summarize(group_by(isol_migration[!is.na(isol_migration$radius_mm_hr_del), ],
+                     Proj, Pop, Treat, Isol),
+            radius_mm_hr_del_avg = mean(radius_mm_hr_del))
 
 #Make plot of only pop-level data
 if (make_statplots) {
@@ -317,7 +322,7 @@ if (make_statplots) {
 }
 
 #Summarize
-resis_data_isols <- summarize(group_by(resis_data_temp, Proj, Pop, Treat, Isol),
+resis_data_isols <- summarize(group_by(resis_data, Proj, Pop, Treat, Isol),
                               EOP_avg = 10**mean(log10(EOP)),
                               EOP_bd = any(bd))
 
@@ -934,19 +939,19 @@ if (make_statplots) {
   }
 }
 
+##Isolate analysis: merge dataframes ----
+isol_data <- full_join(isol_migr_sum_isols, resis_data_isols)
+isol_data <- full_join(isol_data, gc_sum_isols)
 
+isol_data <- select(isol_data, 
+                    Proj, Pop, Treat, Isol,
+                    Date, Media, threshold_percap_gr_time_avg, diauxie_time_avg,
+                    fit_r_avg, fit_k_avg, fit_v_avg, fit_d0_avg,
+                    radius_mm_hr_del_avg,
+                    EOP_avg, EOP_bd)
 
+##Isolate analysis: mixed effects modeling ----
 
-##Isolate growth curves: plot all isols ----
-
-
-gc_sum_isols$PPT <- 
-  paste(gc_sum_isols$Proj,gc_sum_isols$Pop, gc_sum_isols$Treat, sep = "_")
-gc_sum_isols$PPTI <- 
-  paste(gc_sum_isols$Proj, gc_sum_isols$Pop, gc_sum_isols$Treat, 
-        gc_sum_isols$Isol, sep = "_")
-
-library(lme4)
 
 gc_isols_merged <- 
   dplyr::left_join(gc_sum_isols, 
