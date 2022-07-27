@@ -320,16 +320,16 @@ isol_start <- isol_start[order(isol_start$Proj,
 #Standardize columns/format in end dataframes
 isol_end_7x <- isol_end_7x[, c("Year", "Month", "Day", "Hour", "Minute", "Second",
                                "Proj", "Pop", "Treat", "Time", "Isol",
-                               "Width..cm.", "Height..cm.")]
+                               "Width..cm.", "Height..cm.", "Media")]
 colnames(isol_end_7x) <- c("Year", "Month", "Day", "Hour", "Minute", "Second",
                            "Proj", "Pop", "Treat", "Timepoint", "Isol",
-                           "Width_cm", "Height_cm")
+                           "Width_cm", "Height_cm", "Media")
 isol_end_125 <- isol_end_125[, c("Year", "Month", "Day", "Hour", "Minute", "Second",
                                "Project", "Population", "Treatment", "Time", "Isolate",
-                               "Width..cm.", "Height..cm.")]
+                               "Width..cm.", "Height..cm.", "Media")]
 colnames(isol_end_125) <- c("Year", "Month", "Day", "Hour", "Minute", "Second",
                            "Proj", "Pop", "Treat", "Timepoint", "Isol",
-                           "Width_cm", "Height_cm")
+                           "Width_cm", "Height_cm", "Media")
 
 isol_end_7x$Proj <- "7x"
 isol_end_125$Proj <- "125"
@@ -354,6 +354,9 @@ for (i in 1:nrow(isol_end)) {
                                        isol_end$start_timestamp,
                                        units = "hours")
 }
+
+#Drop rows with -Mg Media
+isol_end <- isol_end[isol_end$Media == "+Mg", ]
 
 #Tidy up & drop unneccesary columns
 isol_end <- isol_end[, c("Proj", "Pop", "Treat", "Timepoint", "Isol",
