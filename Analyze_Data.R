@@ -3,6 +3,7 @@ library(ggplot2)
 library(dplyr)
 library(ggh4x)
 library(lme4)
+library(pbkrtest)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -224,6 +225,28 @@ if (make_statplots) {
           NULL)
   dev.off()
 }
+
+#Statistics
+isol_migration$PPT <- 
+  paste(isol_migration$Proj, isol_migration$Pop, isol_migration$Treat)
+mig7x_lmer <- lmer(radius_mm_hr_del ~ (1|PPT) + Treat,
+                 data = isol_migration[isol_migration$Isol != "Anc" &
+                                         isol_migration$Proj == "7x", ])
+mig125_lmer <- lmer(radius_mm_hr_del ~ (1|PPT) + Treat,
+                   data = isol_migration[isol_migration$Isol != "Anc" &
+                                           isol_migration$Proj == "125", ])
+
+mig7x_lmernull <- lmer(radius_mm_hr_del ~ (1|PPT),
+                   data = isol_migration[isol_migration$Isol != "Anc" &
+                                           isol_migration$Proj == "7x", ])
+mig125_lmernull <- lmer(radius_mm_hr_del ~ (1|PPT),
+                    data = isol_migration[isol_migration$Isol != "Anc" &
+                                            isol_migration$Proj == "125", ])
+
+KRmodcomp(mig7x_lmer, mig7x_lmernull)
+KRmodcomp(mig125_lmer, mig125_lmernull)
+
+summary(mig125_lmer)
 
 
 ## Isolate resistance ----
