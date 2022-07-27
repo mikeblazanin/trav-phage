@@ -921,6 +921,17 @@ gc_sum_isols[gc_sum_isols$Proj == "125" &
              grep("fit_", colnames(gc_sum_isols))] <- NA
 
 ##Isolate growth curves: plot all isols ----
+
+#Make colums of lag time & diauxie time in hrs
+gc_sum_isols <-
+  mutate(gc_sum_isols,
+         across(c("threshold_percap_gr_time_avg", "diauxie_time_avg",
+                  "threshold_percap_gr_time_sd", "diauxie_time_sd"),
+                .fns = list(hr = function(x) {x/3600})))
+colnames(gc_sum_isols)[grep("_hr", colnames(gc_sum_isols))] <-
+  c("threshold_percap_gr_time_hr_avg", "diauxie_time_hr_avg",
+    "threshold_percap_gr_time_hr_sd", "diauxie_time_hr_sd")
+                
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
                      "C" = "Control", "G" = "Global", "L" = "Local",
@@ -928,14 +939,18 @@ my_facet_labels <- c("7x" = "Weak Phage",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
 dir.create("./Growth_curve_variables_plots/", showWarnings = FALSE)
 if (make_statplots) {
-  my_vars <- c("fit_r", "fit_k", "fit_v")
+  my_vars <- c("fit_r", "fit_k", "fit_v", 
+               "threshold_percap_gr_time_hr", "diauxie_time_hr")
   for (i in 1:length(my_vars)) {
     var_root <- my_vars[i]
     var_name <- c("Maximum Per Capita Growth Rate (r) (/hr)", 
                   "Density at Diauxic Shift (k) (cfu/mL)", 
-                  "Deceleration Parameter (v)")[i]
+                  "Deceleration Parameter (v)",
+                  "Lag time (hr)", "Diauxic Shift Time (hr)")[i]
+    
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
+    
     tiff(paste("./Growth_curve_variables_plots/", var_root, ".tiff", sep = ""),
          width = 5, height = 5, units = "in", res = 300)
     print(ggplot(data = gc_sum_isols,
