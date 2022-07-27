@@ -972,75 +972,67 @@ isol_data <- select(isol_data,
                     fit_r_avg, fit_k_avg, fit_v_avg, fit_d0_avg,
                     radius_mm_hr_del_avg,
                     EOP_avg, EOP_bd)
+isol_data$PPT <- paste(isol_data$Proj, isol_data$Pop, isol_data$Treat, sep = "_")
 
 ##Isolate analysis: mixed effects modeling ----
+isol_data$resis_cat <-
+  ifelse(isol_data$EOP_bd, "Resis",
+         ifelse(isol_data$EOP_avg > 0.1, "Sens", "Part Resis"))
+isol_data$resis_cat <- factor(isol_data$resis_cat,
+                              levels = c("Sens", "Part Resis", "Resis"))
 
+mixed_model0_7x_O = lmer(fit_r_avg ~ (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "7x" &
+                                             isol_data$Media == "Orig",])
+mixed_model0_7x_R = lmer(fit_r_avg ~ (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "7x" &
+                                             isol_data$Media == "Rich",])
+mixed_model0_125_O = lmer(fit_r_avg ~ (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "125" &
+                                             isol_data$Media == "Orig",])
+mixed_model0_125_R = lmer(fit_r_avg ~ (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "125" &
+                                             isol_data$Media == "Rich",])
 
-gc_isols_merged <- 
-  dplyr::left_join(gc_sum_isols, 
-                   resis_data_isols[, c("Proj", "Pop", "Treat", 
-                                        "Isol", "EOP_avg", "EOP_bd")])
-gc_isols_merged$resis_cat <-
-  ifelse(gc_isols_merged$EOP_bd, "Resis",
-         ifelse(gc_isols_merged$EOP_avg > 0.1,
-                "Sens", "Part Resis"))
-gc_isols_merged$resis_cat <- factor(gc_isols_merged$resis_cat,
-                                    levels = c("Sens", "Part Resis", "Resis"))
+mixed_model1_7x_O = lmer(fit_r_avg ~ Treat + (1|PPT) + (1|Date),
+                         data = isol_data[isol_data$Proj == "7x" &
+                                                  isol_data$Media == "Orig",])
+mixed_model1_7x_R = lmer(fit_r_avg ~ Treat + (1|PPT) + (1|Date),
+                         data = isol_data[isol_data$Proj == "7x" &
+                                                  isol_data$Media == "Rich",])
+mixed_model1_125_O = lmer(fit_r_avg ~ Treat + (1|PPT) + (1|Date),
+                          data = isol_data[isol_data$Proj == "125" &
+                                                   isol_data$Media == "Orig",])
+mixed_model1_125_R = lmer(fit_r_avg ~ Treat + (1|PPT) + (1|Date),
+                          data = isol_data[isol_data$Proj == "125" &
+                                                   isol_data$Media == "Rich",])
 
-mixed_model0_7x_O = lmer(fit4_r_avg ~ (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                             gc_isols_merged$Media == "Orig",])
-mixed_model0_7x_R = lmer(fit4_r_avg ~ (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                             gc_isols_merged$Media == "Rich",])
-mixed_model0_125_O = lmer(fit4_r_avg ~ (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                             gc_isols_merged$Media == "Orig",])
-mixed_model0_125_R = lmer(fit4_r_avg ~ (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                             gc_isols_merged$Media == "Rich",])
+mixed_model2_7x_O = lmer(fit_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                         data = isol_data[isol_data$Proj == "7x" &
+                                                  isol_data$Media == "Orig",])
+mixed_model2_7x_R = lmer(fit_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                         data = isol_data[isol_data$Proj == "7x" &
+                                                  isol_data$Media == "Rich",])
+mixed_model2_125_O = lmer(fit_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                          data = isol_data[isol_data$Proj == "125" &
+                                                   isol_data$Media == "Orig",])
+mixed_model2_125_R = lmer(fit_r_avg ~ resis_cat + (1|PPT) + (1|Date),
+                          data = isol_data[isol_data$Proj == "125" &
+                                                   isol_data$Media == "Rich",])
 
-mixed_model1_7x_O = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
-                         data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                                  gc_isols_merged$Media == "Orig",])
-mixed_model1_7x_R = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
-                         data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                                  gc_isols_merged$Media == "Rich",])
-mixed_model1_125_O = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
-                          data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                                   gc_isols_merged$Media == "Orig",])
-mixed_model1_125_R = lmer(fit4_r_avg ~ Treat + (1|PPT) + (1|Date),
-                          data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                                   gc_isols_merged$Media == "Rich",])
+mixed_model3_7x_O = lmer(fit_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "7x" &
+                                             isol_data$Media == "Orig",])
+mixed_model3_7x_R = lmer(fit_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "7x" &
+                                             isol_data$Media == "Rich",])
+mixed_model3_125_O = lmer(fit_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "125" &
+                                             isol_data$Media == "Orig",])
+mixed_model3_125_R = lmer(fit_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
+                    data = isol_data[isol_data$Proj == "125" &
+                                             isol_data$Media == "Rich",])
 
-mixed_model2_7x_O = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
-                         data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                                  gc_isols_merged$Media == "Orig",])
-mixed_model2_7x_R = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
-                         data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                                  gc_isols_merged$Media == "Rich",])
-mixed_model2_125_O = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
-                          data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                                   gc_isols_merged$Media == "Orig",])
-mixed_model2_125_R = lmer(fit4_r_avg ~ resis_cat + (1|PPT) + (1|Date),
-                          data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                                   gc_isols_merged$Media == "Rich",])
-
-mixed_model3_7x_O = lmer(fit4_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                             gc_isols_merged$Media == "Orig",])
-mixed_model3_7x_R = lmer(fit4_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "7x" &
-                                             gc_isols_merged$Media == "Rich",])
-mixed_model3_125_O = lmer(fit4_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                             gc_isols_merged$Media == "Orig",])
-mixed_model3_125_R = lmer(fit4_r_avg ~ resis_cat + Treat + (1|PPT) + (1|Date),
-                    data = gc_isols_merged[gc_isols_merged$Proj == "125" &
-                                             gc_isols_merged$Media == "Rich",])
-
-
-library(pbkrtest)
 
 KRmodcomp(mixed_model1_7x_O, mixed_model0_7x_O)
 KRmodcomp(mixed_model2_7x_O, mixed_model0_7x_O)
@@ -1057,6 +1049,12 @@ KRmodcomp(mixed_model3_125_O, mixed_model0_125_O)
 KRmodcomp(mixed_model1_125_R, mixed_model0_125_R)
 KRmodcomp(mixed_model2_125_R, mixed_model0_125_R)
 KRmodcomp(mixed_model3_125_R, mixed_model0_125_R)
+
+
+
+
+
+
 
 ##Isolate growth curves: summarize isols into pops, add resis & migr data ----
 
