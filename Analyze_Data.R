@@ -1083,293 +1083,95 @@ isol_pops <- summarize(isol_data[!is.na(isol_data$Media), ],
                        "EOP_bd" = any(EOP_bd))
 isol_pops <- as.data.frame(isol_pops)
 
-
+##Isolate analysis: PCA ----
 
 #Cast measurements in different medias into different columns
-# (using population mean data)
-gc_sum_pops_wide <- tidyr::pivot_wider(gc_sum_pops,
-                                       values_from = ends_with("avg_rel_avg"),
-                                       names_from = Media,
-                                       id_cols = c("Proj", "Pop", "Treat"))
+isol_data_wide <- tidyr::pivot_wider(
+  isol_data[complete.cases(isol_data), ],
+  values_from = c("threshold_percap_gr_time_hr_avg", "diauxie_time_hr_avg",            
+                  "fit_r_avg", "fit_k_avg", "fit_v_avg", "fit_d0_avg"),
+  names_from = Media,
+  id_cols = c("Proj", "Pop", "Treat", "Isol", "Date",
+              "radius_mm_hr_del_avg", "EOP_avg", "EOP_bd", "resis_cat"),
+  values_fill = NA)
+                  
+#Reduce to complete cases
+isol_data_wide <- isol_data_wide[complete.cases(isol_data_wide), ]
 
-#Add in resistance & migration data
-isol_data <- full_join(gc_sum_pops_wide, 
-                              resis_data_sum)
-isol_data <- as.data.frame(full_join(isol_data, isol_migr_sum))
+#Make log-scale EOP
+isol_data_wide$EOP_log10_avg <- log10(isol_data_wide$EOP_avg)
 
-isol_data$EOP_avg <- log10(isol_data$EOP_avg)
-isol_data$resis <- -isol_data$EOP_avg
+#Run PCA
+pca_cols <- c("radius_mm_hr_del_avg",
+              "threshold_percap_gr_time_hr_avg_Orig",
+              "threshold_percap_gr_time_hr_avg_Rich",
+              "diauxie_time_hr_avg_Orig",
+              "diauxie_time_hr_avg_Rich",
+              "fit_r_avg_Orig", "fit_r_avg_Rich",                      
+              "fit_k_avg_Orig", "fit_k_avg_Rich",
+              "EOP_log10_avg")
 
-#Rename for brevity
-colnames(isol_data) <- gsub("_avg_rel_avg", "", colnames(isol_data))
+isol_pca_7x <- prcomp(isol_data_wide[isol_data_wide$Proj == "7x",
+                                     pca_cols],
+                      center = TRUE, scale = TRUE, retx = TRUE)
+isol_pca_125 <- prcomp(isol_data_wide[isol_data_wide$Proj == "125",
+                                     pca_cols],
+                      center = TRUE, scale = TRUE, retx = TRUE)
 
-#Check correlations between variables
-# gc_var_cors_7x <- cor(isol_data[isol_data$Proj == "7x", 
-#                                        c(4:16, 18)])
-# gc_var_cors_125 <- cor(isol_data[isol_data$Proj == "125", 
-#                                         c(4:16, 18)])
-# write.csv(gc_var_cors_7x, "grow_curve_var_correlations_7x.csv")
-# write.csv(gc_var_cors_125, "grow_curve_var_correlations_125.csv")
+#Merge pca with data
+isol_pca_7x$x <- cbind(as.data.frame(isol_pca_7x$x), 
+                       isol_data_wide[isol_data_wide$Proj == "7x", ])
+isol_pca_125$x <- cbind(as.data.frame(isol_pca_125$x), 
+                       isol_data_wide[isol_data_wide$Proj == "125", ])
 
-# all vars are positive w/ ea other
-# max percap rate neg w/ first min
-# max percap dens pos w/ first min
-# max percap dens pos w/ max percap timesincemin
+#Rename rotations for better plotting
+replace_names = c("radius_mm_hr_del_avg" = "migr",
+                  "threshold_percap_gr_time_hr_avg_Orig" = "lag_Or",
+                  "threshold_percap_gr_time_hr_avg_Rich" = "lag_Ri",
+                  "diauxie_time_hr_avg_Orig" = "kt_Or",
+                  "diauxie_time_hr_avg_Rich" = "kt_Ri",
+                  "fit_r_avg_Orig" = "r_Or",
+                  "fit_r_avg_Rich" = "r_Ri",
+                  "fit_k_avg_Orig" = "k_Or",
+                  "fit_k_avg_Rich" = "k_Ri",
+                  "EOP_log10_avg" = "resis")
 
-#Make correlation figures
-if (make_statplots) {
-  #Make base figure
-  temp <- isol_data[isol_data$Treat != "Anc" &
-                      isol_data$Proj == "7x", ]
-  colnames(temp) <- plyr::revalue(
-    colnames(temp),
-    replace = c("fit2_r_Orig" = "r Orig", 
-                "fit2_r_Rich" = "r Rich", 
-                "fit2_k_Orig" = "k Orig", 
-                "fit2_k_Rich" = "k Rich",
-                "fit2_lagtime_hrs_Orig" = "lag Orig",
-                "fit2_lagtime_hrs_Rich" = "lag Rich",
-                "radius_mm_hr_rel_avg" = "agar growth",
-                "fit2_v_log10_Orig" = "v Orig",
-                "fit2_v_log10_Rich" = "v Rich"))
-  p <- GGally::ggpairs(temp,
-                  columns = c("r Orig", "r Rich", "k Orig", "k Rich",
-                              "lag Orig", "lag Rich", "v Orig", "v Rich",
-                              "agar growth", "resis"),
-                  lower = list(continuous = "smooth"),
-                  upper = list(continuous = "smooth"),
-                  ggplot2::aes(color = Treat, group = Proj),
-                  title = "Weak Phage") +
-    theme(strip.text = element_text(size = 9),
-          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  #Change colors
-  for (i in 1:p$nrow) {
-    for (j in 1:p$ncol) {
-      p[i, j] <- p[i, j] +
-        scale_color_manual(breaks = c("C", "L", "G"),
-                             values = my_cols[c(8, 2, 6)])
-    }
-  }
-  tiff("./Output_figures/Weakphage_cors.tiff", width = 10, height = 10, 
-       units = "in", res = 300)
-  print(p)
-  dev.off()
-  
-  #Make base figure
-  temp <- isol_data[isol_data$Treat != "Anc" &
-                      isol_data$Proj == "125", ]
-  colnames(temp) <- plyr::revalue(
-    colnames(temp),
-    replace = c("fit2_r_Orig" = "r Orig", 
-                "fit2_r_Rich" = "r Rich", 
-                "fit2_k_Orig" = "k Orig", 
-                "fit2_k_Rich" = "k Rich",
-                "fit2_lagtime_hrs_Orig" = "lag Orig",
-                "fit2_lagtime_hrs_Rich" = "lag Rich",
-                "radius_mm_hr_rel_avg" = "agar growth",
-                "fit2_v_log10_Orig" = "v Orig",
-                "fit2_v_log10_Rich" = "v Rich"))
-  p <- GGally::ggpairs(temp,
-                       columns = c("r Orig", "r Rich", "k Orig", "k Rich",
-                                   "lag Orig", "lag Rich", "v Orig", "v Rich",
-                                   "agar growth", "resis"),
-                       lower = list(continuous = "smooth"),
-                       upper = list(continuous = "smooth"),
-                       ggplot2::aes(color = Treat, group = Proj),
-                       title = "Strong Phage") +
-    theme(strip.text = element_text(size = 9),
-          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-  #Change colors
-  for (i in 1:p$nrow) {
-    for (j in 1:p$ncol) {
-      p[i, j] <- p[i, j] +
-        scale_color_manual(breaks = c("C", "L", "G"),
-                           values = my_cols[c(8, 2, 6)])
-    }
-  }
-  tiff("./Output_figures/Strongphage_cors.tiff", width = 10, height = 10, 
-       units = "in", res = 300)
-  print(p)
-  dev.off()
-  
-  tiff("./Output_figures/Heatcors_weak.tiff", width = 10, height = 10, units = "in", res = 300)
-  GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "7x", 
-                           c("fit2_r_Orig", "fit2_k_Orig", 
-                             "fit2_v_log10_Orig", 
-                             #"fit2_d0_Orig", 
-                             "fit2_lagtime_hrs_Orig",
-                             "fit2_r_Rich", "fit2_k_Rich",
-                             "fit2_v_log10_Rich",
-                             #"fit2_d0_Rich", 
-                             "fit2_lagtime_hrs_Rich",
-                             #"EOP_avg", 
-                             "resis", "radius_mm_hr_rel_avg"
-                           )],
-                 nbreaks = 5,
-                 hjust = 0.8,
-                 layout.exp = 1.5) +
-    ggplot2::labs(title = "Weak Phage")
-  dev.off()
-  
-  tiff("./Output_figures/Heatcors_strong.tiff", width = 10, height = 10, units = "in", res = 300)
-  GGally::ggcorr(isol_data[isol_data$Treat != "Anc" &
-                             isol_data$Proj == "125", 
-                           c("fit2_r_Orig", "fit2_k_Orig", 
-                             "fit2_v_log10_Orig", 
-                             #"fit2_d0_Orig", 
-                             "fit2_lagtime_hrs_Orig",
-                             "fit2_r_Rich", "fit2_k_Rich",
-                             "fit2_v_log10_Rich",
-                             #"fit2_d0_Rich", 
-                             "fit2_lagtime_hrs_Rich",
-                             #"EOP_avg", 
-                             "resis", "radius_mm_hr_rel_avg"
-                           )],
-                 nbreaks = 5,
-                 hjust = 0.8,
-                 layout.exp = 1.5) +
-                   ggplot2::labs(title = "Strong Phage")
-  dev.off()
-}
+row.names(isol_pca_7x$rotation) <- plyr::revalue(
+  x = row.names(isol_pca_7x$rotation), replace = replace_names)
+row.names(isol_pca_125$rotation) <- plyr::revalue(
+  x = row.names(isol_pca_125$rotation), replace = replace_names)       
 
-##Isolate growth curves: Check for normality ----
+summary(isol_pca_7x)
+summary(isol_pca_125)
 
-#Check for univariate normality
-if (make_statplots) {
-  for (var in c("fit2_r_Orig", "fit2_k_Orig", 
-                "fit2_v_log10_Orig", 
-                #"fit2_d0_Orig", 
-                "fit2_lagtime_hrs_Orig",
-                "fit2_r_Rich", "fit2_k_Rich",
-                "fit2_v_log10_Rich",
-                #"fit2_d0_Rich", 
-                "fit2_lagtime_hrs_Rich",
-                #"EOP_avg", 
-                "resis", "radius_mm_hr_rel_avg"
-  )) {
-    print(ggplot(data = isol_data[isol_data$Pop != "Anc", ],
-                 aes(sample = get(var))) +
-            geom_qq() +
-            geom_qq_line() +
-            facet_grid(~Proj) +
-            ggtitle(var))
-    print(ggplot(data = isol_data[isol_data$Pop != "Anc", ],
-                 aes(x = get(var))) +
-            geom_histogram(bins = 10) +
-            facet_grid(~Proj) +
-            ggtitle(var))
-  }
-}
-
-#Define function to make chi-square quantile plots 
-# to test for multivariate normality of data or residuals
-# (credit to Jonathan Reuning-Scherer)
-CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
-  #usually, vars is xxx$residuals or data from one group and label is for plot
-  x<-cov(scale(vars),use="pairwise.complete.obs")
-  squares<-sort(diag(as.matrix(scale(vars))%*%solve(x)%*%as.matrix(t(scale(vars)))))
-  quantiles<-quantile(squares)
-  hspr<-quantiles[4]-quantiles[2]
-  cumprob<-c(1:length(vars[,1]))/length(vars[,1])-1/(2*length(vars[,1]))
-  degf<-dim(x)[1]
-  quants<-qchisq(cumprob,df=degf)
-  gval<-(quants**(-1+degf/2))/(exp(quants/2)*gamma(degf/2)*(sqrt(2)**degf))
-  scale<-hspr / (qchisq(.75,degf)-qchisq(.25,degf))
-  se<-(scale/gval)*sqrt(cumprob*(1-cumprob)/length(squares))
-  lower<-quants-2*se
-  upper<-quants+2*se
-  
-  plot(quants,squares,col='red',pch=19,cex=1.2,xlab="Chi-Square Quantiles",
-       ylab=label,main=paste("Chi-Square Quantiles for",label),ylim=range(upper,lower, squares) , xlim=range(c(0,quants)))
-  lines(c(0,100),c(0,100),col=1)
-  lines(quants,upper,col="blue",lty=2,lwd=2)
-  lines(quants,lower,col="blue",lty=2,lwd=2)
-  legend(0,range(upper,lower)[2]*.9,c("Data","95% Conf Limits"),lty=c(0,2),col=c("red","blue"),lwd=c(2,2),
-         pch=c(19,NA))
-}
-
-#Make multivariate normality plots
-for (proj in unique(isol_data$Proj)) {
-  CSQPlot(isol_data[isol_data$Proj == proj, c("fit2_r_Orig", "fit2_k_Orig", 
-                               "fit2_v_log10_Orig", 
-                               #"fit2_d0_Orig", 
-                               "fit2_lagtime_hrs_Orig",
-                               "fit2_r_Rich", "fit2_k_Rich",
-                               "fit2_v_log10_Rich",
-                               #"fit2_d0_Rich", 
-                               "fit2_lagtime_hrs_Rich",
-                               #"EOP_avg", 
-                               "resis", "radius_mm_hr_rel_avg"
-  )], label = proj)
-}
-
-#Most variables are univariate normal (except for resis which is ~binary
-# and k Rich and v Orig which has overdispersed tails)
-
-#Surprisingly, both 7x and 125 are somewhat multivariate normal
-
-##Isolate data: run PCA (gc Orig only) ----
-isol_data_pca <- list(
-  "7x" = isol_data[isol_data$Proj == "7x", ],
-  "125" = isol_data[isol_data$Proj == "125", ])
-
-
-isol_prcomp <- list()
-for (i in 1:length(isol_data_pca)) {
-  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
-                #"fit2_v_Orig", 
-                #"fit2_d0_Orig", 
-                "fit2_lagtime_hrs_Orig",
-                #"fit2_r_Rich", "fit2_k_Rich", 
-                #"fit2_v_Rich", 
-                #"fit2_d0_Rich", "fit2_lagtime_hrs_Rich",
-                #"EOP_avg", 
-                "resis", "radius_mm_hr_rel_avg")
-  isol_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
-                             center = TRUE, scale = TRUE, retx = TRUE)
-  isol_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
-                              as.data.frame(isol_prcomp[[i]]$x))
-  row.names(isol_prcomp[[i]]$rotation) <- 
-    plyr::revalue(x = row.names(isol_prcomp[[i]]$rotation),
-                  replace = c("fit2_r_Orig" = "r", "fit2_k_Orig" = "k", 
-                              "fit2_lagtime_hrs_Orig" = "lag time", 
-                              "resis" = "resistance",
-                              "radius_mm_hr_rel_avg" = "agar growth"))
-}
-names(isol_prcomp) <- names(isol_data_pca)
-
-summary(isol_prcomp[[1]])
-summary(isol_prcomp[[2]])
-
+## Isolate analysis: make distance PCA biplots ----
+# (scores and loading directly plotted)
 if(make_statplots) {
-  arrow_len <- 2 #multiplier for arrow lengths for vis purposes
+  arrow_len <- 5 #multiplier for arrow lengths for vis purposes
   
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  weak_pca <- ggplot(isol_prcomp[["7x"]]$x, 
-                     aes(x = PC1, y = PC2)) +
+  weak_pca <- ggplot(isol_pca_7x$x, aes(x = PC1, y = PC2)) +
     ggtitle("Weak Phage") +
-    geom_segment(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
+    geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
+               size = 10, alpha = 0.7) +
+    geom_segment(data = as.data.frame(isol_pca_7x$rotation),
                  aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["7x"]]$rotation),
+                 alpha = .5, lwd = 2, color = "red4") +
+    ggrepel::geom_text_repel(data = as.data.frame(isol_pca_7x$rotation),
                              aes(x = arrow_len*PC1, y = arrow_len*PC2,
-                                 label = row.names(isol_prcomp[["7x"]]$rotation)),
-              size = 14, alpha = .8, color = "gray0", seed = 8,
-              min.segment.length = unit(1, "native"),
-              nudge_x = c(0, -0.1, -0.4, 0, 0.5), 
-              nudge_y = c(0, -0.1, 0.25, 0.2, 0)) + 
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+                                 label = row.names(isol_pca_7x$rotation)),
+              size = 8, alpha = .8, color = "red4", seed = 8,
+              min.segment.length = unit(1, "native")) +
     theme_bw() +
     labs(x = paste("PC1 (", 
-                   round((100*((isol_prcomp[["7x"]]$sdev)**2)/
-                           sum((isol_prcomp[["7x"]]$sdev)**2))[1], 1),
+                   round((100*((isol_pca_7x$sdev)**2)/
+                           sum((isol_pca_7x$sdev)**2))[1], 1),
                    "%)", sep = ""),
          y = paste("PC2 (", 
-                   round((100*((isol_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_prcomp[["7x"]]$sdev)**2))[2], 1),
+                   round((100*((isol_pca_7x$sdev)**2)/
+                            sum((isol_pca_7x$sdev)**2))[2], 1),
                    "%)", sep = "")) +
     theme(axis.title = element_text(size = 36),
           axis.text = element_text(size = 22),
@@ -1379,36 +1181,39 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
                        labels = c("Ancestor", "Control", "Local", "Global"),
                        values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
+    scale_fill_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                       labels = c("Ancestor", "Control", "Local", "Global"),
+                       values = my_cols[c(7, 8, 2, 6)]) +
+    scale_shape_manual(name = "Population",
+                       breaks = c("Anc", "A", "B", "C", "D", "E"),
+                       values = c(4, 21, 22, 23, 24, 25)) +
     NULL
   print(weak_pca)
   dev.off()
 
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  strong_pca <- ggplot(isol_prcomp[["125"]]$x, 
-                       aes(x = -PC1, y = PC2)) +
+  strong_pca <- ggplot(isol_pca_125$x, aes(x = PC1, y = PC2)) +
     ggtitle("Strong Phage") +
-    geom_segment(data = as.data.frame(isol_prcomp[["125"]]$rotation),
-                 aes(x = 0, y = 0, xend = -arrow_len*PC1, yend = arrow_len*PC2),
+    geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
+               size = 10, alpha = 0.7) +
+    geom_segment(data = as.data.frame(isol_pca_125$rotation),
+                 aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_prcomp[["125"]]$rotation),
-                             aes(x = -arrow_len*PC1, y = arrow_len*PC2,
-                                 label = row.names(isol_prcomp[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(-0.1, -0.05, 0, 0, 0.05), 
-                             nudge_y = c(0, -0.1, 0, 0, -0.05)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+                 alpha = .5, lwd = 2, color = "red4") +
+    ggrepel::geom_text_repel(data = as.data.frame(isol_pca_125$rotation),
+                             aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                                 label = row.names(isol_pca_125$rotation)),
+                             size = 8, alpha = .8, color = "red4", seed = 8,
+                             min.segment.length = unit(1, "native")) +
     theme_bw() +
     labs(x = paste("PC1 (", 
-                   round((100*((isol_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_prcomp[["125"]]$sdev)**2))[1], 1),
+                   round((100*((isol_pca_125$sdev)**2)/
+                            sum((isol_pca_125$sdev)**2))[1], 1),
                    "%)", sep = ""),
          y = paste("PC2 (", 
-                   round((100*((isol_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_prcomp[["125"]]$sdev)**2))[2], 1),
+                   round((100*((isol_pca_125$sdev)**2)/
+                            sum((isol_pca_125$sdev)**2))[2], 1),
                    "%)", sep = "")) +
     theme(axis.title = element_text(size = 36),
           axis.text = element_text(size = 22),
@@ -1418,84 +1223,66 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
                        labels = c("Ancestor", "Control", "Local", "Global"),
                        values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
+    scale_fill_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                      labels = c("Ancestor", "Control", "Local", "Global"),
+                      values = my_cols[c(7, 8, 2, 6)]) +
+    scale_shape_manual(name = "Population",
+                       breaks = c("Anc", "A", "B", "C", "D", "E"),
+                       values = c(4, 21, 22, 23, 24, 25)) +
     NULL
   print(strong_pca)
   dev.off()
-  
-  tiff("./Output_figures/PCA_combined.tiff", 
-       width = 24, height = 10, units = "in", res = 300)
-  print(cowplot::plot_grid(
-    weak_pca + theme(legend.position = "none"), 
-    strong_pca + theme(legend.position = "none"),
-    cowplot::get_legend(weak_pca),
-    #labels = c("Weak Phage", "Strong Phage"),
-    vjust = 0,
-    rel_widths = c(1, 1, 0.3),
-    nrow = 1, align = "h", axis = "tb"))
-  dev.off()
 }
 
-##Isolate data: run PCA (gc only) ----
-isol_gc_prcomp <- list()
-for (i in 1:length(isol_data_pca)) {
-  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
-                #"fit2_v_Orig", 
-                #"fit2_d0_Orig", 
-                "fit2_lagtime_hrs_Orig",
-                "fit2_r_Rich", "fit2_k_Rich",
-                #"fit2_v_Rich",
-                #"fit2_d0_Rich", 
-                "fit2_lagtime_hrs_Rich"
-                #"EOP_avg", 
-                #"resis", "radius_mm_hr_rel_avg"
-                )
-  isol_gc_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
-                             center = TRUE, scale = TRUE, retx = TRUE)
-  isol_gc_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
-                              as.data.frame(isol_gc_prcomp[[i]]$x))
-  row.names(isol_gc_prcomp[[i]]$rotation) <- 
-    plyr::revalue(x = row.names(isol_gc_prcomp[[i]]$rotation),
-                  replace = c("fit2_r_Orig" = "r Orig", 
-                              "fit2_r_Rich" = "r Rich", 
-                              "fit2_k_Orig" = "k Orig", 
-                              "fit2_k_Rich" = "k Rich",
-                              "fit2_lagtime_hrs_Orig" = "lag time Orig",
-                              "fit2_lagtime_hrs_Rich" = "lag time Rich"))
-}
-names(isol_gc_prcomp) <- names(isol_data_pca)
+## Isolate analysis: make correlation PCA biplots ----
 
-summary(isol_gc_prcomp[[1]])
-summary(isol_gc_prcomp[[2]])
+#Do normalizations needed for correlation biplot
+#In short: x = x %*% diag(1/sdev)
+#          rotation = rotation %*% diag(sdev)
+isol_pca_7x$x_corr <- isol_pca_7x$x
+isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))] <-
+  as.matrix(isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))]) %*%
+  diag(1/isol_pca_7x$sdev)
 
+isol_pca_125$x_corr <- isol_pca_125$x
+isol_pca_125$x_corr[, grep("PC", colnames(isol_pca_125$x_corr))] <- 
+  as.matrix(isol_pca_125$x_corr[, grep("PC", colnames(isol_pca_125$x_corr))]) %*%
+  diag(1/isol_pca_125$sdev)
+
+isol_pca_7x$rotation_corr <- isol_pca_7x$rotation %*% diag(isol_pca_7x$sdev)
+isol_pca_125$rotation_corr <- isol_pca_125$rotation %*% diag(isol_pca_125$sdev)
+colnames(isol_pca_7x$rotation_corr) <- 
+  paste("PC", 1:ncol(isol_pca_7x$rotation_corr), sep = "")
+colnames(isol_pca_125$rotation_corr) <- 
+  paste("PC", 1:ncol(isol_pca_125$rotation_corr), sep = "")
+
+#Plot correlation biplots
 if(make_statplots) {
   arrow_len <- 2 #multiplier for arrow lengths for vis purposes
   
-  tiff("./Output_figures/weakphage_PCA_gconly.tiff", 
+  tiff("./Output_figures/weakphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  weak_pca <- ggplot(isol_gc_prcomp[["7x"]]$x, 
-                     aes(x = PC1, y = PC2)) +
+  weak_pca <- ggplot(isol_pca_7x$x_corr, aes(x = PC1, y = PC2)) +
     ggtitle("Weak Phage") +
-    geom_segment(data = as.data.frame(isol_gc_prcomp[["7x"]]$rotation),
+    geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
+               size = 10, alpha = 0.7) +
+    geom_segment(data = as.data.frame(isol_pca_7x$rotation_corr),
                  aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_gc_prcomp[["7x"]]$rotation),
+                 alpha = .5, lwd = 2, color = "red4") +
+    ggrepel::geom_text_repel(data = as.data.frame(isol_pca_7x$rotation_corr),
                              aes(x = arrow_len*PC1, y = arrow_len*PC2,
-                                 label = row.names(isol_gc_prcomp[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 8,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0.4, -0.8, 1, 0.2, 0.3, -0.9),
-                             nudge_y = c(0.2, -0.2, 0.4, 0, 0.2, 0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+                                 label = row.names(isol_pca_7x$rotation_corr)),
+                             size = 8, alpha = .8, color = "red4", seed = 8,
+                             min.segment.length = unit(1, "native")) +
     theme_bw() +
     labs(x = paste("PC1 (", 
-                   round((100*((isol_gc_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_gc_prcomp[["7x"]]$sdev)**2))[1], 1),
+                   round((100*((isol_pca_7x$sdev)**2)/
+                            sum((isol_pca_7x$sdev)**2))[1], 1),
                    "%)", sep = ""),
          y = paste("PC2 (", 
-                   round((100*((isol_gc_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_gc_prcomp[["7x"]]$sdev)**2))[2], 1),
+                   round((100*((isol_pca_7x$sdev)**2)/
+                            sum((isol_pca_7x$sdev)**2))[2], 1),
                    "%)", sep = "")) +
     theme(axis.title = element_text(size = 36),
           axis.text = element_text(size = 22),
@@ -1505,36 +1292,39 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
                        labels = c("Ancestor", "Control", "Local", "Global"),
                        values = my_cols[c(7, 8, 2, 6)]) +
-    xlim(NA, 3) +
+    scale_fill_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                      labels = c("Ancestor", "Control", "Local", "Global"),
+                      values = my_cols[c(7, 8, 2, 6)]) +
+    scale_shape_manual(name = "Population",
+                       breaks = c("Anc", "A", "B", "C", "D", "E"),
+                       values = c(4, 21, 22, 23, 24, 25)) +
     NULL
   print(weak_pca)
   dev.off()
   
-  tiff("./Output_figures/strongphage_PCA_gconly.tiff", 
+  tiff("./Output_figures/strongphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
-  strong_pca <- ggplot(isol_gc_prcomp[["125"]]$x, 
-                       aes(x = PC1, y = PC2)) +
+  strong_pca <- ggplot(isol_pca_125$x_corr, aes(x = PC1, y = PC2)) +
     ggtitle("Strong Phage") +
-    geom_segment(data = as.data.frame(isol_gc_prcomp[["125"]]$rotation),
+    geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
+               size = 10, alpha = 0.7) +
+    geom_segment(data = as.data.frame(isol_pca_125$rotation_corr),
                  aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                  arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_gc_prcomp[["125"]]$rotation),
+                 alpha = .5, lwd = 2, color = "red4") +
+    ggrepel::geom_text_repel(data = as.data.frame(isol_pca_125$rotation_corr),
                              aes(x = arrow_len*PC1, y = arrow_len*PC2,
-                                 label = row.names(isol_gc_prcomp[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0.1, -0.6, 0, -0.55, 0.6, 0), 
-                             nudge_y = c(0 ,-0.2, 0.3, 0.2, -0.2, -0.1)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
+                                 label = row.names(isol_pca_125$rotation_corr)),
+                             size = 8, alpha = .8, color = "red4", seed = 8,
+                             min.segment.length = unit(1, "native")) +
     theme_bw() +
     labs(x = paste("PC1 (", 
-                   round((100*((isol_gc_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_gc_prcomp[["125"]]$sdev)**2))[1], 1),
+                   round((100*((isol_pca_125$sdev)**2)/
+                            sum((isol_pca_125$sdev)**2))[1], 1),
                    "%)", sep = ""),
          y = paste("PC2 (", 
-                   round((100*((isol_gc_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_gc_prcomp[["125"]]$sdev)**2))[2], 1),
+                   round((100*((isol_pca_125$sdev)**2)/
+                            sum((isol_pca_125$sdev)**2))[2], 1),
                    "%)", sep = "")) +
     theme(axis.title = element_text(size = 36),
           axis.text = element_text(size = 22),
@@ -1544,458 +1334,14 @@ if(make_statplots) {
     scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
                        labels = c("Ancestor", "Control", "Local", "Global"),
                        values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
+    scale_fill_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                      labels = c("Ancestor", "Control", "Local", "Global"),
+                      values = my_cols[c(7, 8, 2, 6)]) +
+    scale_shape_manual(name = "Population",
+                       breaks = c("Anc", "A", "B", "C", "D", "E"),
+                       values = c(4, 21, 22, 23, 24, 25)) +
     NULL
   print(strong_pca)
-  dev.off()
-  
-  tiff("./Output_figures/PCA_gconly_combined.tiff", 
-       width = 24, height = 10, units = "in", res = 300)
-  print(cowplot::plot_grid(
-    weak_pca + theme(legend.position = "none"), 
-    strong_pca + theme(legend.position = "none"),
-    cowplot::get_legend(weak_pca),
-    #labels = c("Weak Phage", "Strong Phage"),
-    vjust = 0,
-    rel_widths = c(1, 1, 0.3),
-    nrow = 1, align = "h", axis = "tb"))
-  dev.off()
-}
-
-##Isolate data: run PCA (all vars) ----
-isol_all_prcomp <- list()
-for (i in 1:length(isol_data_pca)) {
-  use_cols <- c("fit2_r_Orig", "fit2_k_Orig", 
-                "fit2_v_log10_Orig", 
-                #"fit2_d0_Orig", 
-                "fit2_lagtime_hrs_Orig",
-                "fit2_r_Rich", "fit2_k_Rich",
-                "fit2_v_log10_Rich",
-                #"fit2_d0_Rich", 
-                "fit2_lagtime_hrs_Rich",
-                #"EOP_avg", 
-                "resis", "radius_mm_hr_rel_avg"
-  )
-  isol_all_prcomp[[i]] <- prcomp(isol_data_pca[[i]][, use_cols],
-                                center = TRUE, scale = TRUE, retx = TRUE)
-  isol_all_prcomp[[i]]$x <- cbind(isol_data_pca[[i]][, c("Proj", "Pop", "Treat")],
-                                 as.data.frame(isol_all_prcomp[[i]]$x))
-  row.names(isol_all_prcomp[[i]]$rotation) <- 
-    plyr::revalue(x = row.names(isol_all_prcomp[[i]]$rotation),
-                  replace = c("fit2_r_Orig" = "r Orig", 
-                              "fit2_r_Rich" = "r Rich", 
-                              "fit2_k_Orig" = "k Orig", 
-                              "fit2_k_Rich" = "k Rich",
-                              "fit2_lagtime_hrs_Orig" = "lag Orig",
-                              "fit2_lagtime_hrs_Rich" = "lag Rich",
-                              "radius_mm_hr_rel_avg" = "agar growth",
-                              "fit2_v_log10_Orig" = "v Orig",
-                              "fit2_v_log10_Rich" = "v Rich"))
-}
-names(isol_all_prcomp) <- names(isol_data_pca)
-
-summary(isol_all_prcomp[["7x"]])
-summary(isol_all_prcomp[["125"]])
-
-isol_all_prcomp[["7x"]]$rotation
-isol_all_prcomp[["125"]]$rotation
-
-#Make distance biplots (scores and loading directly plotted)
-if(make_statplots) {
-  arrow_len <- 4 #multiplier for arrow lengths for vis purposes
-  
-  isol_all_prcomp[["7x"]]$x$Title <- "Weak Phage"
-  
-  tiff("./Output_figures/weakphage_PCA12_all.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  weak_pca12 <- ggplot(isol_all_prcomp[["7x"]]$x, 
-                     aes(y = PC1, x = PC2)) +
-    #ggtitle("Weak Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp[["7x"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp[["7x"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC2,
-                                 label = row.names(isol_all_prcomp[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 8,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0),
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["7x"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC2 (", 
-                   round((100*((isol_all_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["7x"]]$sdev)**2))[2], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(NA, 3) +
-    NULL
-  print(weak_pca12)
-  dev.off()
-  
-  tiff("./Output_figures/weakphage_PCA13_all.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  weak_pca13 <- ggplot(isol_all_prcomp[["7x"]]$x, 
-                       aes(y = PC1, x = PC3)) +
-    #ggtitle("Weak Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp[["7x"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp[["7x"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC3,
-                                 label = row.names(isol_all_prcomp[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 8,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0),
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["7x"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC3 (", 
-                   round((100*((isol_all_prcomp[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["7x"]]$sdev)**2))[3], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(NA, 3) +
-    NULL
-  print(weak_pca13)
-  dev.off()
-  
-  isol_all_prcomp[["125"]]$x$Title <- "Strong Phage"
-  
-  tiff("./Output_figures/strongphage_PCA12_all.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  strong_pca12 <- ggplot(isol_all_prcomp[["125"]]$x, 
-                       aes(y = PC1, x = PC2)) +
-    #ggtitle("Strong Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp[["125"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp[["125"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC2,
-                                 label = row.names(isol_all_prcomp[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0), 
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["125"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC2 (", 
-                   round((100*((isol_all_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["125"]]$sdev)**2))[2], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
-    NULL
-  print(strong_pca12)
-  dev.off()
-  
-  tiff("./Output_figures/strongphage_PCA13_all.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  strong_pca13 <- ggplot(isol_all_prcomp[["125"]]$x, 
-                         aes(y = PC1, x = PC3)) +
-    #ggtitle("Strong Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp[["125"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "gray15") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp[["125"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC3,
-                                 label = row.names(isol_all_prcomp[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "gray0", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0), 
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["125"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC3 (", 
-                   round((100*((isol_all_prcomp[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp[["125"]]$sdev)**2))[3], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
-    NULL
-  print(strong_pca13)
-  dev.off()
-  
-  tiff("./Output_figures/PCA_all_combined.tiff", 
-       width = 24, height = 22, units = "in", res = 300)
-  print(
-    cowplot::plot_grid(
-      cowplot::plot_grid(
-        weak_pca12 + theme(legend.position = "none",
-                           strip.background = element_blank(),
-                           strip.text = element_blank()), 
-        weak_pca13 + theme(legend.position = "none"),
-        strong_pca12 + theme(legend.position = "none",
-                             strip.background = element_blank(),
-                             strip.text = element_blank()),
-        strong_pca13 + theme(legend.position = "none"),
-        ncol = 2, align = "hv", axis = "lrtb"),
-      cowplot::get_legend(weak_pca12),
-      rel_widths = c(2, 0.3), ncol = 2))
-  dev.off()
-}
-
-#Do normalizations needed for correlation biplot
-#In short: pca_res$x %*% diag(1/pca_res$sdev)and pca_res$rotation %*% diag(pca_res$sdev)
-isol_all_prcomp_corrbiplot <- list()
-for (i in 1:length(isol_all_prcomp)) {
-  #adjust rotations all in one go
-  isol_all_prcomp_corrbiplot[[i]] <-
-    list("rotation" = isol_all_prcomp[[i]]$rotation %*% 
-           diag(isol_all_prcomp[[i]]$sdev),
-         "x" = isol_all_prcomp[[i]]$x,
-         "sdev" = isol_all_prcomp[[i]]$sdev)
-  #adjust x column by column
-  pc_cntr <- 1
-  for (j in 1:ncol(isol_all_prcomp_corrbiplot[[i]]$x)) {
-    if (grepl("PC", colnames(isol_all_prcomp_corrbiplot[[i]]$x)[j])) {
-      isol_all_prcomp_corrbiplot[[i]]$x[, j] <-
-        isol_all_prcomp_corrbiplot[[i]]$x[, j] * 1/isol_all_prcomp[[i]]$sdev[pc_cntr]
-      pc_cntr <- pc_cntr + 1
-    }
-  }
-  colnames(isol_all_prcomp_corrbiplot[[i]]$rotation) <-
-    colnames(isol_all_prcomp[[i]]$rotation)
-}
-names(isol_all_prcomp_corrbiplot) <- names(isol_all_prcomp)
-
-#Plot correlation biplots
-if(make_statplots) {
-  arrow_len <- 1.5 #multiplier for arrow lengths for vis purposes
-  
-  isol_all_prcomp_corrbiplot[["7x"]]$x$Title <- "Weak Phage"
-  
-  tiff("./Output_figures/weakphage_PCA12_all_corbiplot.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  weak_pca12 <- ggplot(isol_all_prcomp_corrbiplot[["7x"]]$x, 
-                       aes(y = PC1, x = PC2)) +
-    #ggtitle("Weak Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "firebrick4") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC2,
-                                 label = row.names(isol_all_prcomp_corrbiplot[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "firebrick4", seed = 8,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0),
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC2 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2))[2], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(NA, 3) +
-    ylim(-1.6, NA) +
-    NULL
-  print(weak_pca12)
-  dev.off()
-  
-  tiff("./Output_figures/weakphage_PCA13_all_corbiplot.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  weak_pca13 <- ggplot(isol_all_prcomp_corrbiplot[["7x"]]$x, 
-                       aes(y = PC1, x = PC3)) +
-    #ggtitle("Weak Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "firebrick4") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["7x"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC3,
-                                 label = row.names(isol_all_prcomp_corrbiplot[["7x"]]$rotation)),
-                             size = 14, alpha = .8, color = "firebrick4", seed = 8,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0),
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC3 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["7x"]]$sdev)**2))[3], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(NA, 3) +
-    NULL
-  print(weak_pca13)
-  dev.off()
-  
-  isol_all_prcomp_corrbiplot[["125"]]$x$Title <- "Strong Phage"
-  
-  tiff("./Output_figures/strongphage_PCA12_all_corbiplot.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  strong_pca12 <- ggplot(isol_all_prcomp_corrbiplot[["125"]]$x, 
-                         aes(y = PC1, x = PC2)) +
-    #ggtitle("Strong Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC2),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "firebrick4") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC2,
-                                 label = row.names(isol_all_prcomp_corrbiplot[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "firebrick4", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0), 
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC2 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2))[2], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
-    NULL
-  print(strong_pca12)
-  dev.off()
-  
-  tiff("./Output_figures/strongphage_PCA13_all_corbiplot.tiff", 
-       width = 12, height = 10, units = "in", res = 300)
-  strong_pca13 <- ggplot(isol_all_prcomp_corrbiplot[["125"]]$x, 
-                         aes(y = PC1, x = PC3)) +
-    #ggtitle("Strong Phage") +
-    facet_grid(Title~.) +
-    geom_segment(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
-                 aes(x = 0, y = 0, yend = arrow_len*PC1, xend = arrow_len*PC3),
-                 arrow = arrow(length = unit(0.02, "npc")),
-                 alpha = .8, lwd = 2, color = "firebrick4") +
-    ggrepel::geom_text_repel(data = as.data.frame(isol_all_prcomp_corrbiplot[["125"]]$rotation),
-                             aes(y = arrow_len*PC1, x = arrow_len*PC3,
-                                 label = row.names(isol_all_prcomp_corrbiplot[["125"]]$rotation)),
-                             size = 14, alpha = .8, color = "firebrick4", seed = 1,
-                             min.segment.length = unit(1, "native"),
-                             nudge_x = c(0,0,0,0,0,0,0,0), 
-                             nudge_y = c(0,0,0,0,0,0,0,0)) +
-    geom_point(aes(color = Treat), size = 10, alpha = 0.7) +
-    theme_bw() +
-    labs(y = paste("PC1 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2))[1], 1),
-                   "%)", sep = ""),
-         x = paste("PC3 (", 
-                   round((100*((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2)/
-                            sum((isol_all_prcomp_corrbiplot[["125"]]$sdev)**2))[3], 1),
-                   "%)", sep = "")) +
-    theme(axis.title = element_text(size = 36),
-          axis.text = element_text(size = 22),
-          legend.title = element_text(size = 36),
-          legend.text = element_text(size = 32),
-          strip.text = element_text(size = 36)) +
-    scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
-                       labels = c("Ancestor", "Control", "Local", "Global"),
-                       values = my_cols[c(7, 8, 2, 6)]) +
-    #xlim(-1, NA) +
-    NULL
-  print(strong_pca13)
-  dev.off()
-  
-  tiff("./Output_figures/PCA_all_combined_corbiplot.tiff", 
-       width = 24, height = 22, units = "in", res = 300)
-  print(
-    cowplot::plot_grid(
-      cowplot::plot_grid(
-        weak_pca12 + theme(legend.position = "none",
-                           strip.background = element_blank(),
-                           strip.text = element_blank()), 
-        weak_pca13 + theme(legend.position = "none"),
-        strong_pca12 + theme(legend.position = "none",
-                             strip.background = element_blank(),
-                             strip.text = element_blank()),
-        strong_pca13 + theme(legend.position = "none"),
-        ncol = 2, align = "hv", axis = "lrtb"),
-      cowplot::get_legend(weak_pca12),
-      rel_widths = c(2, 0.3), ncol = 2))
   dev.off()
 }
 
