@@ -1098,8 +1098,12 @@ isol_data_wide <- tidyr::pivot_wider(
 #Reduce to complete cases
 isol_data_wide <- isol_data_wide[complete.cases(isol_data_wide), ]
 
-#Make log-scale EOP
-isol_data_wide$EOP_log10_avg <- log10(isol_data_wide$EOP_avg)
+#Make resis trait as -log10(EOP)
+isol_data_wide$resis <- -log10(isol_data_wide$EOP_avg)
+
+#Make k traits as log10
+isol_data_wide$fit_k_log_avg_Orig <- log10(isol_data_wide$fit_k_avg_Orig)
+isol_data_wide$fit_k_log_avg_Rich <- log10(isol_data_wide$fit_k_avg_Rich)
 
 #Run PCA
 pca_cols <- c("radius_mm_hr_del_avg",
@@ -1108,8 +1112,8 @@ pca_cols <- c("radius_mm_hr_del_avg",
               "diauxie_time_hr_avg_Orig",
               "diauxie_time_hr_avg_Rich",
               "fit_r_avg_Orig", "fit_r_avg_Rich",                      
-              "fit_k_avg_Orig", "fit_k_avg_Rich",
-              "EOP_log10_avg")
+              "fit_k_log_avg_Orig", "fit_k_log_avg_Rich",
+              "resis")
 
 isol_pca_7x <- prcomp(isol_data_wide[isol_data_wide$Proj == "7x",
                                      pca_cols],
@@ -1132,9 +1136,8 @@ replace_names = c("radius_mm_hr_del_avg" = "migr",
                   "diauxie_time_hr_avg_Rich" = "kt_Ri",
                   "fit_r_avg_Orig" = "r_Or",
                   "fit_r_avg_Rich" = "r_Ri",
-                  "fit_k_avg_Orig" = "k_Or",
-                  "fit_k_avg_Rich" = "k_Ri",
-                  "EOP_log10_avg" = "resis")
+                  "fit_k_log_avg_Orig" = "k_Or",
+                  "fit_k_log_avg_Rich" = "k_Ri")
 
 row.names(isol_pca_7x$rotation) <- plyr::revalue(
   x = row.names(isol_pca_7x$rotation), replace = replace_names)
@@ -1186,7 +1189,7 @@ if(make_statplots) {
                        values = my_cols[c(7, 8, 2, 6)]) +
     scale_shape_manual(name = "Population",
                        breaks = c("Anc", "A", "B", "C", "D", "E"),
-                       values = c(4, 21, 22, 23, 24, 25)) +
+                       values = c(21, 21, 22, 23, 24, 25)) +
     NULL
   print(weak_pca)
   dev.off()
@@ -1228,7 +1231,7 @@ if(make_statplots) {
                       values = my_cols[c(7, 8, 2, 6)]) +
     scale_shape_manual(name = "Population",
                        breaks = c("Anc", "A", "B", "C", "D", "E"),
-                       values = c(4, 21, 22, 23, 24, 25)) +
+                       values = c(21, 21, 22, 23, 24, 25)) +
     NULL
   print(strong_pca)
   dev.off()
@@ -1297,7 +1300,7 @@ if(make_statplots) {
                       values = my_cols[c(7, 8, 2, 6)]) +
     scale_shape_manual(name = "Population",
                        breaks = c("Anc", "A", "B", "C", "D", "E"),
-                       values = c(4, 21, 22, 23, 24, 25)) +
+                       values = c(21, 21, 22, 23, 24, 25)) +
     NULL
   print(weak_pca)
   dev.off()
