@@ -1342,86 +1342,9 @@ if(make_statplots) {
                       values = my_cols[c(7, 8, 2, 6)]) +
     scale_shape_manual(name = "Population",
                        breaks = c("Anc", "A", "B", "C", "D", "E"),
-                       values = c(4, 21, 22, 23, 24, 25)) +
+                       values = c(21, 21, 22, 23, 24, 25)) +
     NULL
   print(strong_pca)
   dev.off()
 }
-
-##Isolate data: statistical tests ----
-
-#Manova to test for difference in groups
-isol_data_7x <- isol_data[isol_data$Proj == "7x" & isol_data$Pop != "Anc", ]
-manova_res_7x <- manova(as.matrix(
-  isol_data_7x[, c("fit2_r_Orig", "fit2_k_Orig", 
-                                    "fit2_v_log10_Orig", 
-                                    #"fit2_d0_Orig", 
-                                    "fit2_lagtime_hrs_Orig",
-                                    "fit2_r_Rich", "fit2_k_Rich",
-                                    "fit2_v_log10_Rich",
-                                    #"fit2_d0_Rich", 
-                                    "fit2_lagtime_hrs_Rich",
-                                    #"EOP_avg", 
-                                    "resis", "radius_mm_hr_rel_avg")]) ~ 
-    isol_data_7x$Treat)
-isol_data_125 <- isol_data[isol_data$Proj == "125" & isol_data$Pop != "Anc", ]
-manova_res_125 <- manova(as.matrix(
-  isol_data_125[, c("fit2_r_Orig", "fit2_k_Orig", 
-                    "fit2_v_log10_Orig", 
-                    #"fit2_d0_Orig", 
-                    "fit2_lagtime_hrs_Orig",
-                    "fit2_r_Rich", "fit2_k_Rich",
-                    "fit2_v_log10_Rich",
-                    #"fit2_d0_Rich", 
-                    "fit2_lagtime_hrs_Rich",
-                    #"EOP_avg", 
-                    "resis", "radius_mm_hr_rel_avg")]) ~ 
-    isol_data_125$Treat)
-
-#7x results
-summary(manova_res_7x, test = "Wilks")
-summary.aov(manova_res_7x)
-p.adjust(summary.aov(manova_res_7x)$` Response fit2_lagtime_hrs_Orig`$`Pr(>F)`,
-         n = length(summary.aov(manova_res_7x)) + 
-           length(summary.aov(manova_res_125)),
-         method = "holm")
-p.adjust(summary.aov(manova_res_7x)$` Response fit2_lagtime_hrs_Rich`$`Pr(>F)`,
-         n = length(summary.aov(manova_res_7x)) + 
-           length(summary.aov(manova_res_125)),
-         method = "holm")
-p.adjust(summary.aov(manova_res_7x)$` Response resis`$`Pr(>F)`,
-         n = length(summary.aov(manova_res_7x)) + 
-           length(summary.aov(manova_res_125)),
-         method = "holm")
-TukeyHSD(aov(lm(resis ~ Treat, data = isol_data_7x)))
-p.adjust(c(
-  "C" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "C"], 
-         mu = 0)$p.value,
-  "L" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "L"], 
-         mu = 0)$p.value,
-  "G" = t.test(isol_data_7x$radius_mm_hr_rel_avg[isol_data_7x$Treat == "G"], 
-         mu = 0)$p.value),
-  method = "holm", n = 6)
-
-#125 results
-summary(manova_res_125, test = "Wilks")
-summary.aov(manova_res_125)
-p.adjust(summary.aov(manova_res_125)$` Response radius_mm_hr_rel_avg`$`Pr(>F)`,
-         n = length(summary.aov(manova_res_7x)) + 
-           length(summary.aov(manova_res_125)),
-         method = "holm")
-p.adjust(summary.aov(manova_res_125)$` Response resis`$`Pr(>F)`,
-         n = length(summary.aov(manova_res_7x)) + 
-           length(summary.aov(manova_res_125)),
-         method = "holm")
-TukeyHSD(aov(lm(resis ~ Treat, data = isol_data_125)))
-p.adjust(c(
-  "C" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "C"], 
-               mu = 0)$p.value,
-  "L" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "L"], 
-               mu = 0)$p.value,
-  "G" = t.test(isol_data_125$radius_mm_hr_rel_avg[isol_data_125$Treat == "G"], 
-               mu = 0)$p.value),
-  method = "holm", n = 6)
-
 
