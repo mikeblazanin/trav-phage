@@ -542,3 +542,6 @@ dev.off()
 # 
 # summary(lm(avg_gr~avg_eop*Media, data = gc_resis_mppt))
 # 
+
+
+## Old growth curves code ----
