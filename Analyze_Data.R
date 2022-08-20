@@ -527,8 +527,7 @@ gc_summarized <- as.data.frame(gc_summarized)
 ##Isolate growth curves: make plots of all wells ----
 dir.create("./Growth_curve_plots/", showWarnings = FALSE)
 if (make_curveplots) {
-  #for (my_well in unique(gc_data$uniq_well)) {
-  for(my_well in gc_summarized$uniq_well[is.na(gc_summarized$diauxie_time)]) {
+  for (my_well in unique(gc_data$uniq_well)) {
     tiff(filename = 
            paste("./Growth_curve_plots/", 
                  formatC(gc_data$uniq_well_num[gc_data$uniq_well == my_well][1],
@@ -921,6 +920,9 @@ gc_sum_isols[gc_sum_isols$Proj == "125" &
              grep("fit_", colnames(gc_sum_isols))] <- NA
 
 ##Isolate growth curves: plot all isols ----
+#(Note the existence of strong batch effects in the data, e.g. max per cap
+# growth rate. Statistical testing with random effects for batch should
+# counteract this, but it's a good qualifier to keep in mind)
 
 #Make colums of lag time & diauxie time in hrs
 gc_sum_isols <-
