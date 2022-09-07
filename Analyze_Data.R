@@ -1090,7 +1090,7 @@ isol_data_wide$resis <- -log10(isol_data_wide$EOP_avg)
 isol_data_wide$fit_k_log_avg_Orig <- log10(isol_data_wide$fit_k_avg_Orig)
 isol_data_wide$fit_k_log_avg_Rich <- log10(isol_data_wide$fit_k_avg_Rich)
 
-#Run PCA
+##Check univariate normality
 pca_cols <- c("radius_mm_hr_del_avg",
               "threshold_percap_gr_time_hr_avg_Orig",
               "threshold_percap_gr_time_hr_avg_Rich",
@@ -1100,6 +1100,52 @@ pca_cols <- c("radius_mm_hr_del_avg",
               "fit_k_log_avg_Orig", "fit_k_log_avg_Rich",
               "resis")
 
+for (col in pca_cols) {
+  print(ggplot(data = isol_data_wide,
+               aes_string(x = col, fill = "Treat")) +
+          geom_histogram(bins = 10) +
+          facet_grid(Proj ~ .) +
+          ggtitle(col))
+}
+#Besides resistance (which is bimodal), 
+# within conditions (proj) all traits are ~univariate normal
+
+##Now check for multivariate normality:
+
+#Define function to make chi-square quantile plots 
+# to test for multivariate normality of data or residuals
+# (credit to Jonathan Reuning-Scherer)
+CSQPlot<-function(vars,label="Chi-Square Quantile Plot"){
+  #usually, vars is xxx$residuals or data from one group and label is for plot
+  x<-cov(scale(vars),use="pairwise.complete.obs")
+  squares<-sort(diag(as.matrix(scale(vars))%*%solve(x)%*%as.matrix(t(scale(vars)))))
+  quantiles<-quantile(squares)
+  hspr<-quantiles[4]-quantiles[2]
+  cumprob<-c(1:length(vars[,1]))/length(vars[,1])-1/(2*length(vars[,1]))
+  degf<-dim(x)[1]
+  quants<-qchisq(cumprob,df=degf)
+  gval<-(quants**(-1+degf/2))/(exp(quants/2)*gamma(degf/2)*(sqrt(2)**degf))
+  scale<-hspr / (qchisq(.75,degf)-qchisq(.25,degf))
+  se<-(scale/gval)*sqrt(cumprob*(1-cumprob)/length(squares))
+  lower<-quants-2*se
+  upper<-quants+2*se
+  
+  plot(quants,squares,col='red',pch=19,cex=1.2,xlab="Chi-Square Quantiles",
+       ylab=label,main=paste("Chi-Square Quantiles for",label),ylim=range(upper,lower, squares) , xlim=range(c(0,quants)))
+  lines(c(0,100),c(0,100),col=1)
+  lines(quants,upper,col="blue",lty=2,lwd=2)
+  lines(quants,lower,col="blue",lty=2,lwd=2)
+  legend(0,range(upper,lower)[2]*.9,c("Data","95% Conf Limits"),lty=c(0,2),col=c("red","blue"),lwd=c(2,2),
+         pch=c(19,NA))
+}
+
+#Make CSQ plot for multivariate normality
+CSQPlot(as.data.frame(isol_data_wide[isol_data_wide$Proj == "7x", pca_cols]))
+CSQPlot(as.data.frame(isol_data_wide[isol_data_wide$Proj == "125", pca_cols]))
+#Our weak phage data is pretty multivariate normal,
+#but our strong phage data is pretty not multivariate normal
+
+##Run PCA
 isol_pca_7x <- prcomp(isol_data_wide[isol_data_wide$Proj == "7x",
                                      pca_cols],
                       center = TRUE, scale = TRUE, retx = TRUE)
