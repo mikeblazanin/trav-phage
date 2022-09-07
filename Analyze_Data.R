@@ -1068,23 +1068,6 @@ KRmodcomp(mixed_model2_125_R, mixed_model0_125_R)
 KRmodcomp(mixed_model3_125_R, mixed_model0_125_R)
 
 
-##Isolate analysis: summarize into pops ----
-
-isol_data <- group_by(isol_data, Proj, Pop, Treat, Media)
-isol_pops <- summarize(isol_data[!is.na(isol_data$Media), ],
-                       across(.cols = c("threshold_percap_gr_time_hr_avg",
-                                        "diauxie_time_hr_avg",
-                                        "fit_r_avg",
-                                        "fit_k_avg",
-                                        "fit_v_avg",
-                                        "fit_d0_avg",
-                                        "radius_mm_hr_del_avg",
-                                        "EOP_avg"),
-                       .fns = list(avg = mean, sd = sd),
-                       na.rm = TRUE),
-                       "EOP_bd" = any(EOP_bd))
-isol_pops <- as.data.frame(isol_pops)
-
 ##Isolate analysis: PCA ----
 
 #Cast measurements in different medias into different columns
@@ -1350,3 +1333,19 @@ if(make_statplots) {
   dev.off()
 }
 
+##Isolate analysis: summarize into pops ----
+
+isol_data <- group_by(isol_data, Proj, Pop, Treat, Media)
+isol_pops <- summarize(isol_data[!is.na(isol_data$Media), ],
+                       across(.cols = c("threshold_percap_gr_time_hr_avg",
+                                        "diauxie_time_hr_avg",
+                                        "fit_r_avg",
+                                        "fit_k_avg",
+                                        "fit_v_avg",
+                                        "fit_d0_avg",
+                                        "radius_mm_hr_del_avg",
+                                        "EOP_avg"),
+                              .fns = list(avg = mean, sd = sd),
+                              na.rm = TRUE),
+                       "EOP_bd" = any(EOP_bd))
+isol_pops <- as.data.frame(isol_pops)
