@@ -6,3 +6,5 @@
 *.tiff
 grow_curve_var_correlations_*.csv
 grow_curve_var_correlations.xlsx
+Modeling/FromMike/*
+*.mat
