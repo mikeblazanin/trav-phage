@@ -3,14 +3,21 @@
 %wave, a function which takes in the struct SimParams. Various parameters
 %can be edited after calling parameters(). 
 
+%This wrapper is different from Main.m because it calls
+%simulateWave_GaussPhage.m, which uses a different initial phage
+%distribution (gaussian instead of a flat landscape.
+
 clear 
 close all
 
 %% I vs. Chi
 %List of parameter values to try
 %Values to scale cell2 I and Chi by.
+% cell2I = [0.01, 0.1, 1, 2, 5];
 cell2I = [0.01, 0.1, 1, 10, 100];
 cell2Chi = [0.18, 0.42, 1, 2.37, 5.62];
+% cell2I = [1];
+% cell2Chi = [1];
 
 tic()
 parfor ii = 1:length(cell2I)
@@ -19,11 +26,10 @@ parfor ii = 1:length(cell2I)
         SimParams = parameters();
         SimParams.irate2 = SimParams.irate2 .* cell2I(ii);
         SimParams.Chi2 = SimParams.Chi2 .* cell2Chi(jj);
-        SimParams.OutFolderName = './Outputs_NoPhage/OutputsIChi/';
-	    SimParams.PFU = 0;	
+        SimParams.OutFolderName = './Outputs_WideGaussPhage/OutputsIChi_GaussPhage/';
         
         %Run simulation
-        simulateWave(SimParams)
+        simulateWave_WideGaussPhage(SimParams)
     end
 end
 toc()
@@ -42,18 +48,16 @@ parfor ii = 1:length(cell2I)
         SimParams = parameters();
         SimParams.irate2 = SimParams.irate2 .* cell2I(ii);
         SimParams.cA2 = SimParams.cA2 .* cell2cA(jj);
-        SimParams.OutFolderName = './Outputs_NoPhage/OutputsIcA/';
-	    SimParams.PFU = 0;	
+        SimParams.OutFolderName = './Outputs_WideGaussPhage/OutputsIcA_GaussPhage/';
 
         %Run simulation
-        simulateWave(SimParams)
+        simulateWave_WideGaussPhage(SimParams)
     end
 end
 toc()
 
 %% I vs. cR
 %List of parameter values to try
-%Values to scale cell2 I and Chi by.
 cell2I = [0.01, 0.1, 1, 10, 100];
 %Values to scale cell2 I and Chi by.
 cell2cR = [0.44, 0.67, 1, 1.5, 2.25];
@@ -66,11 +70,10 @@ parfor ii = 1:length(cell2I)
         SimParams = parameters();
         SimParams.irate2 = SimParams.irate2 .* cell2I(ii);
         SimParams.cR2 = SimParams.cR2 .* cell2cR(jj);
-        SimParams.OutFolderName = './Outputs_NoPhage/OutputsIcR/';
-	    SimParams.PFU = 0;	
+        SimParams.OutFolderName = './Outputs_WideGaussPhage/OutputsIcR_GaussPhage/';
 
         %Run simulation
-        simulateWave(SimParams)
+        simulateWave_WideGaussPhage(SimParams)
     end
 end
 toc()
@@ -89,11 +92,11 @@ parfor ii = 1:length(cell2I)
         SimParams = parameters();
         SimParams.irate2 = SimParams.irate2 .* cell2I(ii);
         SimParams.Y2 = SimParams.Y2 .* cell2Y(jj);
-        SimParams.OutFolderName = './Outputs_NoPhage/OutputsIY/';
-        SimParams.PFU = 0;	
+        SimParams.OutFolderName = './Outputs_WideGaussPhage/OutputsIY_GaussPhage/';
 
         %Run simulation
-        simulateWave(SimParams)
+        simulateWave_WideGaussPhage(SimParams)
     end
 end
 toc()
+print('All Experiments are Done')

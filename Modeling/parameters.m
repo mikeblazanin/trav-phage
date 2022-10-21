@@ -13,6 +13,7 @@ function params = parameters()
     params.TFinal = 70000; %s	
     %Initial phage concentration
     params.PFU = 2.5; %PFU/dx
+	%params.PFU = 2.5 * 10^9; %PFU/dx for wide phage control
     
 
     %Mesh parameters

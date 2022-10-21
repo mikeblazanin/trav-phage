@@ -36,8 +36,8 @@ function [] = simulateWave(SimParams)
     %Set initial conditions
     rho_cell(1:simSize) = 1.1 * 10^10 .* normpdf((1:simSize)/1000.*dx, 0, 1) .* dx;
     rho_cell2 = rho_cell;
-    rho_phage(:) = 1.1 * 10^10 .* normpdf((1:simSize)/1000.*dx, 0, 1) .* dx;
-    %rho_phage(:) = 1.1 * 10^10 .* normpdf((1:simSize)/1000.*dx, 0, 1000) .* dx;
+    %rho_phage(:) = 1.1 * 10^10 .* normpdf((1:simSize)/1000.*dx, 0, 1) .* dx;
+    rho_phage(:) = 1.1 * 10^10 .* normpdf((1:simSize)/1000.*dx, 0, 1000) .* dx;
     A(:) = 2.*dx;
     R(:) = 50.*dx;
 

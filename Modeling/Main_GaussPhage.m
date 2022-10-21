@@ -95,7 +95,7 @@ parfor ii = 1:length(cell2I)
         SimParams.OutFolderName = './Outputs_GaussPhage/OutputsIY_GaussPhage/';
 
         %Run simulation
-        simulateWave(SimParams)
+        simulateWave_GaussPhage(SimParams)
     end
 end
 toc()
