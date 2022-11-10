@@ -2,41 +2,62 @@ library(ggplot2)
 
 #Read in modeling results data
 data <- lapply(
-  X = grep(pattern = "Analysis.*/.*csv", value = TRUE,
+  X = grep(pattern = "Analysis.*/.*_tot.csv", value = TRUE,
            x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE)),
   FUN = read.csv)
+#Add names
 names(data) = 
   gsub(pattern = "\\./Modeling//", replacement = "",
-       x = grep(pattern = "Modeling//(Analysis.*/.*csv)", value = TRUE,
-       x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE)))
+       x = grep(pattern = "Modeling//(Analysis.*/.*_tot.csv)", value = TRUE,
+                x = list.files("./Modeling/", 
+                               recursive = TRUE, full.names = TRUE)))
 
+#Calculate "relative resistance" col
 data <- lapply(X = data,
                FUN = function(x) {
                  cbind(x, data.frame("relativeR" = 1/x[, "relativeI"]))})
 
-#Make plots
+#Add cols for phage distribution and variables manipulated
 for (i in 1:length(data)) {
-  #Get initial distribution information
   if(strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis") {
-    mylabel = "Global Parasite Distribution"
+    data[[i]] <- cbind(data.frame(distrib = "global"), data[[i]])
   } else if (
     strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_GaussPhage") {
-    mylabel = "Local Parasite Distribution"
+    data[[i]] <- cbind(data.frame(distrib = "local"), data[[i]])
   } else if (
     strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_GaussPhage_Wide") {
-    mylabel = "Global Gaussian Parasite Distribution"
+    data[[i]] <- cbind(data.frame(distrib = "global_gauss"), data[[i]])
+  } else if (
+    strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_NoPhage") {
+    data[[i]] <- cbind(data.frame(distrib = "no_paras"), data[[i]])
   }
   
-  #Get limits for log10(Cell2/Cell) across the two dift initial distributions
-  vars_pattern <- 
-    paste(strsplit(strsplit(names(data)[i], split = "[\\/\\.]")[[1]][2],
-                   "_")[[1]][1:3], collapse = "_")
-  these_vars_idx <-  grep(pattern = vars_pattern, x = names(data))
+  data[[i]] <- cbind(
+    data.frame(
+      vars_manip_1 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+                              split = "_")[[1]][1],
+      vars_manip_2 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+                              split = "_")[[1]][3],
+      vars_manip = paste(strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+                                  split = "_")[[1]][1:3], collapse = "_")),
+    
+    data[[i]])
+}
+
+#Merge data
+library(magrittr)
+library(dplyr)
+library(purrr)
+data_mrg <- data %>% reduce(full_join)
+data_mrg$Cell2_Cell1 <- data_mrg$Cell2_population/data_mrg$Cell_population
+
+#Make plots
+for (vars_manip in unique(data_mrg$vars_manip)) {
+  myrows <- which(data_mrg$vars_manip == vars_manip)
+  my_data <- data_mrg[myrows, ]
   
-  obs_vals <- 
-    unlist(lapply(data[these_vars_idx],
-                  function(x) {x[, "Cell2_population"]/x[, "Cell_population"]}))
-  mybreaks <- pretty(x = log10(obs_vals), n = 6)
+  #Get limits for log10(Cell2/Cell) across the dift initial distributions
+  mybreaks <- pretty(x = log10(my_data$Cell2_Cell1), n = 6)
   
   #axis labels labeller for the non-resistance axis
   mylabeller <-
@@ -45,30 +66,37 @@ for (i in 1:length(data)) {
                   relativecR = "Relative Growth Rate",
                   relativeY = "Relative Growth Yield"))
   
+  #facet labels labeller
+  mylabller <-
+    as_labeller(c(global = "Global Parasite Distribution",
+                  local = "Local Parasite Distribution",
+                  global_gauss = "Global Parasite Distribution (Gaussian)",
+                  no_paras = "No Parasites"))
+  
   #Make file
   png(
-    paste(sep = "", "./Model_plots/", vars_pattern, mylabel, ".png"),
+    paste(sep = "", "./Model_plots/", vars_manip, ".png"),
     width = 6, height = 5, units = "in", res = 150)
   #Make plot
   print(
-    ggplot(data[[i]],
-           aes_string(x = "relativeR",
-                      y = grep("relative[^IR]+", colnames(data[[i]]),
-                               value = TRUE))) +
+    ggplot(my_data,
+           aes_string(x = "relativeR", 
+                      y = paste("relative", my_data$vars_manip_2[1], sep = ""))) +
       geom_contour_filled(aes(z = log10(Cell2_population/Cell_population)),
                           breaks = mybreaks) +
       geom_point(aes(color = log10(Cell2_population/Cell_population)),
                  size = 3) +
+      facet_wrap(~distrib) +
       scale_x_continuous(trans = "log10") +
       scale_y_continuous(trans = "log2") +
       scale_fill_viridis_d(drop = FALSE) +
       scale_color_continuous(name = "Fitness", type = "viridis",
                              limits = c(min(mybreaks), max(mybreaks))) +
       #guides(fill = "none") +
-      labs(subtitle = mylabel,
-           x = "Relative Resistance",
-           y = mylabeller(grep("relative[^IR]+", colnames(data[[i]]),
-                               value = TRUE))[[1]]) +
+      # labs(subtitle = mylabel,
+      #      x = "Relative Resistance",
+      #      y = mylabeller(grep("relative[^IR]+", colnames(data[[i]]),
+      #                          value = TRUE))[[1]]) +
       theme_bw() +
       NULL
   )
