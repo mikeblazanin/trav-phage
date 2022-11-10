@@ -18,16 +18,16 @@ for ii = 1:length(FileList)
 
     % set(gca', 'yscale', 'log')
 
-    %% Get indices of the wave
-    %Find the peaks and start of wave 1
-    peaks = findpeaks(rho_cell_end);
-    peakInd = find(rho_cell_end == peaks(end));
-    WaveStartInd = max(find(rho_cell_end(1:peakInd) <= min(rho_cell_end(1:peakInd))));
-
-    %Find peaks and start of wave 2
-    peaks2 = findpeaks(rho_cell2_end);
-    peakInd2 = find(rho_cell2_end == peaks2(end));
-    WaveStartInd2 = max(find(rho_cell2_end(1:peakInd2) <= min(rho_cell2_end(1:peakInd))));
+%     %% Get indices of the wave
+%     %Find the peaks and start of wave 1
+%     peaks = findpeaks(rho_cell_end);
+%     peakInd = find(rho_cell_end == peaks(end));
+%     WaveStartInd = max(find(rho_cell_end(1:peakInd) <= min(rho_cell_end(1:peakInd))));
+% 
+%     %Find peaks and start of wave 2
+%     peaks2 = findpeaks(rho_cell2_end);
+%     peakInd2 = find(rho_cell2_end == peaks2(end));
+%     WaveStartInd2 = max(find(rho_cell2_end(1:peakInd2) <= min(rho_cell2_end(1:peakInd))));
 
 %     figure();
 %     plot(rho_cell_end)
@@ -40,8 +40,8 @@ for ii = 1:length(FileList)
 %     xline(WaveStartInd2)
 
     %% Sum cell density in the wave
-    cell_population = sum(rho_cell_end(WaveStartInd:end));
-    cell2_population = sum(rho_cell2_end(WaveStartInd:end));
+    cell_population = sum(rho_cell_end(1:end));
+    cell2_population = sum(rho_cell2_end(1:end));
     
     %% Get Parameters
     relativeY = SimParams.Y2 ./ SimParams.Y;
@@ -66,13 +66,13 @@ a.Label.Rotation = -90;
 xlabel("Relative Y")
 ylabel("Relative I")
 set(gca,'xscale', 'log', 'yscale', 'log')
-saveas(gcf, './I_vs_Y_NoPhage.png')
+saveas(gcf, './I_vs_Y_NoPhage_tot.png')
 
 %% Export Data
 headers = ["Cell_population", "Cell2_population", "relativeY", "relativeI", "Y", "irate"];
 textHeader = strjoin(headers, ',');
-fid = fopen('./I_vs_Y_NoPhage.csv', 'w');
+fid = fopen('./I_vs_Y_NoPhage_tot.csv', 'w');
 fprintf(fid,'%s\n',textHeader)
 fclose(fid)
 
-dlmwrite('./I_vs_Y_NoPhage.csv',Measurements,'-append');
+dlmwrite('./I_vs_Y_NoPhage_tot.csv',Measurements,'-append');
