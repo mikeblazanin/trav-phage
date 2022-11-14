@@ -72,10 +72,10 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   
   #facet labels labeller
   facetlabeller <-
-    as_labeller(c(global = "Global Parasites",
-                  local = "Local Parasites",
-                  global_gauss = "Global Parasites (Gaussian)",
-                  no_paras = "No Parasites"))
+    as_labeller(c(global = "Global",
+                  local = "Local",
+                  global_gauss = "Global (Gaussian)",
+                  no_paras = "Control"))
   
   #Make file
   png(
@@ -143,6 +143,11 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
         guides(fill = "none") +
         labs(x = "Relative Resistance", y = "Relative Dispersal") +
         theme_bw() +
+        theme(axis.text = element_text(size = 11),
+              axis.title.y = element_text(size = 15),
+              axis.title.x = element_text(size = 14),
+              strip.text.x = element_text(size = 15),
+              strip.text.y = element_text(size = 13)) +
         NULL
     )
     dev.off()
