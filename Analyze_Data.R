@@ -64,41 +64,41 @@ if (make_statplots) {
           theme_bw() +
           theme(axis.text.y = element_text(size = 12), 
                 axis.text.x = element_text(size = 12),
-                axis.title = element_text(size = 15),
-                legend.text = element_text(size = 14), 
-                legend.title = element_text(size = 15),
-                strip.text = element_text(size = 15)) +
+                axis.title = element_text(size = 17),
+                legend.text = element_text(size = 16), 
+                legend.title = element_text(size = 17),
+                strip.text = element_text(size = 11)) +
           NULL)
   dev.off()
-
+  
   #Make plot with both summarized and non-summarized data
   tiff("./Output_figures/Exper_evol_migr.tiff",
        width = 7, height = 4, units = "in", res = 300)
   print(ggplot(data = exper_evol_migr,
-         aes(x = Timepoint, y = radius_mm_hr, 
-             group = paste(Treat, Pop),
-             color = Treat)) +
-    #  geom_point(size = 0.5, alpha = 0.5) +
-    geom_line(alpha = 0.5, lwd = .4) +
-    facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-    geom_line(data = exper_evol_summ,
-              aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
-                  group = Treat),
-              size = 1.3) +
-    labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_x_continuous(breaks = c(0, 7, 14)) +
-    ylim(0, NA) +
-    theme_bw() +
-    theme(axis.text.y = element_text(size = 11), 
-          axis.text.x = element_text(size = 11),
-          axis.title = element_text(size = 14),
-          legend.text = element_text(size = 13), 
-          legend.title = element_text(size = 14),
-          strip.text = element_text(size = 14)) +
-    NULL)
+               aes(x = Timepoint, y = radius_mm_hr, 
+                   group = paste(Treat, Pop),
+                   color = Treat)) +
+          #  geom_point(size = 0.5, alpha = 0.5) +
+          geom_line(alpha = 0.5, lwd = .4) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          geom_line(data = exper_evol_summ,
+                    aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
+                        group = Treat),
+                    size = 1.3) +
+          labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_x_continuous(breaks = c(0, 7, 14)) +
+          ylim(0, NA) +
+          theme_bw() +
+          theme(axis.text.y = element_text(size = 12), 
+                axis.text.x = element_text(size = 12),
+                axis.title = element_text(size = 17),
+                legend.text = element_text(size = 16), 
+                legend.title = element_text(size = 17),
+                strip.text = element_text(size = 11)) +
+          NULL)
   dev.off()
 }
 
@@ -138,48 +138,55 @@ if (make_statplots) {
   tiff("./Output_figures/Isol_migration.tiff",
        width = 6, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration, 
-         aes(x = Pop, y = radius_mm_hr, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_grid(Proj ~ Treat, scales = "free",
-                 labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = "Soft Agar Growth (mm/hr)",
-         x = "Population") +
-    # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                    labels = c("Control", "Local", "Global"),
-    #                    values = my_cols[c(8, 2, 6)]) +
-    # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-    #                   labels = c("Control", "Local", "Global"),
-    #                   values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL)
+               aes(x = Pop, y = radius_mm_hr, 
+                   color = Treat, fill = Treat)) +
+          geom_point(position = position_dodge(0.5), alpha = 0.6,
+                     size = 2) +
+          facet_grid(Proj ~ Treat, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
+          theme_bw() + 
+          labs(y = "Soft Agar Growth (mm/hr)",
+               x = "Population") +
+          # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+          #                    labels = c("Control", "Local", "Global"),
+          #                    values = my_cols[c(8, 2, 6)]) +
+          # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+          #                   labels = c("Control", "Local", "Global"),
+          #                   values = my_cols[c(8, 2, 6)]) +
+          theme(legend.position = "none") +
+          NULL)
   dev.off()
   
   #Delta radius
   tiff("./Output_figures/Isol_migration_del.tiff",
        width = 5, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-         aes(x = Pop, y = radius_mm_hr_del, 
-             color = Treat, fill = Treat)) +
-    geom_point(position = position_dodge(0.5), alpha = 0.6,
-               size = 2) +
-    facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    theme_bw() + 
-    labs(y = paste("\u0394", "Soft Agar Growth (mm/hr)", sep = ""),
-         x = "Population") +
-    geom_hline(yintercept = 0, lty = 2) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                      labels = c("Control", "Local", "Global"),
-                      values = my_cols[c(8, 2, 6)]) +
-    theme(legend.position = "none") +
-    NULL)
+               aes(x = Pop, y = radius_mm_hr_del, 
+                   color = Treat, fill = Treat)) +
+          geom_point(position = position_dodge(0.5), alpha = 0.6,
+                     size = 2) +
+          facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
+                                                     Treat = my_facet_labels),
+                     scales = "free_y") +
+          theme_bw() + 
+          labs(y = paste("\u0394", "Dispersal (mm/hr)", sep = ""),
+               x = "Population") +
+          geom_hline(yintercept = 0, lty = 2) +
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                            labels = c("Control", "Local", "Global"),
+                            values = my_cols[c(8, 2, 6)]) +
+          theme(legend.position = "none",
+                axis.text = element_text(size = 11), 
+                axis.title.y = element_text(size = 15),
+                axis.title.x = element_text(size = 14),
+                strip.text.x = element_text(size = 15),
+                strip.text.y = element_text(size = 13)) +
+          
+          NULL)
   dev.off()
 }
 
@@ -311,36 +318,41 @@ if (make_statplots) {
   tiff("./Output_figures/Isol_resis.tiff", width = 5, height = 4,
        units = "in", res = 300)
   print(ggplot(resis_data[resis_data$Treat != "Anc", ],
-         aes(x = Pop, y = EOP, 
-             color = Treat, fill = Treat,
-             shape = bd)) +
-    facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                  Treat = my_facet_labels)) +
-    geom_rect(data = Anc_EOP,
-              aes(x = NULL, y = NULL, color = NULL, fill = NULL, shape = NULL,
-                  xmin = 0, xmax = 6,
-                  ymin = min_EOP, ymax = max_EOP),
-              alpha = 0.3) +
-    geom_point(aes(size = bd, alpha = bd)) +
-    scale_size_manual(values = c(2, 2.5)) +
-    scale_alpha_manual(values = c(0.6, 1)) +
-    scale_y_continuous(trans = "log10",
-                       breaks = 10**(c(0, -2, -4, -6)),
-                       labels = c(1, expression(10^-2), expression(10^-4),
-                                  expression(10^-6))) +
-    theme_bw() +
-    #geom_hline(yintercept = 1, lty = 2) +
-    geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
-    scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                       labels = c("Control", "Local", "Global"),
-                       values = my_cols[c(8, 2, 6)]) +
-    scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                      labels = c("Control", "Local", "Global"),
-                      values = my_cols[c(8, 2, 6)]) +
-    scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
-    labs(x = "Population", y = "Efficiency of Plaquing Relative to Ancestor") +
-    theme(legend.position = "none") +
-    NULL)
+               aes(x = Pop, y = EOP, 
+                   color = Treat, fill = Treat,
+                   shape = bd)) +
+          facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
+                                                     Treat = my_facet_labels)) +
+          geom_rect(data = Anc_EOP,
+                    aes(x = NULL, y = NULL, color = NULL, fill = NULL, shape = NULL,
+                        xmin = 0, xmax = 6,
+                        ymin = min_EOP, ymax = max_EOP),
+                    alpha = 0.3) +
+          geom_point(aes(size = bd, alpha = bd)) +
+          scale_size_manual(values = c(2, 2.5)) +
+          scale_alpha_manual(values = c(0.6, 1)) +
+          scale_y_continuous(trans = "log10",
+                             breaks = 10**(c(0, -2, -4, -6)),
+                             labels = c(1, expression(10^-2), expression(10^-4),
+                                        expression(10^-6))) +
+          theme_bw() +
+          #geom_hline(yintercept = 1, lty = 2) +
+          geom_hline(yintercept = eop_limit, lty = 3, lwd = 1) +
+          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                             labels = c("Control", "Local", "Global"),
+                             values = my_cols[c(8, 2, 6)]) +
+          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
+                            labels = c("Control", "Local", "Global"),
+                            values = my_cols[c(8, 2, 6)]) +
+          scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+          labs(x = "Population", y = "Susceptibility to Parasite Infection") +
+          theme(legend.position = "none",
+                axis.text = element_text(size = 11), 
+                axis.title.y = element_text(size = 15),
+                axis.title.x = element_text(size = 14),
+                strip.text.x = element_text(size = 15),
+                strip.text.y = element_text(size = 13)) +
+          NULL)
   dev.off()
 }
 
@@ -488,7 +500,7 @@ gc_data$percap_deriv_sm_movmed3_loess3600 <-
              x = gc_data$Time_s,
              subset_by = gc_data$uniq_well,
              x_scale = 3600,
-             percapita = TRUE)
+             percapita = TRUE, blank = 0)
 
 ##Isolate growth curves: ID transitions ----
 #These transition points are used for fitting the data
@@ -976,6 +988,36 @@ if (make_statplots) {
                                              hjust = 1, vjust = 0.5))
     )
     dev.off()
+    
+    #Make main-text plot
+    if(var_root == "fit_r") {
+      tiff("./Growth_curve_variables_plots/fit_r_maintext.tiff",
+           width = 5, height = 4.5, units = "in", res = 300)
+      print(ggplot(data = gc_sum_isols[gc_sum_isols$Media == "Orig", ],
+                   aes(x = Pop, y = get(var), group = Pop, color = Treat)) +
+              geom_point(position = position_dodge(0.6), alpha = 0.7,
+                         size = 2) +
+              facet_grid(Proj ~ Treat, scales = "free",
+                         labeller = labeller(Proj = my_facet_labels,
+                                             Treat = my_facet_labels)) +
+              scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                                 labels = c("Ancestor", "Control", "Local", "Global"),
+                                 values = my_cols[c(3, 8, 2, 6)]) +
+              geom_errorbar(aes(x = Pop, ymin = get(var)-get(var_sd),
+                                ymax = get(var)+get(var_sd)),
+                            position = position_dodge(0.6),
+                            width = 0.2) +
+              labs(y = "Maximum Per Capita Growth Rate (/hr)", x = "Population") +
+              theme_bw() +
+              theme(legend.position = "none",
+                    axis.text = element_text(size = 11),
+                    axis.title.y = element_text(size = 15),
+                    axis.title.x = element_text(size = 14),
+                    strip.text.x = element_text(size = 15),
+                    strip.text.y = element_text(size = 13))
+      )
+      dev.off()
+    }
   }
 }
 
