@@ -50,7 +50,8 @@ if (make_statplots) {
                                            color = Treat)) +
           #geom_point(position = position_dodge(0.2)) + 
           geom_line(size = 2, position = position_dodge(0.2), alpha = 0.8) +
-          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels),
+                     scales = "free_y") +
           # geom_errorbar(aes(ymax = radius_mm_hr_mean+radius_mm_hr_sd, 
           #                   ymin = radius_mm_hr_mean-radius_mm_hr_sd),
           #               width=1, size = .7, position=position_dodge(0.2)) +
@@ -80,7 +81,8 @@ if (make_statplots) {
                    color = Treat)) +
           #  geom_point(size = 0.5, alpha = 0.5) +
           geom_line(alpha = 0.5, lwd = .4) +
-          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
+          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels),
+                     scales = "free_y") +
           geom_line(data = exper_evol_summ,
                     aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
                         group = Treat),
@@ -854,10 +856,14 @@ if(make_curveplots) {
 # 294 - keep
 # 46 - toss
 # 364 - keep
+# 
+# 301 - toss (bc of bad diauxic shift fit)
+# 330 - toss (bc of bad diauxic shift fit)
 
 gc_summarized[which(gc_summarized$uniq_well_num %in% 
                       c(215, 183, 15, 115, 223, 197, 59, 445, 210, 13, 
-                        44, 53, 160, 238, 243, 370, 354, 334, 242, 46)),
+                        44, 53, 160, 238, 243, 370, 354, 334, 242, 46, 
+                        301, 330)),
               grep("fit_", colnames(gc_summarized))] <- NA
 
 ##Isolate growth curves: summarize reps into isols ----
