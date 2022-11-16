@@ -150,12 +150,10 @@ if (make_statplots) {
           theme_bw() + 
           labs(y = "Soft Agar Growth (mm/hr)",
                x = "Population") +
-          # scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-          #                    labels = c("Control", "Local", "Global"),
-          #                    values = my_cols[c(8, 2, 6)]) +
-          # scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-          #                   labels = c("Control", "Local", "Global"),
-          #                   values = my_cols[c(8, 2, 6)]) +
+          scale_color_manual(breaks = c("Anc", "C", "L", "G"),
+                             values = my_cols[c(3, 8, 2, 6)]) +
+          scale_fill_manual(breaks = c("Anc", "C", "L", "G"),
+                            values = my_cols[c(3, 8, 2, 6)]) +
           theme(legend.position = "none") +
           NULL)
   dev.off()
@@ -966,7 +964,7 @@ if (make_statplots) {
     var_name <- c("Maximum Per Capita Growth Rate (r) (/hr)", 
                   "Density at Diauxic Shift (k) (cfu/mL)", 
                   "Deceleration Parameter (v)",
-                  "Lag time (hr)", "Diauxic Shift Time (hr)")[i]
+                  "Lag time (hr)", "Diauxic Shift Time (kt) (hr)")[i]
     
     var <- paste(var_root, "_avg", sep = "")
     var_sd <- paste(var_root, "_sd", sep = "")
@@ -1208,7 +1206,7 @@ isol_pca_125$x <- cbind(as.data.frame(isol_pca_125$x),
                        isol_data_wide[isol_data_wide$Proj == "125", ])
 
 #Rename rotations for better plotting
-replace_names = c("radius_mm_hr_del_avg" = "migr",
+replace_names = c("radius_mm_hr_del_avg" = "disp",
                   "threshold_percap_gr_time_hr_avg_Orig" = "lag_Or",
                   "threshold_percap_gr_time_hr_avg_Rich" = "lag_Ri",
                   "diauxie_time_hr_avg_Orig" = "kt_Or",
