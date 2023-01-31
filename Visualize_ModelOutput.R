@@ -156,11 +156,12 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
         guides(fill = "none") +
         labs(x = "Relative Resistance", y = "Relative Dispersal") +
         #theme_bw() +
-        theme(axis.text = element_text(size = 11),
-              axis.title.y = element_text(size = 15),
+        theme(axis.title.y = element_text(size = 15),
               axis.title.x = element_text(size = 14),
               strip.text.x = element_text(size = 15),
-              strip.text.y = element_text(size = 13)) +
+              strip.text.y = element_text(size = 13),
+              axis.text.x = element_text(size = 11, angle = 45, hjust = 1),
+              axis.text.y = element_text(size = 11)) +
         NULL
     )
     dev.off()
