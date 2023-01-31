@@ -61,7 +61,13 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   my_data <- data_mrg[myrows, ]
   
   #Get limits for log10(Cell2/Cell) across the dift initial distributions
-  mybreaks <- pretty(x = log10(my_data$Cell2_Cell1), n = 6)
+  # (these are more like the labels)
+  mybreaks_pretty <- pretty(x = c(-max(abs(log10(my_data$Cell2_Cell1))),
+                                  max(abs(log10(my_data$Cell2_Cell1)))), n = 4)
+  if(vars_manip == "I_vs_cR") {mybreaks_pretty <- c(-8, -4, 0, 4, 8)}
+  #Get bin limits (these are actually used for the bin limits)
+  mybreaks <- seq(from = min(mybreaks_pretty), to = max(mybreaks_pretty),
+                  length.out = 8)
   
   #axis labels labeller for the non-resistance axis
   axislabeller <-
@@ -94,12 +100,13 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
       scale_x_continuous(trans = "log10",
                          breaks = 10**c(-2, -1, 0, 1, 2),
                          labels = c("0.01", "0.1", "1", "10", "100")) +
-      scale_fill_viridis_d(drop = FALSE) +
-      scale_color_continuous(name = "Fitness", type = "viridis",
+      scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
+      scale_color_distiller(name = "Fitness", type = "div", palette = "PiYG",
+                            direction = 1, breaks = mybreaks_pretty,
                              limits = c(min(mybreaks), max(mybreaks))) +
       guides(fill = "none") +
       labs(x = "Relative Resistance") +
-      theme_bw() +
+      #theme_bw() +
       NULL
   if(vars_manip == "I_vs_Y") {
     p <- p + 
@@ -122,7 +129,12 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
     my_data <- data_mrg[myrows, ]
     
     #Get limits for log10(Cell2/Cell) across the dift initial distributions
-    mybreaks <- pretty(x = log10(my_data$Cell2_Cell1), n = 6)
+    # (these are more like the labels)
+    mybreaks_pretty <- pretty(x = c(-max(abs(log10(my_data$Cell2_Cell1))),
+                                    max(abs(log10(my_data$Cell2_Cell1)))), n = 4)
+    #Get bin limits (these are actually used for the bin limits)
+    mybreaks <- seq(from = min(mybreaks_pretty), to = max(mybreaks_pretty),
+                    length.out = 8)
     
     #Make plot
     png("./Model_plots/I_vs_Chi_maintext.png", width = 8, height = 3, units = "in", res = 150)
@@ -137,12 +149,13 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                            breaks = 10**c(-2, -1, 0, 1, 2),
                            labels = c("0.01", "0.1", "1", "10", "100")) +
         scale_y_continuous(trans = "log2") +
-        scale_fill_viridis_d(drop = FALSE) +
-        scale_color_continuous(name = "Fitness", type = "viridis",
-                               limits = c(min(mybreaks), max(mybreaks))) +
+        scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
+        scale_color_distiller(name = "Fitness", type = "div", palette = "PiYG",
+                              direction = 1, breaks = mybreaks_pretty,
+                              limits = c(min(mybreaks), max(mybreaks))) +
         guides(fill = "none") +
         labs(x = "Relative Resistance", y = "Relative Dispersal") +
-        theme_bw() +
+        #theme_bw() +
         theme(axis.text = element_text(size = 11),
               axis.title.y = element_text(size = 15),
               axis.title.x = element_text(size = 14),
