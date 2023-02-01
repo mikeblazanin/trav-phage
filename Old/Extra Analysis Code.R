@@ -1,3 +1,8 @@
+#This file contains code that was once used in analyses but was removed from
+# the current version, but I just didn't want to completely delete it
+# in case I needed it later for some reason.
+
+
 #smooth CFU data
 smooth_data <- function(my_data, smooth_over, subset_by) {
   #data must be sorted sequentially before fed into function
