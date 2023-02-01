@@ -1,3 +1,9 @@
+#This file contains the second set of code that was once used in analyses but 
+# was removed from the current version. (This code was removed later than
+# Extra Analysis Code.R). I just didn't want to completely delete it
+# in case I needed it later for some reason.
+
+
 ##Isolate growth curves: smooth ----
 gc_data$sm_loess_25k <- NA
 gc_data$sm_loess_3600 <- NA
