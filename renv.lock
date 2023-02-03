@@ -236,6 +236,26 @@
         "rlang"
       ]
     },
+    "emmeans": {
+      "Package": "emmeans",
+      "Version": "1.8.4-1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "064a1a917a6b36249a8fa725db15709d",
+      "Requirements": [
+        "estimability",
+        "mvtnorm",
+        "numDeriv"
+      ]
+    },
+    "estimability": {
+      "Package": "estimability",
+      "Version": "1.4.1",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "1a78288c1188772070240b89ffe33579",
+      "Requirements": []
+    },
     "evaluate": {
       "Package": "evaluate",
       "Version": "0.20",
@@ -271,7 +291,8 @@
     "gcplyr": {
       "Package": "gcplyr",
       "Version": "1.0.2",
-      "Source": "unknown",
+      "Source": "Repository",
+      "Repository": "CRAN",
       "Hash": "ce1a77a08eb827f0ac1bfb3525ed97ba",
       "Requirements": [
         "dplyr",
@@ -452,6 +473,19 @@
         "nloptr"
       ]
     },
+    "lmerTest": {
+      "Package": "lmerTest",
+      "Version": "3.1-3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "f04948de84602afc23bfa9f5427e954d",
+      "Requirements": [
+        "MASS",
+        "ggplot2",
+        "lme4",
+        "numDeriv"
+      ]
+    },
     "magrittr": {
       "Package": "magrittr",
       "Version": "2.0.3",
@@ -510,6 +544,14 @@
       "Requirements": [
         "colorspace"
       ]
+    },
+    "mvtnorm": {
+      "Package": "mvtnorm",
+      "Version": "1.1-3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "7a7541cc284cb2ba3ba7eae645892af5",
+      "Requirements": []
     },
     "nlme": {
       "Package": "nlme",
