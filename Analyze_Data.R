@@ -4,6 +4,8 @@ library(dplyr)
 library(ggh4x)
 library(lme4)
 library(pbkrtest)
+library(emmeans)
+library(lmerTest)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -236,6 +238,19 @@ if (make_statplots) {
 #Statistics
 isol_migration$PPT <- 
   paste(isol_migration$Proj, isol_migration$Pop, isol_migration$Treat)
+
+#Test for differences from Ancestor
+mig7x_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
+                      data = isol_migration[isol_migration$Proj == "7x", ])
+mig125_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
+                       data = isol_migration[isol_migration$Proj == "125", ])
+
+emmeans(mig7x_lmeranc, ~ Treat, contr = "trt.vs.ctrl", 
+        ref = which(levels(isol_migration$Treat) == "Anc"))
+emmeans(mig125_lmeranc, ~ Treat, contr = "trt.vs.ctrl", 
+        ref = which(levels(isol_migration$Treat) == "Anc"))
+
+#Test for differences bt treats
 mig7x_lmer <- lmer(radius_mm_hr_del ~ (1|PPT) + Treat,
                  data = isol_migration[isol_migration$Isol != "Anc" &
                                          isol_migration$Proj == "7x", ])
@@ -255,6 +270,7 @@ KRmodcomp(mig125_lmer, mig125_lmernull)
 
 summary(mig125_lmer)
 
+emmeans(mig125_lmer, ~ Treat, contr = "pairwise", adjust = "tukey")
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -405,7 +421,6 @@ if (make_statplots) {
           NULL)
   dev.off()
 }
-
 
 ##Isolate growth curves: read data & prep ----
 
