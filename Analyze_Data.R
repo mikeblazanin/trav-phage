@@ -6,6 +6,7 @@ library(lme4)
 library(pbkrtest)
 library(emmeans)
 library(lmerTest)
+library(gcplyr)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -499,9 +500,6 @@ for (my_well in unique(gc_data$uniq_well)) {
 #Drop plain moving-median column
 gc_data <-  select(gc_data, !sm_movmed3)
 
-#Import function that calculates derivatives
-calc_deriv <- gcplyr::calc_deriv
-
 #Calculate growth per hour from 25k loess curve
 gc_data$deriv_sm_movmed3_loess25k <- 
   calc_deriv(y = gc_data$sm_movmed3_loess25k,
@@ -523,9 +521,6 @@ gc_data$percap_deriv_sm_movmed3_loess3600 <-
 #Group data by unique wells
 gc_data <- group_by(gc_data, Date, Proj, Pop, Treat, Isol, Rep_Well, Media,
                     uniq_well, uniq_well_num)
-
-#Import function
-find_local_extrema <- gcplyr::find_local_extrema
 
 #Define the window widths (sensitivity) for local extrema search
 diauxie_time_window <- 7200
