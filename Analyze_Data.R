@@ -1377,24 +1377,6 @@ isol_pca_125$rotation_corr <-
     cols = grep("PC", colnames(isol_pca_125$rotation)),
     z = norms_125, do = "mult")
 
-#Do normalizations needed for correlation biplot
-isol_pca_7x$x_corr <- isol_pca_7x$x
-isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))] <-
-  as.matrix(isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))]) %*%
-  diag(1/isol_pca_7x$sdev)
-
-isol_pca_125$x_corr <- isol_pca_125$x
-isol_pca_125$x_corr[, grep("PC", colnames(isol_pca_125$x_corr))] <- 
-  as.matrix(isol_pca_125$x_corr[, grep("PC", colnames(isol_pca_125$x_corr))]) %*%
-  diag(1/isol_pca_125$sdev)
-
-isol_pca_7x$rotation_corr <- isol_pca_7x$rotation %*% diag(isol_pca_7x$sdev)
-isol_pca_125$rotation_corr <- isol_pca_125$rotation %*% diag(isol_pca_125$sdev)
-colnames(isol_pca_7x$rotation_corr) <- 
-  paste("PC", 1:ncol(isol_pca_7x$rotation_corr), sep = "")
-colnames(isol_pca_125$rotation_corr) <- 
-  paste("PC", 1:ncol(isol_pca_125$rotation_corr), sep = "")
-
 #Plot correlation biplots
 if(make_statplots) {
   arrow_len <- .05 #multiplier for arrow lengths for vis purposes
