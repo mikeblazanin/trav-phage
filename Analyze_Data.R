@@ -537,11 +537,22 @@ gc_summarized <- dplyr::summarize(
   #First non-endpoint minima in the slope
   diauxie_time = Time_s[find_local_extrema(deriv_sm_movmed3_loess25k,
                                            x = Time_s,
-                                           width_limit = diauxie_time_window,
+                                           window_width = diauxie_time_window,
                                            return_maxima = FALSE,
                                            return_endpoints = FALSE,
                                            na.rm = T)[1]]
 )
+
+#Fix wells 335 and 336
+gc_summarized$diauxie_time[gc_summarized$uniq_well_num %in% c(335, 336)] <-
+  summarize(gc_data[gc_data$uniq_well_num %in% c(335, 336), ],
+          diauxie_time = 
+            Time_s[find_local_extrema(deriv_sm_movmed3_loess25k,
+                                      x = Time_s,
+                                      window_width = diauxie_time_window,
+                                      return_maxima = FALSE,
+                                      return_endpoints = FALSE,
+                                      na.rm = T)[2]])$diauxie_time
 
 #Change to data frame for cleanliness
 gc_summarized <- as.data.frame(gc_summarized)
@@ -1326,9 +1337,47 @@ if(make_statplots) {
 
 ## Isolate analysis: make correlation PCA biplots ----
 
+#Do normalizations needed for correlation biplots
+scale_pca <- function(mtrx, z, do, cols = NULL) {
+  #mtrx is the matrix to be scaled
+  #z is the vector of values to scale by
+  #do is either "div" to divide mtrx by z, or "mult" to multiply
+  #cols is the indices of cols to include in normalization
+  if(is.null(cols)) {cols <- 1:ncol(mtrx)}
+  res <- mtrx
+  res[, cols] <- NA
+  if(do == "div") {
+    for (i in cols) {res[, i] <- mtrx[, i]/z[i]}
+  } else if (do == "mult") {
+    for (i in cols) {res[, i] <- mtrx[, i]*z[i]}
+  } else {stop("do must be div or mult")}
+  return(res)
+}
+
+norms_7x <- sqrt(apply(isol_pca_7x$x[, grep("PC", colnames(isol_pca_7x$x))], 
+                       MARGIN = 2, FUN = function(x) {sum(x**2)}))
+norms_125 <- sqrt(apply(isol_pca_125$x[, grep("PC", colnames(isol_pca_125$x))], 
+                        MARGIN = 2, FUN = function(x) {sum(x**2)}))
+isol_pca_7x$x_corr <-
+  scale_pca(mtrx = isol_pca_7x$x, 
+            cols = grep("PC", colnames(isol_pca_7x$x)),
+            z = norms_7x, do = "div")
+isol_pca_7x$rotation_corr <-
+  scale_pca(
+    mtrx = isol_pca_7x$rotation, 
+    cols = grep("PC", colnames(isol_pca_7x$rotation)),
+    z = norms_7x, do = "mult")
+isol_pca_125$x_corr <-
+  scale_pca(mtrx = isol_pca_125$x, 
+            cols = grep("PC", colnames(isol_pca_125$x)),
+            z = norms_125, do = "div")
+isol_pca_125$rotation_corr <-
+  scale_pca(
+    mtrx = isol_pca_125$rotation, 
+    cols = grep("PC", colnames(isol_pca_125$rotation)),
+    z = norms_125, do = "mult")
+
 #Do normalizations needed for correlation biplot
-#In short: x = x %*% diag(1/sdev)
-#          rotation = rotation %*% diag(sdev)
 isol_pca_7x$x_corr <- isol_pca_7x$x
 isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))] <-
   as.matrix(isol_pca_7x$x_corr[, grep("PC", colnames(isol_pca_7x$x_corr))]) %*%
@@ -1348,7 +1397,7 @@ colnames(isol_pca_125$rotation_corr) <-
 
 #Plot correlation biplots
 if(make_statplots) {
-  arrow_len <- 2 #multiplier for arrow lengths for vis purposes
+  arrow_len <- .05 #multiplier for arrow lengths for vis purposes
   
   tiff("./Output_figures/weakphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
@@ -1366,11 +1415,11 @@ if(make_statplots) {
                              size = 8, alpha = .8, color = "red4", seed = 8,
                              min.segment.length = unit(1, "native")) +
     theme_bw() +
-    labs(x = paste("PC1 (", 
+    labs(x = paste("PC1 (",
                    round((100*((isol_pca_7x$sdev)**2)/
                             sum((isol_pca_7x$sdev)**2))[1], 1),
                    "%)", sep = ""),
-         y = paste("PC2 (", 
+         y = paste("PC2 (",
                    round((100*((isol_pca_7x$sdev)**2)/
                             sum((isol_pca_7x$sdev)**2))[2], 1),
                    "%)", sep = "")) +
@@ -1392,6 +1441,7 @@ if(make_statplots) {
   print(weak_pca)
   dev.off()
   
+  arrow_len <- .03 #multiplier for arrow lengths for vis purposes
   tiff("./Output_figures/strongphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   strong_pca <- ggplot(isol_pca_125$x_corr, aes(x = PC1, y = PC2)) +
