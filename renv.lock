@@ -290,10 +290,10 @@
     },
     "gcplyr": {
       "Package": "gcplyr",
-      "Version": "1.0.2",
+      "Version": "1.1.0",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "ce1a77a08eb827f0ac1bfb3525ed97ba",
+      "Hash": "195bb5d749c1d1aa82c1bbc38ee7eb91",
       "Requirements": [
         "dplyr",
         "tidyr"
