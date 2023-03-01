@@ -14,7 +14,7 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 scales::show_col(my_cols)
 
 #Global options (set these to TRUE & run script to have plots output to files)
-make_curveplots <- TRUE
+make_curveplots <- FALSE
 make_statplots <- TRUE
 
 ##Experimental evolution migration ----

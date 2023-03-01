@@ -367,6 +367,15 @@ write.csv(isol_end, "./Clean_Data/Isolate_migration.csv",
 
 ##isolate growth curve cleanup ----
 
+#Note: the version of R this was originally run on wasn't recorded,
+#      and re-running it in R v4.2.2 produces data with different
+#      cfu_mL values (but every other value identical), presumably
+#      via differences in the standard curve fit by lm.
+#      I am leaving the original cfu data as the basis for the
+#      Analyze_data.R inputs.
+#      Note that the git repo shows there were no changes to Cleanup_Data
+#      that should have affected the output growth curve cfu/mL data.
+
 #in 7x, ancestors are originally coded as pop F, treat A, 
 # and isol (according to block they were run in)
 #in 125, ancestors are originally coded as pop Anc, treat Anc, 
@@ -435,9 +444,7 @@ turn_std_cv_data$cfu_ml <- turn_std_cv_data$Dil * 1305600000
 turn_std_curve <- lm(cfu_ml ~ OD600, data = turn_std_cv_data)
 
 ##growth curve analysis
-#library("minpack.lm")
 library("tidyr")
-#library("lubridate")
 library("dplyr")
 
 ##7x growth curve cleanup ----
