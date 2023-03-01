@@ -59,6 +59,7 @@ data_mrg$distrib <-
          levels = c("no_paras", "local", "global", "global_gauss"))
 
 #Make plots
+dir.create("Model_plots", showWarnings = FALSE)
 for (vars_manip in unique(data_mrg$vars_manip)) {
   myrows <- which(data_mrg$vars_manip == vars_manip)
   my_data <- data_mrg[myrows, ]

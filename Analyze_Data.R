@@ -14,8 +14,8 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 scales::show_col(my_cols)
 
 #Global options (set these to TRUE & run script to have plots output to files)
-make_curveplots <- FALSE
-make_statplots <- FALSE
+make_curveplots <- TRUE
+make_statplots <- TRUE
 
 ##Experimental evolution migration ----
 exper_evol_migr <- read.csv("./Clean_Data/Experimental_evolution_growth.csv")
@@ -43,6 +43,7 @@ exper_evol_summ <- summarize(exper_evol_migr,
                              radius_mm_hr_mean = mean(radius_mm_hr),
                              radius_mm_hr_sd = sd(radius_mm_hr))
 
+dir.create("Output_figures", showWarnings = FALSE)
 if (make_statplots) {
   my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
   
@@ -89,7 +90,7 @@ if (make_statplots) {
           geom_line(data = exper_evol_summ,
                     aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
                         group = Treat),
-                    size = 1.3) +
+                    lwd = 1.3) +
           labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
           scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                              labels = c("Control", "Local", "Global"),
@@ -600,6 +601,77 @@ if (make_curveplots) {
   }
 }
 
+##Isolate growth curves: Fit curves to data ----
+baranyi_func <- function(r, k, v, d0, t_vals) {
+  #Modified from Ram et al 2019 with a(t) = 1
+  # (equivalent to logistic with a deceleration param)
+  if (anyNA(c(r, k, v, d0, t_vals))) {return(NA)}
+  t_vals_hrs <- t_vals/3600
+  d <- k/((1-(1-((k/d0)**v))*exp(-r*v*t_vals_hrs))**(1/v))
+  return(d)
+}
+
+baranyi_fit_err <- function(params, t_vals, dens_vals) {
+  #params <- c("logk" = ..., "logd0" = ..., "r" = ..., "v" = ...)
+  pred_vals <- baranyi_func(r = params["r"],
+                             k = 10**params["logk"],
+                             v = params["v"],
+                             d0 = 10**params["logd0"],
+                             t_vals = t_vals)
+  pred_vals[pred_vals < 0] <- 0
+  err <- sum((log10(pred_vals) - log10(dens_vals))**2)
+  if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
+}
+
+#Do fitting
+gc_summarized <- cbind(gc_summarized,
+                       data.frame("fit_r" = as.numeric(NA), 
+                                  "fit_k" = as.numeric(NA),
+                                  "fit_v" = as.numeric(NA), 
+                                  "fit_d0" = as.numeric(NA),
+                                  "fit_err" = as.numeric(NA)))
+for (sum_row in 1:nrow(gc_summarized)) {
+  my_well <- gc_summarized$uniq_well[sum_row]
+  
+  start_time <- gc_summarized$threshold_percap_gr_time[sum_row]
+  
+  if(is.na(gc_summarized$diauxie_time[sum_row])) {
+    end_time <- max(gc_data$Time_s[gc_data$uniq_well == my_well])
+  } else {end_time <- gc_summarized$diauxie_time[sum_row]}
+  
+  gc_rows <- which(gc_data$uniq_well == my_well &
+                     gc_data$Time_s <= end_time &
+                     gc_data$Time_s >= start_time)
+  
+  #Set initial values
+  init_d0 <- min(gc_data$cfu_ml[gc_rows])
+  init_K <- max(gc_data$cfu_ml[gc_rows])
+  init_r <- 1
+  init_v <- 1
+  
+  #Fit
+  temp <- optim(par = c("logk" = log10(init_K),
+                        "logd0" = log10(init_d0),
+                        "r" = init_r,
+                        "v" = init_v),
+                fn = baranyi_fit_err,
+                dens_vals = gc_data$cfu_ml[gc_rows],
+                t_vals = gc_data$Time_s[gc_rows],
+                method = "L-BFGS-B",
+                #logk, logd0, r, v
+                lower = c(5, 4, 0, 0),
+                upper = c(11, 10, 10, 50))
+  
+  #Save fit vals
+  gc_summarized[sum_row, 
+                c("fit_r", "fit_k", "fit_v", "fit_d0", "fit_err")] <-
+    data.frame("fit_r" = temp$par["r"], 
+               "fit_k" = 10**temp$par["logk"],
+               "fit_v" = temp$par["v"], 
+               "fit_d0" = 10**temp$par["logd0"],
+               "fit_err" = temp$value)
+}
+
 #Isolate growth curves: Make example plots (eg for talks) ----
 dir.create("./Example_curve_plots/", showWarnings = FALSE)
 if (make_curveplots) {
@@ -698,10 +770,10 @@ if (make_curveplots) {
   t_vals <- temp$Time_s
   sum_row <- which(gc_summarized$uniq_well == my_well)
   temp$pred_vals_fit <- baranyi_func(r = gc_summarized[sum_row, "fit_r"],
-                                      k = gc_summarized[sum_row, "fit_k"],
-                                      v = gc_summarized[sum_row, "fit_v"],
-                                      d0 = gc_summarized[sum_row, "fit_d0"],
-                                      t_vals = t_vals)
+                                     k = gc_summarized[sum_row, "fit_k"],
+                                     v = gc_summarized[sum_row, "fit_v"],
+                                     d0 = gc_summarized[sum_row, "fit_d0"],
+                                     t_vals = t_vals)
   
   
   tiff("./Example_curve_plots/gc_plot9.tiff", width = 10, height = 10, 
@@ -732,77 +804,6 @@ if (make_curveplots) {
     geom_vline(data = temp2, aes(xintercept = threshold_percap_gr_time/3600), 
                lty = 2, lwd = 2)
   dev.off()
-}
-
-##Isolate growth curves: Fit curves to data ----
-baranyi_func <- function(r, k, v, d0, t_vals) {
-  #Modified from Ram et al 2019 with a(t) = 1
-  # (equivalent to logistic with a deceleration param)
-  if (anyNA(c(r, k, v, d0, t_vals))) {return(NA)}
-  t_vals_hrs <- t_vals/3600
-  d <- k/((1-(1-((k/d0)**v))*exp(-r*v*t_vals_hrs))**(1/v))
-  return(d)
-}
-
-baranyi_fit_err <- function(params, t_vals, dens_vals) {
-  #params <- c("logk" = ..., "logd0" = ..., "r" = ..., "v" = ...)
-  pred_vals <- baranyi_func(r = params["r"],
-                             k = 10**params["logk"],
-                             v = params["v"],
-                             d0 = 10**params["logd0"],
-                             t_vals = t_vals)
-  pred_vals[pred_vals < 0] <- 0
-  err <- sum((log10(pred_vals) - log10(dens_vals))**2)
-  if (is.infinite(err) | is.na(err)) {return(2*10**300)} else {return(err)}
-}
-
-#Do fitting
-gc_summarized <- cbind(gc_summarized,
-                       data.frame("fit_r" = as.numeric(NA), 
-                                  "fit_k" = as.numeric(NA),
-                                  "fit_v" = as.numeric(NA), 
-                                  "fit_d0" = as.numeric(NA),
-                                  "fit_err" = as.numeric(NA)))
-for (sum_row in 1:nrow(gc_summarized)) {
-  my_well <- gc_summarized$uniq_well[sum_row]
-  
-  start_time <- gc_summarized$threshold_percap_gr_time[sum_row]
-  
-  if(is.na(gc_summarized$diauxie_time[sum_row])) {
-    end_time <- max(gc_data$Time_s[gc_data$uniq_well == my_well])
-  } else {end_time <- gc_summarized$diauxie_time[sum_row]}
-  
-  gc_rows <- which(gc_data$uniq_well == my_well &
-                     gc_data$Time_s <= end_time &
-                     gc_data$Time_s >= start_time)
-  
-  #Set initial values
-  init_d0 <- min(gc_data$cfu_ml[gc_rows])
-  init_K <- max(gc_data$cfu_ml[gc_rows])
-  init_r <- 1
-  init_v <- 1
-  
-  #Fit
-  temp <- optim(par = c("logk" = log10(init_K),
-                        "logd0" = log10(init_d0),
-                        "r" = init_r,
-                        "v" = init_v),
-                fn = baranyi_fit_err,
-                dens_vals = gc_data$cfu_ml[gc_rows],
-                t_vals = gc_data$Time_s[gc_rows],
-                method = "L-BFGS-B",
-                #logk, logd0, r, v
-                lower = c(5, 4, 0, 0),
-                upper = c(11, 10, 10, 50))
-  
-  #Save fit vals
-  gc_summarized[sum_row, 
-                c("fit_r", "fit_k", "fit_v", "fit_d0", "fit_err")] <-
-    data.frame("fit_r" = temp$par["r"], 
-               "fit_k" = 10**temp$par["logk"],
-               "fit_v" = temp$par["v"], 
-               "fit_d0" = 10**temp$par["logd0"],
-               "fit_err" = temp$value)
 }
 
 ##Isolate growth curves: evaluate fits & exclude wells ----
