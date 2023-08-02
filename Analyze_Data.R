@@ -124,14 +124,40 @@ isol_migration$radius_mm_hr <-
   10*(isol_migration$Width_cm+isol_migration$Height_cm)/
   (2*isol_migration$time_since_inoc)
 
-#Calculate normalized "delta" values against same-day ancestor
-# (note that first batch of isols had no same-day ancestor to normalize to)
-ancestors <- isol_migration[isol_migration$Isol == "Anc", ]
+#Modeling
+isol_migration$PPT <- 
+  paste(isol_migration$Proj, isol_migration$Pop, isol_migration$Treat)
 
-isol_migration$radius_mm_hr_del <-
-  isol_migration$radius_mm_hr - ancestors$radius_mm_hr[
-    match(as.Date(isol_migration$end_timestamp),
-          as.Date(ancestors$end_timestamp))]
+#Build models
+mig7x_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
+                      data = isol_migration[isol_migration$Proj == "7x", ])
+mig125_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
+                       data = isol_migration[isol_migration$Proj == "125", ])
+
+#Calculate batch-corrected growth rates
+isol_migration$batch_corrected_radius_mm_hr  <- NA
+isol_migration$batch_corrected_radius_mm_hr[
+  isol_migration$Proj == "7x"] <-
+  isol_migration$radius_mm_hr[isol_migration$Proj == "7x"] -
+  predict(mig7x_lmeranc, 
+          newdata = isol_migration[isol_migration$Proj == "7x", ],
+          re.form = ~ (1|start_timestamp),
+          random.only = TRUE)
+isol_migration$batch_corrected_radius_mm_hr[
+  isol_migration$Proj == "125"] <-
+  isol_migration$radius_mm_hr[isol_migration$Proj == "125"] -
+  predict(mig125_lmeranc, 
+          newdata = isol_migration[isol_migration$Proj == "125", ],
+          re.form = ~ (1|start_timestamp),
+          random.only = TRUE)
+
+#Summarize
+isol_migr_sum <- 
+  summarize(group_by(isol_migration, Proj, Pop, Treat),
+            bc_radius_mm_hr_avg = mean(batch_corrected_radius_mm_hr))
+isol_migr_sum_isols <-
+  summarize(group_by(isol_migration, Proj, Pop, Treat, Isol),
+            bc_radius_mm_hr_avg = mean(batch_corrected_radius_mm_hr))
 
 #Plot data
 my_facet_labels <- c("7x" = "Weak Phage", 
@@ -163,67 +189,49 @@ if (make_statplots) {
   dev.off()
   
   #Delta radius
-  tiff("./Output_figures/Isol_migration_del.tiff",
+  tiff("./Output_figures/Isol_migration_batchcorrected.tiff",
        width = 5, height = 4, units = "in", res = 300)
-  print(ggplot(isol_migration[isol_migration$Isol != "Anc", ], 
-               aes(x = Pop, y = radius_mm_hr_del, 
+  print(ggplot(isol_migration, 
+               aes(x = Pop, y = batch_corrected_radius_mm_hr, 
                    color = Treat, fill = Treat)) +
           geom_point(position = position_dodge(0.5), alpha = 0.6,
                      size = 2) +
-          facet_grid(Proj~Treat, labeller = labeller(Proj = my_facet_labels,
-                                                     Treat = my_facet_labels),
-                     scales = "free_y") +
+          facet_grid(Proj ~ Treat, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
           theme_bw() + 
-          labs(y = paste("\u0394", "Dispersal (mm/hr)", sep = ""),
+          labs(y = "Batch-corrected Soft Agar Growth\n(mm/hr)",
                x = "Population") +
-          geom_hline(yintercept = 0, lty = 2) +
-          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                             labels = c("Control", "Local", "Global"),
-                             values = my_cols[c(8, 2, 6)]) +
-          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                            labels = c("Control", "Local", "Global"),
-                            values = my_cols[c(8, 2, 6)]) +
+          scale_color_manual(breaks = c("Anc", "C", "L", "G"),
+                             values = my_cols[c(3, 8, 2, 6)]) +
+          scale_fill_manual(breaks = c("Anc", "C", "L", "G"),
+                            values = my_cols[c(3, 8, 2, 6)]) +
           theme(legend.position = "none",
                 axis.text = element_text(size = 11), 
                 axis.title.y = element_text(size = 15),
                 axis.title.x = element_text(size = 14),
                 strip.text.x = element_text(size = 15),
                 strip.text.y = element_text(size = 13)) +
-          
           NULL)
   dev.off()
-}
-
-#Summarize
-isol_migr_sum <- 
-  summarize(group_by(isol_migration[!is.na(isol_migration$radius_mm_hr_del), ],
-                     Proj, Pop, Treat),
-            radius_mm_hr_del_avg = mean(radius_mm_hr_del))
-isol_migr_sum_isols <-
-  summarize(group_by(isol_migration[!is.na(isol_migration$radius_mm_hr_del), ],
-                     Proj, Pop, Treat, Isol),
-            radius_mm_hr_del_avg = mean(radius_mm_hr_del))
-
-#Make plot of only pop-level data
-if (make_statplots) {
-  tiff("./Output_figures/Isol_migration_del_pops.tiff",
+  
+  #Delta radius at pop-level
+  tiff("./Output_figures/Isol_migration_pops_batchcorrected.tiff",
        width = 4, height = 4, units = "in", res = 300)
-  print(ggplot(isol_migr_sum[isol_migr_sum$Treat != "Anc", ], 
-               aes(x = Treat, y = radius_mm_hr_del_avg, 
+  print(ggplot(isol_migr_sum, aes(x = Treat, y = bc_radius_mm_hr_avg, 
                    color = Treat, fill = Treat)) +
           geom_point(alpha = 0.6, size = 3) +
-          facet_grid(Proj~., labeller = labeller(Proj = my_facet_labels)) +
-          labs(y = paste("\u0394", "Soft Agar Growth (mm/hr)", sep = ""),
+          facet_grid(Proj ~ ., scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
+          labs(y = "Batch-corrected Soft Agar Growth (mm/hr)",
                x = "Treatment") +
-          geom_hline(yintercept = 0, lty = 2) +
-          scale_x_discrete(breaks = c("C", "L", "G"),
-                           labels = c("Control", "Local", "Global")) +
-          scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                             labels = c("Control", "Local", "Global"),
-                             values = my_cols[c(8, 2, 6)]) +
-          scale_fill_manual(name = "Treatment", breaks = c("C", "L", "G"),
-                            labels = c("Control", "Local", "Global"),
-                            values = my_cols[c(8, 2, 6)]) +
+          scale_x_discrete(breaks = c("Anc", "C", "L", "G"),
+                           labels = c("Ancestor", "Control", "Local", "Global")) +
+          scale_color_manual(breaks = c("Anc", "C", "L", "G"),
+                             values = my_cols[c(3, 8, 2, 6)]) +
+          scale_fill_manual(breaks = c("Anc", "C", "L", "G"),
+                            values = my_cols[c(3, 8, 2, 6)]) +
           theme_bw() + 
           theme(legend.position = "none",
                 axis.text.y = element_text(size = 11), 
@@ -237,16 +245,7 @@ if (make_statplots) {
   dev.off()
 }
 
-#Statistics
-isol_migration$PPT <- 
-  paste(isol_migration$Proj, isol_migration$Pop, isol_migration$Treat)
-
-#Test for differences from Ancestor
-mig7x_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
-                      data = isol_migration[isol_migration$Proj == "7x", ])
-mig125_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
-                       data = isol_migration[isol_migration$Proj == "125", ])
-
+#Statistical tests
 emmeans(mig7x_lmeranc, ~ Treat, contr = "trt.vs.ctrl", 
         ref = which(levels(isol_migration$Treat) == "Anc"))
 emmeans(mig125_lmeranc, ~ Treat, contr = "trt.vs.ctrl", 
