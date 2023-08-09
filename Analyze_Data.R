@@ -136,15 +136,13 @@ mig125_lmeranc <- lmer(radius_mm_hr ~ (1|PPT) + (1|start_timestamp) + Treat,
 
 #Calculate batch-corrected growth rates
 isol_migration$batch_corrected_radius_mm_hr  <- NA
-isol_migration$batch_corrected_radius_mm_hr[
-  isol_migration$Proj == "7x"] <-
+isol_migration$batch_corrected_radius_mm_hr[isol_migration$Proj == "7x"] <-
   isol_migration$radius_mm_hr[isol_migration$Proj == "7x"] -
   predict(mig7x_lmeranc, 
           newdata = isol_migration[isol_migration$Proj == "7x", ],
           re.form = ~ (1|start_timestamp),
           random.only = TRUE)
-isol_migration$batch_corrected_radius_mm_hr[
-  isol_migration$Proj == "125"] <-
+isol_migration$batch_corrected_radius_mm_hr[isol_migration$Proj == "125"] <-
   isol_migration$radius_mm_hr[isol_migration$Proj == "125"] -
   predict(mig125_lmeranc, 
           newdata = isol_migration[isol_migration$Proj == "125", ],
@@ -200,7 +198,7 @@ if (make_statplots) {
                      labeller = labeller(Proj = my_facet_labels,
                                          Treat = my_facet_labels)) +
           theme_bw() + 
-          labs(y = "Batch-corrected Soft Agar Growth\n(mm/hr)",
+          labs(y = "Soft Agar Growth (mm/hr)",
                x = "Population") +
           scale_color_manual(breaks = c("Anc", "C", "L", "G"),
                              values = my_cols[c(3, 8, 2, 6)]) +
@@ -224,7 +222,7 @@ if (make_statplots) {
           facet_grid(Proj ~ ., scales = "free",
                      labeller = labeller(Proj = my_facet_labels,
                                          Treat = my_facet_labels)) +
-          labs(y = "Batch-corrected Soft Agar Growth (mm/hr)",
+          labs(y = "Soft Agar Growth (mm/hr)",
                x = "Treatment") +
           scale_x_discrete(breaks = c("Anc", "C", "L", "G"),
                            labels = c("Ancestor", "Control", "Local", "Global")) +
@@ -251,27 +249,12 @@ emmeans(mig7x_lmeranc, ~ Treat, contr = "trt.vs.ctrl",
 emmeans(mig125_lmeranc, ~ Treat, contr = "trt.vs.ctrl", 
         ref = which(levels(isol_migration$Treat) == "Anc"))
 
-#Test for differences bt treats
-mig7x_lmer <- lmer(radius_mm_hr_del ~ (1|PPT) + Treat,
-                 data = isol_migration[isol_migration$Isol != "Anc" &
-                                         isol_migration$Proj == "7x", ])
-mig125_lmer <- lmer(radius_mm_hr_del ~ (1|PPT) + Treat,
-                   data = isol_migration[isol_migration$Isol != "Anc" &
-                                           isol_migration$Proj == "125", ])
-
-mig7x_lmernull <- lmer(radius_mm_hr_del ~ (1|PPT),
-                   data = isol_migration[isol_migration$Isol != "Anc" &
-                                           isol_migration$Proj == "7x", ])
-mig125_lmernull <- lmer(radius_mm_hr_del ~ (1|PPT),
-                    data = isol_migration[isol_migration$Isol != "Anc" &
-                                            isol_migration$Proj == "125", ])
-
-KRmodcomp(mig7x_lmer, mig7x_lmernull)
-KRmodcomp(mig125_lmer, mig125_lmernull)
-
-summary(mig125_lmer)
-
-emmeans(mig125_lmer, ~ Treat, contr = "pairwise", adjust = "tukey")
+emmeans(mig7x_lmeranc, specs = pairwise ~ Treat,
+        at = list(Treat = c("C", "L", "G")),
+        adjust = "tukey")
+emmeans(mig125_lmeranc, specs = pairwise ~ Treat,
+        at = list(Treat = c("C", "L", "G")),
+        adjust = "tukey")
 
 ## Isolate resistance ----
 resis_data <- read.csv("./Clean_Data/Isolate_resistance.csv",
@@ -288,6 +271,35 @@ resis_data$Proj <- factor(resis_data$Proj,
 resis_data$Treat <- factor(resis_data$Treat,
                            levels = c("Anc", "C", "L", "G"))
 
+#Log-transform
+resis_data$log_pfuml <- log10(resis_data$pfu_ml)
+
+#Modeling
+resis_data$PPT <- 
+  paste(resis_data$Proj, resis_data$Pop, resis_data$Treat)
+
+#Build models
+res7x_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
+                      data = resis_data[resis_data$Proj == "7x", ])
+res125_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
+                       data = resis_data[resis_data$Proj == "125", ])
+
+#Calculate batch-corrected pfu/ml
+resis_data$batch_corrected_log_pfuml  <- NA
+resis_data$batch_corrected_log_pfuml[resis_data$Proj == "7x"] <-
+  resis_data$log_pfuml[resis_data$Proj == "7x"] -
+  predict(res7x_lmeranc, 
+          newdata = resis_data[resis_data$Proj == "7x", ],
+          re.form = ~ (1|Date),
+          random.only = TRUE)
+resis_data$batch_corrected_log_pfuml[resis_data$Proj == "125"] <-
+  resis_data$log_pfuml[resis_data$Proj == "125"] -
+  predict(res125_lmeranc, 
+          newdata = resis_data[resis_data$Proj == "125", ],
+          re.form = ~ (1|Date),
+          random.only = TRUE)
+
+#(Old approach, kept just to have it)
 #calculate EOP for ea isol
 resis_data$EOP <- NA
 resis_data$bd <- F
@@ -324,6 +336,7 @@ Anc_EOP <- data.frame(Proj = rep(c("7x", "125"), each = 3),
 Anc_EOP$Proj <- factor(Anc_EOP$Proj, levels = c("7x", "125"))
 Anc_EOP$Treat <- factor(Anc_EOP$Treat, levels = c("C", "L", "G"))
 
+
 #Assign facet labels
 my_facet_labels <- c("7x" = "Weak Phage", 
                      "125" = "Strong Phage",
@@ -332,7 +345,7 @@ my_facet_labels <- c("7x" = "Weak Phage",
 
 if (make_statplots) {
   #Nice plot
-  tiff("./Output_figures/Isol_resis.tiff", width = 5, height = 4,
+  tiff("./Output_figures/Isol_resis_EOP.tiff", width = 5, height = 4,
        units = "in", res = 300)
   print(ggplot(resis_data[resis_data$Treat != "Anc", ],
                aes(x = Pop, y = EOP, 
@@ -363,6 +376,39 @@ if (make_statplots) {
                             values = my_cols[c(8, 2, 6)]) +
           scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
           labs(x = "Population", y = "Susceptibility to Parasite Infection") +
+          theme(legend.position = "none",
+                axis.text = element_text(size = 11), 
+                axis.title.y = element_text(size = 15),
+                axis.title.x = element_text(size = 14),
+                strip.text.x = element_text(size = 15),
+                strip.text.y = element_text(size = 13)) +
+          NULL)
+  dev.off()
+  
+  #Nice plot (new approach)
+  tiff("./Output_figures/Isol_resis_batchcorrected.tiff", width = 5, height = 4,
+       units = "in", res = 300)
+  print(ggplot(resis_data,
+               aes(x = Pop, y = batch_corrected_log_pfuml, 
+                   color = Treat, fill = Treat,
+                   shape = bd)) +
+          facet_grid(Proj ~ Treat, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
+          geom_point(aes(size = bd, alpha = bd)) +
+          scale_size_manual(values = c(2, 2.5)) +
+          scale_alpha_manual(values = c(0.6, 1)) +
+          scale_y_continuous(breaks = c(4, 6, 8, 10),
+                             labels = c(expression(10^4), expression(10^6),
+                                        expression(10^8), expression(10^10))) +
+          theme_bw() +
+          scale_color_manual(breaks = c("Anc", "C", "L", "G"),
+                             values = my_cols[c(3, 8, 2, 6)]) +
+          scale_fill_manual(breaks = c("Anc", "C", "L", "G"),
+                            values = my_cols[c(3, 8, 2, 6)]) +
+          scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+          labs(x = "Population", 
+               y = "Susceptibility to Parasite\n(plaque-forming units per mL)") +
           theme(legend.position = "none",
                 axis.text = element_text(size = 11), 
                 axis.title.y = element_text(size = 15),
