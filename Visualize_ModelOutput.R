@@ -172,3 +172,64 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   }
 }
 
+#Read in unsummarized data
+
+read_tidy_matfile <- function(filename) {
+  require(R.matlab)
+  require(tidyr)
+  require(dplyr)
+  
+  input <- readMat(filename)
+  
+  output <- data.frame(matrix(input$SimParams, nrow = 1))
+  colnames(output) <- row.names(input$SimParams) 
+  
+  dens_cols <- 
+    which(names(input) %in% 
+          c("rho.phage.store", "rho.cell.store", "rho.cell2.store", "A.store", "R.store"))
+  
+  for (i in dens_cols) {
+    #Rename columns
+    colnames(input[[i]]) <- paste0("x_", 1:ncol(input[[i]]))
+    
+    #Add time column
+    input[[i]] <- 
+      cbind(matrix(input$t.store, ncol = 1, dimnames = list(NULL, "Time")),
+            input[[i]])
+    
+    #Drop extra rows of duplicate times
+    input[[i]] <- input[[i]][!duplicated(input[[i]][, "Time"]), ]
+    
+    #Pivot longer
+    temp <- pivot_longer(as.data.frame(input[[i]]), cols = starts_with("x_"),
+                         names_to = "Position", 
+                         values_to = names(input)[i])
+    temp$Position <- 
+      as.numeric(gsub(x = temp$Position, pattern = "x_", replacement = ""))
+    
+    #Merge into output
+    if(i == dens_cols[1]) {output <- cross_join(output, temp)
+    } else {output <- right_join(output, temp)}
+  }
+  
+  output <- pivot_longer(output, cols = ends_with(".store"),
+                         names_to = "Pop", values_to = "Density")
+  
+  return(output)
+}
+
+
+mydat <- read_tidy_matfile(
+  paste0(
+    "./Outputs_GaussPhage/OutputsIChi_GaussPhage/",
+    "SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+
+ggplot(filter(mydat), 
+              aes(x = Position, y = Density, 
+                  color = as.factor(round(Time/3600, 1)))) +
+  geom_line(lwd = 1.5, alpha = 0.5) +
+  facet_grid(Pop ~ ., scales = "free_y") +
+  #scale_y_log10() +
+  #coord_cartesian(ylim = c(0.1, NA)) +
+  NULL
+
