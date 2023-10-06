@@ -221,7 +221,7 @@ read_tidy_matfile <- function(filename) {
 
 mydat <- read_tidy_matfile(
   paste0(
-    "./Outputs_GaussPhage/OutputsIChi_GaussPhage/",
+    "./Modeling/Outputs_GaussPhage/OutputsIChi_GaussPhage/",
     "SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
 
 ggplot(filter(mydat), 
