@@ -18,28 +18,35 @@ data <- lapply(
   FUN = read.csv)
 #Add names
 names(data) = 
-  gsub(pattern = "\\./Modeling//", replacement = "",
-       x = grep(pattern = "Modeling//(Analysis.*/.*_tot.csv)", value = TRUE,
-                x = list.files("./Modeling/", 
-                               recursive = TRUE, full.names = TRUE)))
+  gsub(
+    pattern = "\\.csv", replacement = "",
+    x = gsub(
+      pattern = "\\./Modeling/", replacement = "",
+      x = grep(
+        pattern = "Modeling/Analysis.*/.*.csv", value = TRUE,
+        x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE))))
 
 #Calculate "relative resistance" col
 data <- lapply(X = data,
                FUN = function(x) {
-                 cbind(x, data.frame("relativeR" = 1/x[, "relativeI"]))})
+                 if("relativeI" %in% colnames(x)) {
+                   cbind(x, data.frame("relativeR" = 1/x[, "relativeI"]))
+                 } else {return(x)}})
 
 #Add cols for phage distribution and variables manipulated
 for (i in 1:length(data)) {
-  if(strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis") {
+  myname <- gsub("_b", "", strsplit(names(data)[i], split = "/")[[1]][1])
+  
+  if(myname == "Analysis") {
     data[[i]] <- cbind(data.frame(distrib = "global"), data[[i]])
   } else if (
-    strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_GaussPhage") {
+    myname == "Analysis_GaussPhage") {
     data[[i]] <- cbind(data.frame(distrib = "local"), data[[i]])
   } else if (
-    strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_GaussPhage_Wide") {
+    myname == "Analysis_GaussPhage_Wide") {
     data[[i]] <- cbind(data.frame(distrib = "global_gauss"), data[[i]])
   } else if (
-    strsplit(names(data)[i], split = "/")[[1]][1] == "Analysis_NoPhage") {
+    myname == "Analysis_NoPhage") {
     data[[i]] <- cbind(data.frame(distrib = "no_paras"), data[[i]])
   }
   
@@ -56,7 +63,6 @@ for (i in 1:length(data)) {
 }
 
 #Merge data ----
-
 data_mrg <- data %>% reduce(full_join)
 data_mrg$Cell2_Cell1 <- data_mrg$Cell2_population/data_mrg$Cell_population
 data_mrg$distrib <- 
@@ -71,19 +77,17 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   
   #Get limits for log10(Cell2/Cell) across the dift initial distributions
   # (these are more like the labels)
-  mybreaks_pretty <- pretty(x = c(-max(abs(log10(my_data$Cell2_Cell1))),
-                                  max(abs(log10(my_data$Cell2_Cell1)))), n = 4)
-  if(vars_manip == "I_vs_cR") {mybreaks_pretty <- c(-8, -4, 0, 4, 8)}
-  #Get bin limits (these are actually used for the bin limits)
-  mybreaks <- seq(from = min(mybreaks_pretty), to = max(mybreaks_pretty),
-                  length.out = 8)
-  
-  #axis labels labeller for the non-resistance axis
-  axislabeller <-
-    as_labeller(c(relativecA = "Relative Attractant Consumption",
-                  relativeChi = "Relative Chemotactic Sensitivity",
-                  relativecR = "Relative Growth Rate",
-                  relativeY = "Relative Growth Yield"))
+  if(max(abs(log10(my_data$Cell2_Cell1))) == 0) {
+    mybreaks_pretty <- c(0)
+    mybreaks <- c(0)
+  } else {
+    mybreaks_pretty <- pretty(x = c(-max(abs(log10(my_data$Cell2_Cell1))),
+                                    max(abs(log10(my_data$Cell2_Cell1)))), n = 4)
+    if(vars_manip == "I_vs_cR") {mybreaks_pretty <- c(-8, -4, 0, 4, 8)}
+    #Get bin limits (these are actually used for the bin limits)
+    mybreaks <- seq(from = min(mybreaks_pretty), to = max(mybreaks_pretty),
+                    length.out = 8)
+  }
   
   #facet labels labeller
   facetlabeller <-
@@ -92,41 +96,63 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                   global_gauss = "Global (Gaussian)",
                   no_paras = "Control"))
   
+  #axis labels labeller for the non-resistance axis
+  axislabeller <-
+    as_labeller(c(relativecA = "Relative Attractant Consumption",
+                  relativeChi = "Relative Chemotactic Sensitivity",
+                  relativecR = "Relative Growth Rate",
+                  relativeY = "Relative Growth Yield",
+                  relativeb = "Relative Burst Size"))
+  
   #Make file
   png(
     paste(sep = "", "./Model_plots/", vars_manip, ".png"),
     width = 6, height = 5, units = "in", res = 150)
-  #Make plot
+  
+  xvar <- ifelse(my_data$vars_manip_1[1] == "I" | my_data$vars_manip_2[1] == "I", 
+                "I", "b")
+  yvar <- ifelse(my_data$vars_manip_1[1] == xvar, 
+                my_data$vars_manip_2[1], my_data$vars_manip_1[1])
+  xvar <- paste0("relative", xvar)
+  if(xvar == "relativeI") {xvar <- "relativeR"}
+  yvar <- paste0("relative", yvar)
+  
   p <-
-    ggplot(my_data,
-           aes_string(x = "relativeR", 
-                      y = paste("relative", my_data$vars_manip_2[1], sep = ""))) +
+    ggplot(my_data, aes_string(x = xvar, y = yvar)) +
       geom_contour_filled(aes(z = log10(Cell2_population/Cell_population)),
                           breaks = mybreaks) +
       geom_point(aes(color = log10(Cell2_population/Cell_population)),
                  size = 3) +
       facet_wrap(~distrib, labeller = facetlabeller) +
-      scale_x_continuous(trans = "log10",
-                         breaks = 10**c(-2, -1, 0, 1, 2),
-                         labels = c("0.01", "0.1", "1", "10", "100")) +
+      
       scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
-      scale_color_distiller(name = "Fitness", type = "div", palette = "PiYG",
+      scale_color_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
                             direction = 1, breaks = mybreaks_pretty,
                              limits = c(min(mybreaks), max(mybreaks))) +
       guides(fill = "none") +
-      labs(x = "Relative Resistance") +
+      labs(x = ifelse(xvar == "relativeR", 
+                      "Relative Resistance", "Relative Burst Size")) +
       #theme_bw() +
       NULL
-  if(vars_manip == "I_vs_Y") {
+  
+  if(xvar == "relativeR") {
+    p <- p + scale_x_continuous(trans = "log10",
+                       breaks = 10**c(-2, -1, 0, 1, 2),
+                       labels = c("0.01", "0.1", "1", "10", "100"))
+  } else {
+    p <- p + scale_x_continuous(trans = "log10",
+                                breaks = 10**c(-1, -0.5, 0, 0.5, 1),
+                                labels = c("0.01", "", "1", "", "10"))
+  }
+  
+  if(yvar == "relativeY") {
     p <- p + 
       scale_y_continuous(trans = "log2", breaks = 2**c(-.5, 0, .5),
                          labels = c("-0.5", "0", "0.5"),
                          name = "log<sub>2</sub>(Relative Growth Yield)") +
       theme(axis.title.y = element_markdown())
-  } else {p <- p + 
-    scale_y_continuous(
-      trans = "log2",
-      name = axislabeller(paste("relative", my_data$vars_manip_2[1], sep = "")))
+  } else {
+    p <- p + scale_y_continuous(trans = "log2", name = axislabeller(yvar))
   }
   print(p)
   dev.off()
@@ -159,7 +185,7 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                            labels = c("0.01", "0.1", "1", "10", "100")) +
         scale_y_continuous(trans = "log2") +
         scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
-        scale_color_distiller(name = "Fitness", type = "div", palette = "PiYG",
+        scale_color_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
                               direction = 1, breaks = mybreaks_pretty,
                               limits = c(min(mybreaks), max(mybreaks))) +
         guides(fill = "none") +
