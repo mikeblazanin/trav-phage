@@ -45,7 +45,8 @@ exper_evol_summ <- summarize(exper_evol_migr,
 
 dir.create("Output_figures", showWarnings = FALSE)
 if (make_statplots) {
-  my_facet_labels <- c("7x" = "Weak Phage", "125" = "Strong Phage")
+  my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
+                       "125" = "Faster Growing\nParasites")
   
   #Make plot of summarized data
   tiff("./Output_figures/Exper_evol_migr_nopops.tiff",
@@ -158,8 +159,8 @@ isol_migr_sum_isols <-
             bc_radius_mm_hr_avg = mean(batch_corrected_radius_mm_hr))
 
 #Plot data
-my_facet_labels <- c("7x" = "Weak Phage", 
-                     "125" = "Strong Phage",
+my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
+                     "125" = "Faster Growing\nParasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancestor")
 
@@ -273,15 +274,17 @@ resis_data$Treat <- factor(resis_data$Treat,
 
 #Log-transform
 resis_data$log_pfuml <- log10(resis_data$pfu_ml)
+resis_data$log_pfuml_model <- 
+  log10(ifelse(resis_data$PFU == 0, 1*resis_data$dilution, resis_data$pfu_ml))
 
 #Modeling
 resis_data$PPT <- 
   paste(resis_data$Proj, resis_data$Pop, resis_data$Treat)
 
 #Build models
-res7x_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
+res7x_lmeranc <- lmer(log_pfuml_model ~ (1|PPT) + (1|Date) + Treat,
                       data = resis_data[resis_data$Proj == "7x", ])
-res125_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
+res125_lmeranc <- lmer(log_pfuml_model ~ (1|PPT) + (1|Date) + Treat,
                        data = resis_data[resis_data$Proj == "125", ])
 
 #Calculate batch-corrected pfu/ml
@@ -338,8 +341,8 @@ Anc_EOP$Treat <- factor(Anc_EOP$Treat, levels = c("C", "L", "G"))
 
 
 #Assign facet labels
-my_facet_labels <- c("7x" = "Weak Phage", 
-                     "125" = "Strong Phage",
+my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
+                     "125" = "Faster Growing\nParasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "A" = "WT")
 
@@ -1017,8 +1020,8 @@ colnames(gc_sum_isols)[grep("_hr", colnames(gc_sum_isols))] <-
   c("threshold_percap_gr_time_hr_avg", "diauxie_time_hr_avg",
     "threshold_percap_gr_time_hr_sd", "diauxie_time_hr_sd")
                 
-my_facet_labels <- c("7x" = "Weak Phage", 
-                     "125" = "Strong Phage",
+my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
+                     "125" = "Faster Growing\nParasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
@@ -1101,7 +1104,7 @@ isol_data <- select(isol_data,
                     Date, Media, 
                     threshold_percap_gr_time_hr_avg, diauxie_time_hr_avg,
                     fit_r_avg, fit_k_avg, fit_v_avg, fit_d0_avg,
-                    radius_mm_hr_del_avg,
+                    bc_radius_mm_hr_avg,
                     EOP_avg, EOP_bd)
 isol_data$PPT <- paste(isol_data$Proj, isol_data$Pop, isol_data$Treat, sep = "_")
 
@@ -1190,7 +1193,7 @@ isol_data_wide <- tidyr::pivot_wider(
                   "fit_r_avg", "fit_k_avg", "fit_v_avg", "fit_d0_avg"),
   names_from = Media,
   id_cols = c("Proj", "Pop", "Treat", "Isol", "Date",
-              "radius_mm_hr_del_avg", "EOP_avg", "EOP_bd", "resis_cat"),
+              "bc_radius_mm_hr_avg", "EOP_avg", "EOP_bd", "resis_cat"),
   values_fill = NA)
                   
 #Reduce to complete cases
@@ -1204,7 +1207,7 @@ isol_data_wide$fit_k_log_avg_Orig <- log10(isol_data_wide$fit_k_avg_Orig)
 isol_data_wide$fit_k_log_avg_Rich <- log10(isol_data_wide$fit_k_avg_Rich)
 
 ##Check univariate normality
-pca_cols <- c("radius_mm_hr_del_avg",
+pca_cols <- c("bc_radius_mm_hr_avg",
               "threshold_percap_gr_time_hr_avg_Orig",
               "threshold_percap_gr_time_hr_avg_Rich",
               "diauxie_time_hr_avg_Orig",
@@ -1273,7 +1276,7 @@ isol_pca_125$x <- cbind(as.data.frame(isol_pca_125$x),
                        isol_data_wide[isol_data_wide$Proj == "125", ])
 
 #Rename rotations for better plotting
-replace_names = c("radius_mm_hr_del_avg" = "disp",
+replace_names = c("bc_radius_mm_hr_avg" = "disp",
                   "threshold_percap_gr_time_hr_avg_Orig" = "lag_Or",
                   "threshold_percap_gr_time_hr_avg_Rich" = "lag_Ri",
                   "diauxie_time_hr_avg_Orig" = "kt_Or",
@@ -1299,7 +1302,7 @@ if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   weak_pca <- ggplot(isol_pca_7x$x, aes(x = PC1, y = PC2)) +
-    ggtitle("Weak Phage") +
+    ggtitle("Slower Growing Parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_7x$rotation),
@@ -1341,7 +1344,7 @@ if(make_statplots) {
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   strong_pca <- ggplot(isol_pca_125$x, aes(x = PC1, y = PC2)) +
-    ggtitle("Strong Phage") +
+    ggtitle("Faster Growing Parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_125$rotation),
@@ -1430,7 +1433,7 @@ if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   weak_pca <- ggplot(isol_pca_7x$x_corr, aes(x = PC1, y = PC2)) +
-    ggtitle("Weak Phage") +
+    ggtitle("Slower Growing Parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_7x$rotation_corr),
@@ -1473,7 +1476,7 @@ if(make_statplots) {
   tiff("./Output_figures/strongphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   strong_pca <- ggplot(isol_pca_125$x_corr, aes(x = PC1, y = PC2)) +
-    ggtitle("Strong Phage") +
+    ggtitle("Faster Growing Parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_125$rotation_corr),
@@ -1523,7 +1526,7 @@ isol_pops <- summarize(isol_data[!is.na(isol_data$Media), ],
                                         "fit_k_avg",
                                         "fit_v_avg",
                                         "fit_d0_avg",
-                                        "radius_mm_hr_del_avg",
+                                        "bc_radius_mm_hr_avg",
                                         "EOP_avg"),
                               .fns = list(avg = mean, sd = sd),
                               na.rm = TRUE),
