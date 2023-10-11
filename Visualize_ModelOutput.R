@@ -103,11 +103,6 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                   relativeY = "Relative Growth Yield",
                   relativeb = "Relative Burst Size"))
   
-  #Make file
-  png(
-    paste(sep = "", "./Model_plots/", vars_manip, ".png"),
-    width = 6, height = 5, units = "in", res = 150)
-  
   xvar <- ifelse(my_data$vars_manip_1[1] == "I" | my_data$vars_manip_2[1] == "I", 
                 "I", "b")
   yvar <- ifelse(my_data$vars_manip_1[1] == xvar, 
@@ -116,24 +111,22 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   if(xvar == "relativeI") {xvar <- "relativeR"}
   yvar <- paste0("relative", yvar)
   
-  p <-
-    ggplot(my_data, aes_string(x = xvar, y = yvar)) +
-      geom_contour_filled(aes(z = log10(Cell2_population/Cell_population)),
-                          breaks = mybreaks) +
-      geom_point(aes(color = log10(Cell2_population/Cell_population)),
-                 size = 3) +
-      facet_wrap(~distrib, labeller = facetlabeller) +
-      
-      scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
-      scale_color_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
-                            direction = 1, breaks = mybreaks_pretty,
-                             limits = c(min(mybreaks), max(mybreaks))) +
-      guides(fill = "none") +
-      labs(x = ifelse(xvar == "relativeR", 
-                      "Relative Resistance", "Relative Burst Size")) +
-      #theme_bw() +
-      NULL
-  
+  #Make file
+  png(
+    paste(sep = "", "./Model_plots/", vars_manip, ".png"),
+    width = 6, height = 5, units = "in", res = 150)
+  p <- ggplot(my_data, aes_string(x = xvar, y = yvar)) +
+    geom_tile(aes(fill = log10(Cell2_population/Cell_population))) +
+    scale_fill_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
+                         direction = 1, breaks = mybreaks_pretty,
+                         limits = c(min(mybreaks), max(mybreaks))) +
+    facet_wrap(~distrib, labeller = facetlabeller) +
+    labs(x = ifelse(xvar == "relativeR",
+                    "Relative Resistance", "Relative Burst Size")) +
+    theme(panel.background = element_rect(fill = "gray90"),
+          panel.grid = element_blank()) +
+    NULL
+
   if(xvar == "relativeR") {
     p <- p + scale_x_continuous(trans = "log10",
                        breaks = 10**c(-2, -1, 0, 1, 2),
@@ -143,9 +136,9 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                                 breaks = 10**c(-1, -0.5, 0, 0.5, 1),
                                 labels = c("0.01", "", "1", "", "10"))
   }
-  
+
   if(yvar == "relativeY") {
-    p <- p + 
+    p <- p +
       scale_y_continuous(trans = "log2", breaks = 2**c(-.5, 0, .5),
                          labels = c("-0.5", "0", "0.5"),
                          name = "log<sub>2</sub>(Relative Growth Yield)") +
@@ -174,28 +167,25 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
     png("./Model_plots/I_vs_Chi_maintext.png", width = 8, height = 3, units = "in", res = 150)
     print(
       ggplot(my_data, aes_string(x = "relativeR", y = "relativeChi")) +
-        geom_contour_filled(aes(z = log10(Cell2_population/Cell_population)),
-                            breaks = mybreaks) +
-        geom_point(aes(color = log10(Cell2_population/Cell_population)),
-                   size = 3) +
-        facet_grid(~distrib, labeller = facetlabeller) +
+        geom_tile(aes(fill = log10(Cell2_population/Cell_population)),
+                  width = 0.95, height = 1.2) +
+        scale_fill_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
+                             direction = 1, breaks = mybreaks_pretty,
+                             limits = c(min(mybreaks), max(mybreaks))) +
+        facet_wrap(~distrib, labeller = facetlabeller) +
         scale_x_continuous(trans = "log10",
                            breaks = 10**c(-2, -1, 0, 1, 2),
                            labels = c("0.01", "0.1", "1", "10", "100")) +
         scale_y_continuous(trans = "log2") +
-        scale_fill_brewer(type = "div", palette = "PiYG", drop = FALSE) +
-        scale_color_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
-                              direction = 1, breaks = mybreaks_pretty,
-                              limits = c(min(mybreaks), max(mybreaks))) +
-        guides(fill = "none") +
         labs(x = "Relative Resistance", y = "Relative Dispersal") +
-        #theme_bw() +
         theme(axis.title.y = element_text(size = 15),
               axis.title.x = element_text(size = 14),
               strip.text.x = element_text(size = 15),
               strip.text.y = element_text(size = 13),
               axis.text.x = element_text(size = 11, angle = 45, hjust = 1),
-              axis.text.y = element_text(size = 11)) +
+              axis.text.y = element_text(size = 11),
+              panel.background = element_rect(fill = "gray90"),
+              panel.grid = element_blank()) +
         NULL
     )
     dev.off()
