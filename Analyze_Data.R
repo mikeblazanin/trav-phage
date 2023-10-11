@@ -1310,7 +1310,7 @@ if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   weak_pca <- ggplot(isol_pca_7x$x, aes(x = PC1, y = PC2)) +
-    ggtitle("Slower Growing Parasites") +
+    ggtitle("Environment less favorable to parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_7x$rotation),
@@ -1352,7 +1352,7 @@ if(make_statplots) {
   tiff("./Output_figures/strongphage_PCA.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   strong_pca <- ggplot(isol_pca_125$x, aes(x = PC1, y = PC2)) +
-    ggtitle("Faster Growing Parasites") +
+    ggtitle("Environment more favorable to parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_125$rotation),
@@ -1441,7 +1441,7 @@ if(make_statplots) {
   tiff("./Output_figures/weakphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   weak_pca <- ggplot(isol_pca_7x$x_corr, aes(x = PC1, y = PC2)) +
-    ggtitle("Slower Growing Parasites") +
+    ggtitle("Environment less favorable to parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_7x$rotation_corr),
@@ -1484,7 +1484,7 @@ if(make_statplots) {
   tiff("./Output_figures/strongphage_PCA_corbiplot.tiff", 
        width = 12, height = 10, units = "in", res = 300)
   strong_pca <- ggplot(isol_pca_125$x_corr, aes(x = PC1, y = PC2)) +
-    ggtitle("Faster Growing Parasites") +
+    ggtitle("Environment more favorable to parasites") +
     geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
                size = 10, alpha = 0.7) +
     geom_segment(data = as.data.frame(isol_pca_125$rotation_corr),
