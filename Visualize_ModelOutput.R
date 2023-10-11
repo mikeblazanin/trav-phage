@@ -2,7 +2,6 @@
 library(ggplot2)
 library(ggtext)
 library(magrittr)
-library(dplyr)
 library(purrr)
 library(R.matlab)
 library(tidyr)
