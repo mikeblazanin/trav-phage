@@ -45,8 +45,8 @@ exper_evol_summ <- summarize(exper_evol_migr,
 
 dir.create("Output_figures", showWarnings = FALSE)
 if (make_statplots) {
-  my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
-                       "125" = "Faster Growing\nParasites")
+  my_facet_labels <- c("7x" = "Environment less\nfavorable to parasites", 
+                       "125" = "Environment more\nfavorable to parasites")
   
   #Make plot of summarized data
   tiff("./Output_figures/Exper_evol_migr_nopops.tiff",
@@ -61,7 +61,7 @@ if (make_statplots) {
           #                   ymin = radius_mm_hr_mean-radius_mm_hr_sd),
           #               width=1, size = .7, position=position_dodge(0.2)) +
           labs(x = "Transfer", 
-               y = expression(paste("Bacterial Growth (mm/hr)"))) + 
+               y = expression(paste("Bacterial Growth in Soft Agar (mm/hr)"))) + 
           scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                              labels = c("Control", "Local", "Global"),
                              values = my_cols[c(8, 2, 6)]) +
@@ -92,7 +92,7 @@ if (make_statplots) {
                     aes(x = Timepoint, y = radius_mm_hr_mean, color = Treat,
                         group = Treat),
                     lwd = 1.3) +
-          labs(x = "Transfer", y = "Soft Agar Growth (mm/hr)") + 
+          labs(x = "Transfer", y = "Bacterial Growth in Soft Agar\n(mm/hr)") + 
           scale_color_manual(name = "Treatment", breaks = c("C", "L", "G"),
                              labels = c("Control", "Local", "Global"),
                              values = my_cols[c(8, 2, 6)]) +
@@ -159,8 +159,8 @@ isol_migr_sum_isols <-
             bc_radius_mm_hr_avg = mean(batch_corrected_radius_mm_hr))
 
 #Plot data
-my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
-                     "125" = "Faster Growing\nParasites",
+my_facet_labels <- c("7x" = "Environment less\nfavorable to parasites", 
+                     "125" = "Environment more\nfavorable to parasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancestor")
 
@@ -187,7 +187,7 @@ if (make_statplots) {
           NULL)
   dev.off()
   
-  #Delta radius
+  #Batch-corrected radius
   tiff("./Output_figures/Isol_migration_batchcorrected.tiff",
        width = 5, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration, 
@@ -210,11 +210,11 @@ if (make_statplots) {
                 axis.title.y = element_text(size = 15),
                 axis.title.x = element_text(size = 14),
                 strip.text.x = element_text(size = 15),
-                strip.text.y = element_text(size = 13)) +
+                strip.text.y = element_text(size = 9)) +
           NULL)
   dev.off()
   
-  #Delta radius at pop-level
+  #Batch-corrected radius at pop-level
   tiff("./Output_figures/Isol_migration_pops_batchcorrected.tiff",
        width = 4, height = 4, units = "in", res = 300)
   print(ggplot(isol_migr_sum, aes(x = Treat, y = bc_radius_mm_hr_avg, 
@@ -273,18 +273,19 @@ resis_data$Treat <- factor(resis_data$Treat,
                            levels = c("Anc", "C", "L", "G"))
 
 #Log-transform
-resis_data$log_pfuml <- log10(resis_data$pfu_ml)
-resis_data$log_pfuml_model <- 
-  log10(ifelse(resis_data$PFU == 0, 1*resis_data$dilution, resis_data$pfu_ml))
-
+resis_data$log_pfuml <- 
+  log10(ifelse(resis_data$pfu_ml != 0,
+               resis_data$pfu_ml,
+               1*resis_data$dilution))
+         
 #Modeling
 resis_data$PPT <- 
   paste(resis_data$Proj, resis_data$Pop, resis_data$Treat)
 
 #Build models
-res7x_lmeranc <- lmer(log_pfuml_model ~ (1|PPT) + (1|Date) + Treat,
+res7x_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
                       data = resis_data[resis_data$Proj == "7x", ])
-res125_lmeranc <- lmer(log_pfuml_model ~ (1|PPT) + (1|Date) + Treat,
+res125_lmeranc <- lmer(log_pfuml ~ (1|PPT) + (1|Date) + Treat,
                        data = resis_data[resis_data$Proj == "125", ])
 
 #Calculate batch-corrected pfu/ml
@@ -341,10 +342,10 @@ Anc_EOP$Treat <- factor(Anc_EOP$Treat, levels = c("C", "L", "G"))
 
 
 #Assign facet labels
-my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
-                     "125" = "Faster Growing\nParasites",
+my_facet_labels <- c("7x" = "Environment less\nfavorable to parasites", 
+                     "125" = "Environment more\nfavorable to parasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
-                     "A" = "WT")
+                     "Anc" = "Ancestor")
 
 if (make_statplots) {
   #Nice plot
@@ -417,7 +418,7 @@ if (make_statplots) {
                 axis.title.y = element_text(size = 15),
                 axis.title.x = element_text(size = 14),
                 strip.text.x = element_text(size = 15),
-                strip.text.y = element_text(size = 13)) +
+                strip.text.y = element_text(size = 9)) +
           NULL)
   dev.off()
 }
@@ -1020,8 +1021,8 @@ colnames(gc_sum_isols)[grep("_hr", colnames(gc_sum_isols))] <-
   c("threshold_percap_gr_time_hr_avg", "diauxie_time_hr_avg",
     "threshold_percap_gr_time_hr_sd", "diauxie_time_hr_sd")
                 
-my_facet_labels <- c("7x" = "Slower Growing\nParasites", 
-                     "125" = "Faster Growing\nParasites",
+my_facet_labels <- c("7x" = "Environment less\nfavorable to parasites", 
+                     "125" = "Environment more\nfavorable to parasites",
                      "C" = "Control", "G" = "Global", "L" = "Local",
                      "Anc" = "Ancstr",
                      "Rich" = "Rich Media", "Orig" = "Original Media")
@@ -1094,6 +1095,13 @@ if (make_statplots) {
     }
   }
 }
+
+##Estimate generations ----
+
+#Weak phage growth
+14*24/mean(filter(gc_sum_isols, Proj == "7x", Pop == "Anc", Media == "Orig")$fit_r_avg)
+#Strong phage growth
+14*24/mean(filter(gc_sum_isols, Proj == "125", Pop == "Anc", Media == "Orig")$fit_r_avg)
 
 ##Isolate analysis: merge dataframes ----
 isol_data <- full_join(isol_migr_sum_isols, resis_data_isols)
