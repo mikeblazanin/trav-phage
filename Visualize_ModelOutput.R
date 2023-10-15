@@ -237,18 +237,46 @@ read_tidy_matfile <- function(filename) {
   return(output)
 }
 
-
-mydat <- read_tidy_matfile(
+mydat_C <- read_tidy_matfile(
+  paste0(
+    "./Modeling/Outputs_NoPhageControl/OutputsIChi/",
+    "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+mydat_L <- read_tidy_matfile(
   paste0(
     "./Modeling/Outputs_GaussPhage/OutputsIChi_GaussPhage/",
     "SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+mydat_G <- read_tidy_matfile(
+  paste0(
+    "./Modeling/Outputs/OutputsIChi/",
+    "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
 
 #Make moving wave plot ----
-ggplot(filter(mydat), 
+ggplot(filter(mydat_C), 
               aes(x = Position, y = Density, 
                   color = as.factor(round(Time/3600, 1)))) +
   geom_line(lwd = 1.5, alpha = 0.5) +
-  facet_grid(Pop ~ ., scales = "free_y") +
+  facet_grid(Pop ~ Time, scales = "free_y") +
+  scale_color_viridis_d() +
+  #scale_y_log10() +
+  #coord_cartesian(ylim = c(0.1, NA)) +
+  NULL
+
+ggplot(filter(mydat_L), 
+       aes(x = Position, y = Density, 
+           color = as.factor(round(Time/3600, 1)))) +
+  geom_line(lwd = 1.5, alpha = 0.5) +
+  facet_grid(Pop ~ Time, scales = "free_y") +
+  scale_color_viridis_d() +
+  #scale_y_log10() +
+  #coord_cartesian(ylim = c(0.1, NA)) +
+  NULL
+
+ggplot(filter(mydat_G), 
+       aes(x = Position, y = Density, 
+           color = as.factor(round(Time/3600, 1)))) +
+  geom_line(lwd = 1.5, alpha = 0.5) +
+  facet_grid(Pop ~ Time, scales = "free_y") +
+  scale_color_viridis_d() +
   #scale_y_log10() +
   #coord_cartesian(ylim = c(0.1, NA)) +
   NULL
