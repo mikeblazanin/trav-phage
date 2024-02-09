@@ -11,59 +11,7 @@ library(dplyr)
 # https://github.com/jeremymoore558/ks_phage
 
 #Read in modeling results data ----
-data <- lapply(
-  X = grep(pattern = "Analysis.*/.*.csv", value = TRUE,
-           x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE)),
-  FUN = read.csv)
-#Add names
-names(data) = 
-  gsub(
-    pattern = "\\.csv", replacement = "",
-    x = gsub(
-      pattern = "\\./Modeling/", replacement = "",
-      x = grep(
-        pattern = "Modeling/Analysis.*/.*.csv", value = TRUE,
-        x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE))))
-
-#Calculate "relative resistance" col
-data <- lapply(X = data,
-               FUN = function(x) {
-                 if("relativeI" %in% colnames(x)) {
-                   cbind(x, data.frame("relativeR" = 1/x[, "relativeI"]))
-                 } else {return(x)}})
-
-#Add cols for phage distribution and variables manipulated
-for (i in 1:length(data)) {
-  myname <- gsub("_b", "", strsplit(names(data)[i], split = "/")[[1]][1])
-  
-  if(myname == "Analysis") {
-    data[[i]] <- cbind(data.frame(distrib = "global"), data[[i]])
-  } else if (
-    myname == "Analysis_GaussPhage") {
-    data[[i]] <- cbind(data.frame(distrib = "local"), data[[i]])
-  } else if (
-    myname == "Analysis_GaussPhage_Wide") {
-    data[[i]] <- cbind(data.frame(distrib = "global_gauss"), data[[i]])
-  } else if (
-    myname == "Analysis_NoPhage") {
-    data[[i]] <- cbind(data.frame(distrib = "no_paras"), data[[i]])
-  }
-  
-  data[[i]] <- cbind(
-    data.frame(
-      vars_manip_1 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
-                              split = "_")[[1]][1],
-      vars_manip_2 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
-                              split = "_")[[1]][3],
-      vars_manip = paste(strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
-                                  split = "_")[[1]][1:3], collapse = "_")),
-    
-    data[[i]])
-}
-
-#Merge data ----
-data_mrg <- data %>% reduce(full_join)
-data_mrg$Cell2_Cell1 <- data_mrg$Cell2_population/data_mrg$Cell_population
+data_mrg <- read.csv("./Clean_Data/Model_output.csv", stringsAsFactors = FALSE)
 data_mrg$distrib <- 
   factor(data_mrg$distrib,
          levels = c("no_paras", "local", "global", "global_gauss"))
@@ -237,47 +185,50 @@ read_tidy_matfile <- function(filename) {
   return(output)
 }
 
-mydat_C <- read_tidy_matfile(
-  paste0(
-    "./Modeling/Outputs_NoPhageControl/OutputsIChi/",
-    "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
-mydat_L <- read_tidy_matfile(
-  paste0(
-    "./Modeling/Outputs_GaussPhage/OutputsIChi_GaussPhage/",
-    "SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
-mydat_G <- read_tidy_matfile(
-  paste0(
-    "./Modeling/Outputs/OutputsIChi/",
-    "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
-
-#Make moving wave plot ----
-ggplot(filter(mydat_C), 
-              aes(x = Position, y = Density, 
-                  color = as.factor(round(Time/3600, 1)))) +
-  geom_line(lwd = 1.5, alpha = 0.5) +
-  facet_grid(Pop ~ Time, scales = "free_y") +
-  scale_color_viridis_d() +
-  #scale_y_log10() +
-  #coord_cartesian(ylim = c(0.1, NA)) +
-  NULL
-
-ggplot(filter(mydat_L), 
-       aes(x = Position, y = Density, 
-           color = as.factor(round(Time/3600, 1)))) +
-  geom_line(lwd = 1.5, alpha = 0.5) +
-  facet_grid(Pop ~ Time, scales = "free_y") +
-  scale_color_viridis_d() +
-  #scale_y_log10() +
-  #coord_cartesian(ylim = c(0.1, NA)) +
-  NULL
-
-ggplot(filter(mydat_G), 
-       aes(x = Position, y = Density, 
-           color = as.factor(round(Time/3600, 1)))) +
-  geom_line(lwd = 1.5, alpha = 0.5) +
-  facet_grid(Pop ~ Time, scales = "free_y") +
-  scale_color_viridis_d() +
-  #scale_y_log10() +
-  #coord_cartesian(ylim = c(0.1, NA)) +
-  NULL
+#This is old code to make profile plots of the moving waves
+if(FALSE) {
+  mydat_C <- read_tidy_matfile(
+    paste0(
+      "./Modeling/Outputs_NoPhageControl/OutputsIChi/",
+      "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+  mydat_L <- read_tidy_matfile(
+    paste0(
+      "./Modeling/Outputs_GaussPhage/OutputsIChi_GaussPhage/",
+      "SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+  mydat_G <- read_tidy_matfile(
+    paste0(
+      "./Modeling/Outputs/OutputsIChi/",
+      "GaussPhage_SimI2_1e-14Chi2_1770_3cA2_4_17e-16cR2_2_25e-14Y_12290000000.mat"))
+  
+  #Make moving wave plot ----
+  ggplot(filter(mydat_C), 
+         aes(x = Position, y = Density, 
+             color = as.factor(round(Time/3600, 1)))) +
+    geom_line(lwd = 1.5, alpha = 0.5) +
+    facet_grid(Pop ~ Time, scales = "free_y") +
+    scale_color_viridis_d() +
+    #scale_y_log10() +
+    #coord_cartesian(ylim = c(0.1, NA)) +
+    NULL
+  
+  ggplot(filter(mydat_L), 
+         aes(x = Position, y = Density, 
+             color = as.factor(round(Time/3600, 1)))) +
+    geom_line(lwd = 1.5, alpha = 0.5) +
+    facet_grid(Pop ~ Time, scales = "free_y") +
+    scale_color_viridis_d() +
+    #scale_y_log10() +
+    #coord_cartesian(ylim = c(0.1, NA)) +
+    NULL
+  
+  ggplot(filter(mydat_G), 
+         aes(x = Position, y = Density, 
+             color = as.factor(round(Time/3600, 1)))) +
+    geom_line(lwd = 1.5, alpha = 0.5) +
+    facet_grid(Pop ~ Time, scales = "free_y") +
+    scale_color_viridis_d() +
+    #scale_y_log10() +
+    #coord_cartesian(ylim = c(0.1, NA)) +
+    NULL
+}
 
