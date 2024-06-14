@@ -1116,6 +1116,47 @@ isol_data <- select(isol_data,
                     EOP_avg, EOP_bd)
 isol_data$PPT <- paste(isol_data$Proj, isol_data$Pop, isol_data$Treat, sep = "_")
 
+##Isolate analysis: resistance vs motility ----
+tiff("./Output_figures/resistance_motility.tiff", 
+     width = 9, height = 10, units = "in", res = 300)
+ggplot(isol_data, aes(x = -log10(EOP_avg), y = bc_radius_mm_hr_avg)) +
+  geom_point(aes(color = Treat, fill = Treat, shape = Pop), 
+             size = 5, alpha = 0.5) +
+  facet_grid(Proj ~ ., scales = "free",
+             labeller = labeller(Proj = my_facet_labels,
+                                 Treat = my_facet_labels)) +
+  theme_bw() +
+  labs(x = "Resistance to Parasite\n[-log10(plaque-forming units per mL)]",
+       y = "Soft Agar Growth (mm/hr)") +
+  theme(axis.title = element_text(size = 28),
+        axis.text = element_text(size = 22),
+        legend.title = element_text(size = 28),
+        legend.text = element_text(size = 24),
+        plot.title = element_text(size = 28),
+        strip.text = element_text(size = 24)) +
+  scale_color_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                     labels = c("Ancestor", "Control", "Local", "Global"),
+                     values = my_cols[c(7, 8, 2, 6)]) +
+  scale_fill_manual(name = "Treatment", breaks = c("Anc", "C", "L", "G"),
+                    labels = c("Ancestor", "Control", "Local", "Global"),
+                    values = my_cols[c(7, 8, 2, 6)]) +
+  scale_shape_manual(name = "Population",
+                     breaks = c("Anc", "A", "B", "C", "D", "E"),
+                     values = c(21, 21, 22, 23, 24, 25)) +
+  NULL
+dev.off()
+
+res_mot_lm_7x <- lmer(bc_radius_mm_hr_avg ~ Treat + resis:Treat + (1|PPT), 
+                 mutate(filter(isol_data, Proj == "7x", Treat != "Anc"), 
+                        resis = -log10(EOP_avg)))
+res_mot_lm_125 <- lmer(bc_radius_mm_hr_avg ~ Treat + resis:Treat + (1|PPT), 
+                    mutate(filter(isol_data, Proj == "125", Treat != "Anc"), 
+                           resis = -log10(EOP_avg)))
+
+#Check for significant slopes
+summary(res_mot_lm_7x)
+summary(res_mot_lm_125)
+
 ##Isolate analysis: mixed effects modeling ----
 isol_data$resis_cat <-
   ifelse(isol_data$EOP_bd, "Resis",
