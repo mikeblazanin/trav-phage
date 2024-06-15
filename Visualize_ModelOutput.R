@@ -91,6 +91,11 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                          labels = c("-0.5", "0", "0.5"),
                          name = "log<sub>2</sub>(Relative Growth Yield)") +
       theme(axis.title.y = element_markdown())
+  } else  if (yvar == "relativeb") {
+    p <- p + scale_y_continuous(trans = "log10",
+                                breaks = 10**c(-1, -0.5, 0, 0.5, 1),
+                                labels = c("0.01", "", "1", "", "10"),
+                                name = "Relative Burst Size")
   } else {
     p <- p + scale_y_continuous(trans = "log2", name = axislabeller(yvar))
   }
