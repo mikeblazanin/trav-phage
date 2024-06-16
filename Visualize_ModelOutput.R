@@ -45,11 +45,11 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   
   #axis labels labeller for the non-resistance axis
   axislabeller <-
-    as_labeller(c(relativecA = "Relative Attractant Consumption",
-                  relativeChi = "Relative Chemotactic Sensitivity",
-                  relativecR = "Relative Growth Rate",
-                  relativeY = "Relative Growth Yield",
-                  relativeb = "Relative Burst Size"))
+    as_labeller(c(relativecA = "Bacterial Invader's Relative Attractant Consumption",
+                  relativeChi = "Bacterial Invader's Relative Chemotactic Sensitivity",
+                  relativecR = "Bacterial Invader's Relative Growth Rate",
+                  relativeY = "Bacterial Invader's Relative Growth Yield",
+                  relativeb = "Bacterial Invader's Relative Burst Size"))
   
   xvar <- ifelse(my_data$vars_manip_1[1] == "I" | my_data$vars_manip_2[1] == "I", 
                 "I", "b")
@@ -65,12 +65,13 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
     width = 6, height = 5, units = "in", res = 150)
   p <- ggplot(my_data, aes_string(x = xvar, y = yvar)) +
     geom_tile(aes(fill = log10(Cell2_population/Cell_population))) +
-    scale_fill_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
+    scale_fill_distiller(name = "Bacterial\nInvader's\nRelative\nFitness", type = "div", palette = "PiYG",
                          direction = 1, breaks = mybreaks_pretty,
                          limits = c(min(mybreaks), max(mybreaks))) +
     facet_wrap(~distrib, labeller = facetlabeller) +
     labs(x = ifelse(xvar == "relativeR",
-                    "Relative Resistance", "Relative Burst Size")) +
+                    "Bacterial Invader's Relative Resistance", 
+                    "Bacterial Invader's Relative Burst Size")) +
     theme(panel.background = element_rect(fill = "gray90"),
           panel.grid = element_blank()) +
     NULL
@@ -87,15 +88,16 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
 
   if(yvar == "relativeY") {
     p <- p +
-      scale_y_continuous(trans = "log2", breaks = 2**c(-.5, 0, .5),
-                         labels = c("-0.5", "0", "0.5"),
-                         name = "log<sub>2</sub>(Relative Growth Yield)") +
+      scale_y_continuous(
+        trans = "log2", breaks = 2**c(-.5, 0, .5),
+        labels = c("-0.5", "0", "0.5"),
+        name = "log<sub>2</sub>(Bacterial Invader's Relative Growth Yield)") +
       theme(axis.title.y = element_markdown())
   } else  if (yvar == "relativeb") {
     p <- p + scale_y_continuous(trans = "log10",
                                 breaks = 10**c(-1, -0.5, 0, 0.5, 1),
                                 labels = c("0.01", "", "1", "", "10"),
-                                name = "Relative Burst Size")
+                                name = "Bacterial Invader's Relative Burst Size")
   } else {
     p <- p + scale_y_continuous(trans = "log2", name = axislabeller(yvar))
   }
@@ -122,7 +124,7 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
       ggplot(my_data, aes_string(x = "relativeR", y = "relativeChi")) +
         geom_tile(aes(fill = log10(Cell2_population/Cell_population)),
                   width = 0.95, height = 1.2) +
-        scale_fill_distiller(name = "Relative\nFitness", type = "div", palette = "PiYG",
+        scale_fill_distiller(name = "Bacterial\nInvader's\nRelative\nFitness", type = "div", palette = "PiYG",
                              direction = 1, breaks = mybreaks_pretty,
                              limits = c(min(mybreaks), max(mybreaks))) +
         facet_wrap(~distrib, labeller = facetlabeller) +
@@ -130,7 +132,8 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                            breaks = 10**c(-2, -1, 0, 1, 2),
                            labels = c("0.01", "0.1", "1", "10", "100")) +
         scale_y_continuous(trans = "log2") +
-        labs(x = "Relative Resistance", y = "Relative Dispersal") +
+        labs(x = "Bacterial Invader's\nRelative Resistance", 
+             y = "Bacterial Invader's\nRelative Dispersal") +
         theme(axis.title.y = element_text(size = 15),
               axis.title.x = element_text(size = 14),
               strip.text.x = element_text(size = 15),
