@@ -21,7 +21,7 @@ names(data) =
     x = gsub(
       pattern = "\\./Modeling/", replacement = "",
       x = grep(
-        pattern = "Modeling/Analysis.*/.*.csv", value = TRUE,
+        pattern = "Analysis.*/.*.csv", value = TRUE,
         x = list.files("./Modeling/", recursive = TRUE, full.names = TRUE))))
 
 #Calculate "relative resistance" col
@@ -33,7 +33,14 @@ data <- lapply(X = data,
 
 #Add cols for phage distribution and variables manipulated
 for (i in 1:length(data)) {
-  myname <- gsub("_b", "", strsplit(names(data)[i], split = "/")[[1]][1])
+  data[[i]] <- 
+    cbind(data.frame(phage_disp = 
+                       strsplit(
+                         strsplit(names(data)[i], split = "/")[[1]][1], 
+                         split = "_")[[1]][2]),
+          data[[i]])
+  
+  myname <- gsub("_b", "", strsplit(names(data)[i], split = "/")[[1]][2])
   
   if(myname == "Analysis") {
     data[[i]] <- cbind(data.frame(distrib = "global"), data[[i]])
@@ -50,13 +57,12 @@ for (i in 1:length(data)) {
   
   data[[i]] <- cbind(
     data.frame(
-      vars_manip_1 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+      vars_manip_1 = strsplit(strsplit(names(data)[i], split = "/")[[1]][3],
                               split = "_")[[1]][1],
-      vars_manip_2 = strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+      vars_manip_2 = strsplit(strsplit(names(data)[i], split = "/")[[1]][3],
                               split = "_")[[1]][3],
-      vars_manip = paste(strsplit(strsplit(names(data)[i], split = "/")[[1]][2],
+      vars_manip = paste(strsplit(strsplit(names(data)[i], split = "/")[[1]][3],
                                   split = "_")[[1]][1:3], collapse = "_")),
-    
     data[[i]])
 }
 
