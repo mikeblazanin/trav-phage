@@ -38,10 +38,13 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   
   #facet labels labeller
   facetlabeller <-
-    as_labeller(c(global = "Global",
-                  local = "Local",
-                  global_gauss = "Global (Gaussian)",
-                  no_paras = "Control"))
+    labeller(distrib = c(global = "Global",
+                         local = "Local",
+                         global_gauss = "Global (Gaussian)",
+                         no_paras = "Control"),
+             phage_disp = as_labeller(
+               function(x) {paste0("'Phage diffusion rate = ", x, "μm'^2*'/s'")},
+               label_parsed))
   
   #axis labels labeller for the non-resistance axis
   axislabeller <-
@@ -62,13 +65,12 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   #Make file
   png(
     paste(sep = "", "./Model_plots/", vars_manip, ".png"),
-    width = 6, height = 5, units = "in", res = 150)
+    width = 10, height = 4.5, units = "in", res = 300)
   p <- ggplot(my_data, aes_string(x = xvar, y = yvar)) +
-    geom_tile(aes(fill = log10(Cell2_population/Cell_population))) +
     scale_fill_distiller(name = "Bacterial\nInvader's\nRelative\nFitness", type = "div", palette = "PiYG",
                          direction = 1, breaks = mybreaks_pretty,
                          limits = c(min(mybreaks), max(mybreaks))) +
-    facet_wrap(~distrib, labeller = facetlabeller) +
+    facet_grid(phage_disp~distrib, labeller = facetlabeller) +
     labs(x = ifelse(xvar == "relativeR",
                     "Bacterial Invader's Relative Resistance", 
                     "Bacterial Invader's Relative Burst Size")) +
@@ -76,6 +78,7 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
           panel.grid = element_blank()) +
     NULL
 
+  mywidth <- 0.98*(log10(max(my_data[, xvar])) - log10(min(my_data[, xvar])))/4
   if(xvar == "relativeR") {
     p <- p + scale_x_continuous(trans = "log10",
                        breaks = 10**c(-2, -1, 0, 1, 2),
@@ -86,6 +89,7 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                                 labels = c("0.01", "", "1", "", "10"))
   }
 
+  myheight <- 0.96*(log2(max(my_data[, yvar])) - log2(min(my_data[, yvar])))/4
   if(yvar == "relativeY") {
     p <- p +
       scale_y_continuous(
@@ -98,16 +102,22 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
                                 breaks = 10**c(-1, -0.5, 0, 0.5, 1),
                                 labels = c("0.01", "", "1", "", "10"),
                                 name = "Bacterial Invader's Relative Burst Size")
+    myheight <- 0.96*(log10(max(my_data[, yvar])) - log10(min(my_data[, yvar])))/4
   } else {
     p <- p + scale_y_continuous(trans = "log2", name = axislabeller(yvar))
   }
+  
+  p <- p + geom_tile(aes(fill = log10(Cell2_population/Cell_population)),
+                     width = mywidth, height = myheight)
+  
   print(p)
   dev.off()
   
   #Make main-text figure
   if(vars_manip == "I_vs_Chi") {
     myrows <- which(data_mrg$vars_manip == vars_manip &
-                      data_mrg$distrib %in% c("local", "global", "no_paras"))
+                      data_mrg$distrib %in% c("local", "global", "no_paras")
+                    & data_mrg$phage_disp == 0)
     my_data <- data_mrg[myrows, ]
     
     #Get limits for log10(Cell2/Cell) across the dift initial distributions
