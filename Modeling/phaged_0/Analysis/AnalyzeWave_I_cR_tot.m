@@ -2,14 +2,14 @@
 clear all
 close all
 
-FileList = dir('../Outputs/OutputsIY/*.mat');
+FileList = dir('../Outputs/OutputsIcR/*.mat');
 
 %Store measurements (PoplationCell 1, Pop. Cell 2, relative Chi,
 %relative i)
 Measurements = zeros(length(FileList), 6); 
 
 for ii = 1:length(FileList)
-    File = ['../Outputs/OutputsIY/', FileList(ii).name];
+    File = ['../Outputs/OutputsIcR/', FileList(ii).name];
     load(File)
 
     %% Get wave at last timepoint
@@ -18,8 +18,8 @@ for ii = 1:length(FileList)
 
     % set(gca', 'yscale', 'log')
 
-    %% Get indices of the wave
-    %Find the peaks and start of wave 1
+%     %% Get indices of the wave
+%     %Find the peaks and start of wave 1
 %     peaks = findpeaks(rho_cell_end);
 %     peakInd = find(rho_cell_end == peaks(end));
 %     WaveStartInd = max(find(rho_cell_end(1:peakInd) <= min(rho_cell_end(1:peakInd))));
@@ -44,35 +44,35 @@ for ii = 1:length(FileList)
     cell2_population = sum(rho_cell2_end(1:end));
     
     %% Get Parameters
-    relativeY = SimParams.Y2 ./ SimParams.Y;
+    relativecR = SimParams.cR2 ./ SimParams.cR;
     RelativeI = SimParams.irate2 ./ SimParams.irate;
     
     %% Store measurements
-    Measurements(ii, :) = [cell_population, cell2_population, relativeY, RelativeI, SimParams.Y, SimParams.irate];
+    Measurements(ii, :) = [cell_population, cell2_population, relativecR, RelativeI, SimParams.cR, SimParams.irate];
 end
 
 %% Plot
-relY = Measurements(:, 3);
+relcR = Measurements(:, 3);
 relI = Measurements(:, 4);
 relPopulation = Measurements(:, 2) ./ Measurements(:, 1);
 
 
 figure()
-scatter(relY, relI, 60, log(relPopulation), 'filled')
+scatter(relcR, relI, 60, log(relPopulation), 'filled')
 a = colorbar;
-colormap Jet
-a.Label.String = 'log N2/N1';
+colormap jet
+a.Label.String = 'log N1/N2';
 a.Label.Rotation = -90;
-xlabel("Relative Y")
+xlabel("Relative cR")
 ylabel("Relative I")
 set(gca,'xscale', 'log', 'yscale', 'log')
-saveas(gcf, './I_vs_Y.png')
+saveas(gcf, './I_vs_cR_tot.png')
 
 %% Export Data
-headers = ["Cell_population", "Cell2_population", "relativeY", "relativeI", "Y", "irate"];
+headers = ["Cell_population", "Cell2_population", "relativecR", "relativeI", "cR", "irate"];
 textHeader = strjoin(headers, ',');
-fid = fopen('./I_vs_Y.csv', 'w');
+fid = fopen('./I_vs_cR_tot.csv', 'w');
 fprintf(fid,'%s\n',textHeader)
 fclose(fid)
 
-dlmwrite('./I_vs_Y.csv',Measurements,'-append');
+dlmwrite('./I_vs_cR_tot.csv',Measurements,'-append');

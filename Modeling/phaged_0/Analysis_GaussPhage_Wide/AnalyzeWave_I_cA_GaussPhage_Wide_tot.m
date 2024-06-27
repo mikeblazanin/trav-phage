@@ -2,14 +2,14 @@
 clear all
 close all
 
-FileList = dir('../Outputs_WidePhageControl/OutputsIcR_GaussPhage/*.mat');
+FileList = dir('../Outputs_WideGaussPhage/OutputsIcA_GaussPhage/*.mat');
 
 %Store measurements (PoplationCell 1, Pop. Cell 2, relative Chi,
 %relative i)
 Measurements = zeros(length(FileList), 6); 
 
 for ii = 1:length(FileList)
-    File = ['../Outputs_WidePhageControl/OutputsIcR_GaussPhage/', FileList(ii).name];
+    File = ['../Outputs_WideGaussPhage/OutputsIcA_GaussPhage/', FileList(ii).name];
     load(File)
 
     %% Get wave at last timepoint
@@ -18,8 +18,8 @@ for ii = 1:length(FileList)
 
     % set(gca', 'yscale', 'log')
 
-    %% Get indices of the wave
-    %Find the peaks and start of wave 1
+%     %% Get indices of the wave
+%     %Find the peaks and start of wave 1
 %     peaks = findpeaks(rho_cell_end);
 %     peakInd = find(rho_cell_end == peaks(end));
 %     WaveStartInd = max(find(rho_cell_end(1:peakInd) <= min(rho_cell_end(1:peakInd))));
@@ -28,7 +28,7 @@ for ii = 1:length(FileList)
 %     peaks2 = findpeaks(rho_cell2_end);
 %     peakInd2 = find(rho_cell2_end == peaks2(end));
 %     WaveStartInd2 = max(find(rho_cell2_end(1:peakInd2) <= min(rho_cell2_end(1:peakInd))));
-% 
+
 %     figure();
 %     plot(rho_cell_end)
 %     hold on
@@ -44,35 +44,35 @@ for ii = 1:length(FileList)
     cell2_population = sum(rho_cell2_end(1:end));
     
     %% Get Parameters
-    relativecR = SimParams.cR2 ./ SimParams.cR;
+    relativecA = SimParams.cA2 ./ SimParams.cA;
     RelativeI = SimParams.irate2 ./ SimParams.irate;
     
     %% Store measurements
-    Measurements(ii, :) = [cell_population, cell2_population, relativecR, RelativeI, SimParams.cR, SimParams.irate];
+    Measurements(ii, :) = [cell_population, cell2_population, relativecA, RelativeI, SimParams.cA, SimParams.irate];
 end
 
 %% Plot
-relcR = Measurements(:, 3);
+relcA = Measurements(:, 3);
 relI = Measurements(:, 4);
 relPopulation = Measurements(:, 2) ./ Measurements(:, 1);
 
 
 figure()
-scatter(relcR, relI, 60, log(relPopulation), 'filled')
+scatter(relcA, relI, 60, log(relPopulation), 'filled')
 a = colorbar;
 colormap jet
-a.Label.String = 'log N2/N1';
+a.Label.String = 'log N1/N2';
 a.Label.Rotation = -90;
-xlabel("Relative cR")
+xlabel("Relative cA")
 ylabel("Relative I")
 set(gca,'xscale', 'log', 'yscale', 'log')
-saveas(gcf, './I_vs_cR_gPhage_Wide.png')
+saveas(gcf, './I_vs_cA_gPhage_Wide_tot.png')
 
 %% Export Data
-headers = ["Cell_population", "Cell2_population", "relativecR", "relativeI", "cR", "irate"];
+headers = ["Cell_population", "Cell2_population", "relativecA", "relativeI", "cA", "irate"];
 textHeader = strjoin(headers, ',');
-fid = fopen('./I_vs_cR_gPhage_Wide.csv', 'w');
+fid = fopen('./I_vs_cA_gPhage_Wide_tot.csv', 'w');
 fprintf(fid,'%s\n',textHeader)
 fclose(fid)
 
-dlmwrite('./I_vs_cR_gPhage_Wide.csv',Measurements,'-append');
+dlmwrite('./I_vs_cA_gPhage_Wide_tot.csv',Measurements,'-append');
