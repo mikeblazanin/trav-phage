@@ -78,6 +78,7 @@ if (make_statplots) {
   dev.off()
   
   #Make plot with both summarized and non-summarized data
+  # (main text Fig 2)
   tiff("./Output_figures/Exper_evol_migr.tiff",
        width = 7, height = 4, units = "in", res = 300)
   print(ggplot(data = exper_evol_migr,
@@ -188,6 +189,7 @@ if (make_statplots) {
   dev.off()
   
   #Batch-corrected radius
+  # (main text Fig 4)
   tiff("./Output_figures/Isol_migration_batchcorrected.tiff",
        width = 5, height = 4, units = "in", res = 300)
   print(ggplot(isol_migration, 
@@ -390,6 +392,7 @@ if (make_statplots) {
   dev.off()
   
   #Nice plot (new approach)
+  # (main text Fig 3)
   tiff("./Output_figures/Isol_resis_batchcorrected.tiff", width = 5, height = 4,
        units = "in", res = 300)
   print(ggplot(resis_data,

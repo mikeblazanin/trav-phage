@@ -113,7 +113,7 @@ for (vars_manip in unique(data_mrg$vars_manip)) {
   print(p)
   dev.off()
   
-  #Make main-text figure
+  #Make main-text figure 5
   if(vars_manip == "I_vs_Chi") {
     myrows <- which(data_mrg$vars_manip == vars_manip &
                       data_mrg$distrib %in% c("local", "global", "no_paras")
