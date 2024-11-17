@@ -216,6 +216,27 @@ if (make_statplots) {
           NULL)
   dev.off()
   
+  tiff("./Output_figures/Isol_migration_batchcorrected_bw.tiff",
+       width = 5, height = 4, units = "in", res = 300)
+  print(ggplot(isol_migration, 
+               aes(x = Pop, y = batch_corrected_radius_mm_hr)) +
+          geom_point(position = position_dodge(0.5), alpha = 0.6,
+                     size = 2) +
+          facet_grid(Proj ~ Treat, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
+          theme_bw() + 
+          labs(y = "Soft Agar Growth (mm/hr)",
+               x = "Population") +
+          theme(legend.position = "none",
+                axis.text = element_text(size = 11), 
+                axis.title.y = element_text(size = 15),
+                axis.title.x = element_text(size = 14),
+                strip.text.x = element_text(size = 15),
+                strip.text.y = element_text(size = 9)) +
+          NULL)
+  dev.off()
+  
   #Batch-corrected radius at pop-level
   tiff("./Output_figures/Isol_migration_pops_batchcorrected.tiff",
        width = 4, height = 4, units = "in", res = 300)
@@ -413,6 +434,33 @@ if (make_statplots) {
                              values = my_cols[c(3, 8, 2, 6)]) +
           scale_fill_manual(breaks = c("Anc", "C", "L", "G"),
                             values = my_cols[c(3, 8, 2, 6)]) +
+          scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
+          labs(x = "Population", 
+               y = "Susceptibility to Parasite\n(plaque-forming units per mL)") +
+          theme(legend.position = "none",
+                axis.text = element_text(size = 11), 
+                axis.title.y = element_text(size = 15),
+                axis.title.x = element_text(size = 14),
+                strip.text.x = element_text(size = 15),
+                strip.text.y = element_text(size = 9)) +
+          NULL)
+  dev.off()
+  
+  tiff("./Output_figures/Isol_resis_batchcorrected_bw.tiff", width = 5, height = 4,
+       units = "in", res = 300)
+  print(ggplot(resis_data,
+               aes(x = Pop, y = batch_corrected_log_pfuml, 
+                   shape = bd)) +
+          facet_grid(Proj ~ Treat, scales = "free",
+                     labeller = labeller(Proj = my_facet_labels,
+                                         Treat = my_facet_labels)) +
+          geom_point(aes(size = bd, alpha = bd)) +
+          scale_size_manual(values = c(2, 2.5)) +
+          scale_alpha_manual(values = c(0.6, 1)) +
+          scale_y_continuous(breaks = c(4, 6, 8, 10),
+                             labels = c(expression(10^4), expression(10^6),
+                                        expression(10^8), expression(10^10))) +
+          theme_bw() +
           scale_shape_manual(name = "Below Limit", values = c(16, 8)) +
           labs(x = "Population", 
                y = "Susceptibility to Parasite\n(plaque-forming units per mL)") +
